@@ -13,6 +13,7 @@ import './App.css';
 import GoalsPage from './components/GoalsPage';
 import Auth from './Auth';
 import NewProjectModal from './components/NewProjectModal';
+import SortableProjectItem from './components/SortableProjectItem';
 import { auth, db } from './firebase';
 import {
   // Authentication
@@ -1217,6 +1218,7 @@ function App() {
   }, [projectData, currentGroup, currentProject]);
 // --- Timer Logic & Effect ---
   const timerIntervalRef = useRef(null);
+  const sensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
     if (!timerIsRunning) {
@@ -1385,6 +1387,55 @@ function App() {
 
   const handleLogout = () => {
     return signOut(auth);
+  };
+  const handleSidebarDragEnd = (event) => {
+    const { active, over } = event;
+
+    // Exit if dropped in the same spot or not on a valid target
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    // Find the group where the drag happened
+    const sourceGroup = projectData.find(group => 
+      group.projects.some(p => p.id === active.id)
+    );
+    
+    // For now, we only handle reordering within the same group
+    const isSameGroup = sourceGroup.projects.some(p => p.id === over.id);
+    if (!isSameGroup) {
+      console.log("Moving projects between groups will be handled in a future step.");
+      return;
+    }
+
+    // Get the original and new index of the item
+    const oldIndex = sourceGroup.projects.findIndex(p => p.id === active.id);
+    const newIndex = sourceGroup.projects.findIndex(p => p.id === over.id);
+
+    // 1. Create the new, reordered projects array for the optimistic UI update
+    const reorderedProjects = arrayMove(sourceGroup.projects, oldIndex, newIndex);
+    
+    // Update the local state immediately
+    setProjectData(prevData => {
+      return prevData.map(group =>
+        group.name === sourceGroup.name 
+          ? { ...group, projects: reorderedProjects } 
+          : group
+      );
+    });
+    
+    // 2. Create a batch write to update the 'order' field in Firestore for every affected project
+    const batch = writeBatch(db);
+    reorderedProjects.forEach((project, index) => {
+      const projectRef = doc(db, 'users', user.uid, 'projects', project.id);
+      batch.update(projectRef, { order: index });
+    });
+    
+    // Asynchronously commit the batch to save the new order
+    batch.commit().catch(err => {
+      console.error("Failed to save new project order:", err);
+      // Optional: You could add logic here to revert the state if the save fails
+    });
   };
   const handleAddProject = () => {
     setShowNewProjectModal(true);
@@ -2091,37 +2142,42 @@ case 'nextWeek':
                   </button>
                 </div>
               </div>
-              {projectData.map((group) => (
-                <div key={group.name} style={{ marginBottom: '1rem' }}>
-                  <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', color: '#666' }}>{group.name}</h4>
-                  {group.projects.map(project => (
-                    <button
-                      key={project.id}
-                      className={currentView === 'projects' && currentProject === project.name && currentGroup === group.name ? 'active' : ''}
-                      onClick={() => {
-                        setCurrentView('projects');
-                        setCurrentGroup(group.name);
-                        setCurrentProject(project.name);
-                      }}
-                    >
-                      <span className="project-entry">
-                        {project.name}
-                        <span 
-                          className="edit-project-btn"
-                          title="Edit Project"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setProjectToEdit({ groupName: group.name, project: project.name });
-                            setShowProjectEditModal(true);
-                          }}
-                        >
-                          ✏️
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ))}
+              <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
+                {projectData.map((group) => (
+                  <div key={group.name} style={{ marginBottom: '1rem' }}>
+                    <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', color: '#666' }}>{group.name}</h4>
+                    <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                      {group.projects.map(project => (
+                        <SortableProjectItem key={project.id} id={project.id}>
+                          <button
+                            className={currentView === 'projects' && currentProject === project.name && currentGroup === group.name ? 'active' : ''}
+                            onClick={() => {
+                              setCurrentView('projects');
+                              setCurrentGroup(group.name);
+                              setCurrentProject(project.name);
+                            }}
+                          >
+                            <span className="project-entry">
+                              {project.name}
+                              <span 
+                                className="edit-project-btn"
+                                title="Edit Project"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setProjectToEdit({ groupName: group.name, project: project.name });
+                                  setShowProjectEditModal(true);
+                                }}
+                              >
+                                ✏️
+                              </span>
+                            </span>
+                          </button>
+                        </SortableProjectItem>
+                      ))}
+                    </SortableContext>
+                  </div>
+                ))}
+              </DndContext>
             </div>
              <div className="logout-section">
               <p>Logged in as: <strong>{user.email}</strong></p>
