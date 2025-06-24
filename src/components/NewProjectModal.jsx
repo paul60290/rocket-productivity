@@ -43,16 +43,20 @@ export default function NewProjectModal({ show, onClose, onSave, groups }) {
           </div>
           <div className="form-group">
             <label htmlFor="projectGroup">Group</label>
-            <select
+            <input
+              list="group-suggestions"
               id="projectGroup"
+              type="text"
               value={selectedGroup}
               onChange={(e) => setSelectedGroup(e.target.value)}
-            >
-              <option value="Ungrouped">Ungrouped</option>
+              placeholder="Choose or create a group..."
+            />
+            <datalist id="group-suggestions">
+              <option value="Ungrouped" />
               {groups.map(group => (
-                group !== 'Ungrouped' && <option key={group} value={group}>{group}</option>
+                <option key={group} value={group} />
               ))}
-            </select>
+            </datalist>
           </div>
         </div>
         <div className="modal-footer">

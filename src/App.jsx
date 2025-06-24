@@ -47,64 +47,44 @@ const generateUniqueId = () => {
 };
 
 // === SECTION: Label & Group Management Modal ===
-function ManagerModal({ groups, labels, onClose, onUpdateGroups, onUpdateLabels }) {
+function ManagerModal({ groups, labels, onClose, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup }) {
   const [activeTab, setActiveTab] = useState('labels');
-  const [editedLabels, setEditedLabels] = useState(
-  labels.map(label => ({ ...label, showPicker: false }))
-);
+  const [editedLabels, setEditedLabels] = useState(labels.map(label => ({ ...label, showPicker: false })));
   const [newLabel, setNewLabel] = useState('');
-  const [newGroup, setNewGroup] = useState('');
+  const [newGroupName, setNewGroupName] = useState('');
+  const [editingGroup, setEditingGroup] = useState({ name: null, newName: '' });
+
   const colorOptions = [
-    { name: 'Scarlet Red', value: '#c92a2a' },
-    { name: 'Crimson', value: '#801515' },
-    { name: 'Sky Blue', value: '#228be6' },
-    { name: 'Navy', value: '#0b3d91' },
-    { name: 'Tangerine', value: '#f76707' },
-    { name: 'Burnt Orange', value: '#b34700' },
-    { name: 'Goldenrod', value: '#f59f00' },
-    { name: 'Mustard', value: '#a87900' },
-    { name: 'Emerald', value: '#40c057' },
-    { name: 'Forest Green', value: '#1e7d32' },
-    { name: 'Lavender', value: '#9c36b5' },
-    { name: 'Royal Purple', value: '#5e2b97' },
-    { name: 'Rose', value: '#f06595' },
-    { name: 'Mulberry', value: '#b03060' }
+    { name: 'Scarlet Red', value: '#c92a2a' }, { name: 'Crimson', value: '#801515' },
+    { name: 'Sky Blue', value: '#228be6' }, { name: 'Navy', value: '#0b3d91' },
+    { name: 'Tangerine', value: '#f76707' }, { name: 'Burnt Orange', value: '#b34700' },
+    { name: 'Goldenrod', value: '#f59f00' }, { name: 'Mustard', value: '#a87900' },
+    { name: 'Emerald', value: '#40c057' }, { name: 'Forest Green', value: '#1e7d32' },
+    { name: 'Lavender', value: '#9c36b5' }, { name: 'Royal Purple', value: '#5e2b97' },
+    { name: 'Rose', value: '#f06595' }, { name: 'Mulberry', value: '#b03060' }
   ];
   const addLabel = () => {
-  const cleaned = newLabel.trim();
-  const exists = editedLabels.some(l => (typeof l === 'object' ? l.name : l) === cleaned);
-  if (cleaned && !exists) {
-    setEditedLabels([
-      ...editedLabels,
-      { name: cleaned, emoji: '', color: '#007bff', showPicker: false }
-    ]);
-    setNewLabel('');
-  }
-};
-
+    const cleaned = newLabel.trim();
+    if (cleaned && !editedLabels.some(l => l.name === cleaned)) {
+      setEditedLabels([...editedLabels, { name: cleaned, emoji: '', color: '#007bff', showPicker: false }]);
+      setNewLabel('');
+    }
+  };
   const removeLabel = (labelToRemove) => {
     setEditedLabels(editedLabels.filter(label => label.name !== labelToRemove.name));
   };
 
-  const updateLabel = (oldLabel, newLabel) => {
-  const cleaned = newLabel.trim();
-  if (!cleaned) return;
+  const handleStartEditGroup = (groupName) => {
+    setEditingGroup({ name: groupName, newName: groupName });
+  };
 
-  const index = editedLabels.findIndex(l => l.name === oldLabel.name);
-  const isDuplicate = editedLabels.some((l, i) => i !== index && l.name === cleaned);
-
-  if (index !== -1 && !isDuplicate) {
-    const updated = [...editedLabels];
-    updated[index] = {
-      ...updated[index],
-      name: cleaned
-    };
-    setEditedLabels(updated);
-  }
-};
-
+  const handleSaveGroupRename = () => {
+    if (editingGroup.name && editingGroup.newName.trim()) {
+      onRenameGroup(editingGroup.name, editingGroup.newName.trim());
+    }
+    setEditingGroup({ name: null, newName: '' });
+  };
   
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -112,118 +92,93 @@ function ManagerModal({ groups, labels, onClose, onUpdateGroups, onUpdateLabels 
           <h3>Manage</h3>
           <button className="close-btn" onClick={onClose}>×</button>
         </div>
-
         <div className="modal-tabs">
-          <button className={activeTab === 'labels' ? 'active' : ''} onClick={() => setActiveTab('labels')}>
-            Labels
-          </button>
-          <button className={activeTab === 'groups' ? 'active' : ''} onClick={() => setActiveTab('groups')}>
-            Groups
-          </button>
+          <button className={activeTab === 'labels' ? 'active' : ''} onClick={() => setActiveTab('labels')}>Labels</button>
+          <button className={activeTab === 'groups' ? 'active' : ''} onClick={() => setActiveTab('groups')}>Groups</button>
         </div>
-
         <div className="modal-scroll-body">
           {activeTab === 'labels' && (
-            <>
+             <>
               <div className="label-list">
                 {editedLabels.map((label, index) => (
-  <div key={index} className="label-item">
-    <input
-      type="text"
-      placeholder="Label name"
-      value={label.name}
-      onChange={(e) => {
-        const updated = [...editedLabels];
-        updated[index] = { ...label, name: e.target.value };
-        setEditedLabels(updated);
-      }}
-    />
-       <div className="label-color-control">
-  <div
-  className="color-display"
-  style={{ backgroundColor: label.color }}
-  onClick={() => {
-    const updated = [...editedLabels];
-    updated[index] = {
-      ...updated[index],
-      showPicker: !updated[index].showPicker
-    };
-    setEditedLabels(updated);
-    console.log("Clicked color circle:", updated[index]); // You can remove this later
-  }}
-></div>
-  {label.showPicker && (
-  <div className="color-list">
-    {colorOptions.map((option) => (
-      <div
-        key={option.value}
-        className="color-option-row"
-        onClick={() => {
-          const updated = [...editedLabels];
-          updated[index] = {
-            ...updated[index],
-            color: option.value,
-            showPicker: false
-          };
-          setEditedLabels(updated);
-        }}
-      >
-        <span
-  className="color-circle"
-  style={{ backgroundColor: option.value }}
->
-  {label.color === option.value && (
-    <span className="checkmark">✓</span>
-  )}
-</span>
-        <span className="color-name">{option.name}</span>
-      </div>
-    ))}
-  </div>
-)}
-</div>
-    <button onClick={() => removeLabel(label)} className="remove-btn">×</button>
-  </div>
-))}
+                  <div key={index} className="label-item">
+                    <input type="text" placeholder="Label name" value={label.name} onChange={(e) => {
+                      const updated = [...editedLabels];
+                      updated[index] = { ...label, name: e.target.value };
+                      setEditedLabels(updated);
+                    }}/>
+                    <div className="label-color-control">
+                      <div className="color-display" style={{ backgroundColor: label.color }} onClick={() => {
+                        const updated = [...editedLabels];
+                        updated[index] = { ...updated[index], showPicker: !updated[index].showPicker };
+                        setEditedLabels(updated);
+                      }}></div>
+                      {label.showPicker && (
+                        <div className="color-list">
+                          {colorOptions.map((option) => (
+                            <div key={option.value} className="color-option-row" onClick={() => {
+                              const updated = [...editedLabels];
+                              updated[index] = { ...updated[index], color: option.value, showPicker: false };
+                              setEditedLabels(updated);
+                            }}>
+                              <span className="color-circle" style={{ backgroundColor: option.value }}>
+                                {label.color === option.value && <span className="checkmark">✓</span>}
+                              </span>
+                              <span className="color-name">{option.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => removeLabel(label)} className="remove-btn">×</button>
+                  </div>
+                ))}
               </div>
-
               <div className="add-label">
-                <input
-                  type="text"
-                  value={newLabel}
-                  onChange={(e) => setNewLabel(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addLabel()}
-                  placeholder="Add new label..."
-                />
+                <input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addLabel()} placeholder="Add new label..."/>
                 <button onClick={addLabel}>Add</button>
               </div>
             </>
           )}
-
           {activeTab === 'groups' && (
             <>
               <div className="label-list">
-                {groups.map((group, index) => (
-                  <div key={index} className="label-item">
-                    <span>{group}</span>
-                    {group !== 'Ungrouped' && (
-                      <button onClick={() => onUpdateGroups(group)} className="remove-btn">×</button>
+                {groups.map((groupName) => (
+                  <div key={groupName} className="label-item">
+                    {editingGroup.name === groupName ? (
+                      <input type="text" value={editingGroup.newName}
+                        onChange={(e) => setEditingGroup({ ...editingGroup, newName: e.target.value })}
+                        onBlur={handleSaveGroupRename}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveGroupRename()}
+                        autoFocus
+                      />
+                    ) : (
+                      <span onDoubleClick={() => handleStartEditGroup(groupName)} title="Double-click to rename">{groupName}</span>
                     )}
+                    <div>
+                      {groupName !== 'Ungrouped' && (
+                        <>
+                          <button onClick={() => handleStartEditGroup(groupName)} className="edit-project-btn" title="Rename Group">✏️</button>
+                          <button onClick={() => onDeleteGroup(groupName)} className="remove-btn" title="Delete Group">×</button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
-
-              
+              <div className="add-label">
+                <input type="text" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Create new group..."
+                  onKeyDown={(e) => {if(e.key === 'Enter'){ onAddGroup(newGroupName.trim()); setNewGroupName('');}}}
+                />
+                <button onClick={() => { onAddGroup(newGroupName.trim()); setNewGroupName('');}}>Add Group</button>
+              </div>
             </>
           )}
         </div>
-
         <div className="modal-footer">
           <button onClick={onClose}>Cancel</button>
-          <button onClick={() => {
-            onUpdateLabels(editedLabels);
-            onClose();
-          }} className="save-btn">Save</button>
+          <button onClick={() => { onUpdateLabels(editedLabels); onClose(); }} className="save-btn">Save Changes</button>
         </div>
       </div>
     </div>
@@ -805,23 +760,22 @@ if (Object.keys(todaysTasksByProject).length === 0) {
       <h1>Today's Tasks</h1>
       <div className="today-columns">
         {Object.entries(todaysTasksByProject).map(([projectName, tasks]) => (
-  <Column
-    key={projectName}
-    title={projectName}
-    tasks={tasks}
-    onAddTask={() => {}}
-    onUpdateTask={(col, taskId, updatedTask) => {
-      const task = tasks.find(t => t.id === taskId);
-      if (task && task.projectId) {
-        // Now we pass the correct projectId to the main updateTask function
-        onUpdateTask(task.projectId, taskId, updatedTask);
-      }
-    }}
-    onOpenTask={onOpenTask}
-    isEditable={false}
-    availableLabels={availableLabels}
-  />
-))}
+          <Column
+            key={projectName}
+            title={projectName}
+            tasks={tasks}
+            onAddTask={() => {}}
+            onUpdateTask={(col, taskId, updatedTask) => {
+              const task = tasks.find(t => t.id === taskId);
+              if (task && task.projectId) {
+                onUpdateTask(task.projectId, taskId, updatedTask);
+              }
+            }}
+            onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
+            isEditable={false}
+            availableLabels={availableLabels}
+          />
+        ))}
       </div>
     </div>
   );
@@ -1133,9 +1087,9 @@ function TimerModal({
     </div>
   );
 }
-function EditProjectModal({ projectGroups, current, onClose, onSave }) {
-  const [newName, setNewName] = useState(current.project);
-  const [newGroup, setNewGroup] = useState(current.groupName);
+function EditProjectModal({ projectData, current, onClose, onSave }) {
+  const [newName, setNewName] = useState(current.oldName);
+  const [newGroup, setNewGroup] = useState(current.oldGroup);
 
   const groupOptions = projectData.map(g => g.name);
 
@@ -1167,7 +1121,7 @@ function EditProjectModal({ projectGroups, current, onClose, onSave }) {
         <div className="modal-footer">
           <button onClick={onClose}>Cancel</button>
           <button 
-            onClick={() => onSave({ oldGroup: current.groupName, oldName: current.project, newGroup, newName })} 
+            onClick={() => onSave({ oldGroup: current.oldGroup, oldName: current.oldName, newGroup, newName })}
             className="save-btn"
           >
             Save
@@ -1218,7 +1172,13 @@ function App() {
   }, [projectData, currentGroup, currentProject]);
 // --- Timer Logic & Effect ---
   const timerIntervalRef = useRef(null);
-  const sensors = useSensors(useSensor(PointerSensor));
+const sensors = useSensors(useSensor(PointerSensor, {
+  // Require the mouse to move by 5 pixels before activating a drag.
+  // This allows single-clicks to be registered correctly.
+  activationConstraint: {
+    distance: 5,
+  },
+}));
 
   useEffect(() => {
     if (!timerIsRunning) {
@@ -1565,50 +1525,82 @@ function App() {
     setProjectToEdit(null);
   };
 
-  const handleUpdateGroups = async (groupNameToDelete) => {
-    // This function now only handles deletion.
-    if (groupNameToDelete === 'Ungrouped') {
-      alert("Cannot delete the 'Ungrouped' group.");
-      return;
-    }
-    if (!window.confirm(`Are you sure you want to delete the group "${groupNameToDelete}"? All projects within it will be moved to 'Ungrouped'.`)) {
+  const handleAddGroup = async (newGroupName) => {
+    if (!user || !newGroupName) return;
+    const currentGroupOrder = projectData.map(g => g.name);
+    if (currentGroupOrder.includes(newGroupName)) {
+      alert("A group with this name already exists.");
       return;
     }
 
-    if (!user) return;
+    const newGroupOrder = [...currentGroupOrder, newGroupName];
+    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+    await updateDoc(appDataRef, { groupOrder: newGroupOrder });
 
-    const groupToDelete = projectData.find(g => g.name === groupNameToDelete);
-    if (!groupToDelete || !groupToDelete.projects) {
-      console.error("Group to delete not found or has no projects.");
+    setProjectData(prevData => [...prevData, { name: newGroupName, projects: [] }]);
+  };
+
+  const handleRenameGroup = async (oldName, newName) => {
+    if (!user || oldName === newName || !newName) return;
+    if (oldName === 'Ungrouped') {
+      alert("Cannot rename the 'Ungrouped' group.");
       return;
     }
 
     const batch = writeBatch(db);
+    const groupToRename = projectData.find(g => g.name === oldName);
+    if (!groupToRename) return;
 
-    // 1. Update all projects in the group to have group: "Ungrouped"
+    // Update all projects in the group
+    groupToRename.projects.forEach(p => {
+      const projRef = doc(db, 'users', user.uid, 'projects', p.id);
+      batch.update(projRef, { group: newName });
+    });
+
+    // Update the groupOrder array
+    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+    const newGroupOrder = projectData.map(g => g.name === oldName ? newName : g.name);
+    batch.update(appDataRef, { groupOrder: newGroupOrder });
+    
+    await batch.commit();
+
+    // Optimistically update state
+    setProjectData(prevData => prevData.map(g => g.name === oldName ? { ...g, name: newName } : g));
+  };
+  
+  const handleDeleteGroup = async (groupNameToDelete) => {
+    if (groupNameToDelete === 'Ungrouped' || !user) return;
+    if (!window.confirm(`Delete group "${groupNameToDelete}"? All projects within will be moved to 'Ungrouped'.`)) return;
+
+    const groupToDelete = projectData.find(g => g.name === groupNameToDelete);
+    if (!groupToDelete || !groupToDelete.projects) return;
+
+    const batch = writeBatch(db);
+    
+    // Move all projects to 'Ungrouped' and update their group field in Firestore
     groupToDelete.projects.forEach(project => {
       const projectRef = doc(db, 'users', user.uid, 'projects', project.id);
       batch.update(projectRef, { group: "Ungrouped" });
     });
 
-    // 2. Update the groupOrder array in appData
+    // Remove the deleted group from the groupOrder array in Firestore
     const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-    const currentGroupOrder = projectData.map(g => g.name);
-    const newGroupOrder = currentGroupOrder.filter(g => g !== groupNameToDelete);
+    const newGroupOrder = projectData.map(g => g.name).filter(name => name !== groupNameToDelete);
     batch.update(appDataRef, { groupOrder: newGroupOrder });
 
     try {
       await batch.commit();
 
-      // Optimistically update local state
+      // Optimistically update the local state correctly
       setProjectData(prevData => {
         const newData = JSON.parse(JSON.stringify(prevData));
+        let projectsToMove = [];
         const groupIdx = newData.findIndex(g => g.name === groupNameToDelete);
-        const projectsToMove = newData[groupIdx]?.projects || [];
-
-        // Remove the old group
-        if(groupIdx > -1) {
-            newData.splice(groupIdx, 1);
+        
+        if (groupIdx > -1) {
+          projectsToMove = newData[groupIdx].projects || [];
+          // Remove the old group
+          newData.splice(groupIdx, 1);
         }
 
         // Find or create the 'Ungrouped' group and add the projects
@@ -1627,7 +1619,6 @@ function App() {
         setCurrentGroup(null);
         setCurrentProject(null);
       }
-
     } catch (error) {
       console.error("Error deleting group: ", error);
       alert("Failed to delete group.");
@@ -1918,20 +1909,20 @@ const findTaskById = (taskId) => {
           case 'goals':
         return <GoalsPage />;
       case 'today':
-        return (
-          <TodayView 
-            projects={projectData}
-            onUpdateTask={updateTask}
-            onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
-            availableLabels={projectLabels}
-          />
-        );
+  return (
+    <TodayView 
+      projects={projectData}
+      onUpdateTask={updateTask}
+      onOpenTask={(task) => setModalTask(task)}
+      availableLabels={projectLabels}
+    />
+  );
         case 'tomorrow':
   return (
     <TomorrowView
       projects={projectData}
       onUpdateTask={updateTask}
-      onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
+      onOpenTask={(task) => setModalTask(task)}
       availableLabels={projectLabels}
     />
   );
@@ -1940,7 +1931,7 @@ const findTaskById = (taskId) => {
     <ThisWeekView
       projects={projectData}
       onUpdateTask={updateTask}
-      onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
+      onOpenTask={(task) => setModalTask(task)}
       availableLabels={projectLabels}
     />
   );
@@ -1949,7 +1940,7 @@ case 'nextWeek':
     <NextWeekView
       projects={projectData}
       onUpdateTask={updateTask}
-      onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
+      onOpenTask={(task) => setModalTask(task)}
       availableLabels={projectLabels}
     />
   );
@@ -1963,7 +1954,10 @@ case 'nextWeek':
   tasks={inboxTasks}
   onAddTask={addTask}
   onUpdateTask={() => {}}
-  onOpenTask={(task) => setModalTask({ ...task })}
+  onOpenTask={(task) => {
+  console.log("Opening task from inbox:", task);
+  setModalTask({ ...task });
+}}
   onRenameColumn={() => {}} // Inbox column name is not editable
   availableLabels={projectLabels}
 />
@@ -2001,7 +1995,7 @@ case 'nextWeek':
   updateTask(currentProjectData.id, taskId, updatedTask);
 }}
         onOpenTask={(task) => {
-  console.log("1. Opening modal for task:", task);
+  console.log("Opening task from project board:", task);
   setModalTask({ ...task, projectId: currentProjectData.id });
 }}
         onRenameColumn={(newName) => renameColumn(colName, newName)}
@@ -2148,31 +2142,34 @@ case 'nextWeek':
                     <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', color: '#666' }}>{group.name}</h4>
                     <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
                       {group.projects.map(project => (
-                        <SortableProjectItem key={project.id} id={project.id}>
-                          <button
-                            className={currentView === 'projects' && currentProject === project.name && currentGroup === group.name ? 'active' : ''}
-                            onClick={() => {
-                              setCurrentView('projects');
-                              setCurrentGroup(group.name);
-                              setCurrentProject(project.name);
-                            }}
-                          >
-                            <span className="project-entry">
-                              {project.name}
-                              <span 
-                                className="edit-project-btn"
-                                title="Edit Project"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setProjectToEdit({ groupName: group.name, project: project.name });
-                                  setShowProjectEditModal(true);
-                                }}
-                              >
-                                ✏️
-                              </span>
-                            </span>
-                          </button>
-                        </SortableProjectItem>
+                        <SortableProjectItem
+  key={project.id}
+  id={project.id}
+>
+  <div
+    className={`project-button ${currentView === 'projects' && currentProject === project.name && currentGroup === group.name ? 'active' : ''}`}
+    onClick={() => {
+      setCurrentView('projects');
+      setCurrentGroup(group.name);
+      setCurrentProject(project.name);
+    }}
+  >
+    <span className="project-entry">
+      {project.name}
+      <span 
+        className="edit-project-btn"
+        title="Edit Project"
+        onClick={(e) => {
+          e.stopPropagation();
+          setProjectToEdit({ oldGroup: group.name, oldName: project.name });
+          setShowProjectEditModal(true);
+        }}
+      >
+        ✏️
+      </span>
+    </span>
+  </div>
+</SortableProjectItem>
                       ))}
                     </SortableContext>
                   </div>
@@ -2286,7 +2283,9 @@ case 'nextWeek':
               labels={projectLabels}
               onClose={() => setShowLabelManager(false)}
               onUpdateLabels={updateLabels}
-              onUpdateGroups={handleUpdateGroups}
+              onAddGroup={handleAddGroup}
+              onRenameGroup={handleRenameGroup}
+              onDeleteGroup={handleDeleteGroup}
             />
           )}
           {showTimerModal && (

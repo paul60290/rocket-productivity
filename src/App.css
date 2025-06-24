@@ -1215,3 +1215,25 @@
     overflow-y: auto;
     padding: 20px;
 }
+/* Make the project link look like a button but behave like a div */
+.project-button {
+  display: block;
+  width: 100%;
+  padding: 10px 15px;
+  margin-bottom: 5px;
+  background: none;
+  border: none;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.project-button:hover {
+  background: #e9ecef;
+}
+
+.project-button.active {
+  background: #007bff;
+  color: white;
+}
