@@ -1163,6 +1163,31 @@
   margin-bottom: 15px;
 }
 
+.sidebar-utility-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 15px; /* Less vertical padding */
+  margin-bottom: 10px; /* Space it out from the text below */
+  background: none;
+  border: none;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.9rem; /* Smaller font size */
+  color: #6c757d; /* A more subtle color */
+}
+
+.sidebar-utility-btn:hover {
+  background: #e9ecef;
+  color: #343a40;
+}
+
+/* Keep the active state consistent with other buttons */
+.sidebar-utility-btn.active {
+  background: #007bff;
+  color: white;
+}
 /* Logout section in sidebar */
 .logout-section {
   margin-top: auto; /* Pushes to the bottom */
@@ -1236,4 +1261,24 @@
 .project-button.active {
   background: #007bff;
   color: white;
+}
+
+/* === Settings Page === */
+.settings-page {
+  padding: 20px 40px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.settings-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 1rem;
+  margin-bottom: 2rem;
+}
+
+.settings-page-header h1 {
+  margin: 0;
 }

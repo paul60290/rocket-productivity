@@ -1,16 +1,15 @@
 // App.jsx
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { DndContext, DragOverlay, useDroppable, closestCenter, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
 
 import './App.css';
-import GoalsPage from './components/GoalsPage';
+const GoalsPage = lazy(() => import('./components/GoalsPage'));
+const CalendarPanel = lazy(() => import('./components/CalendarPanel'));
+const TaskDetailPanel = lazy(() => import('./components/TaskDetailPanel'));
+const SettingsPage = lazy(() => import('./components/SettingsPage'));
 import Auth from './Auth';
 import NewProjectModal from './components/NewProjectModal';
 import SortableProjectItem from './components/SortableProjectItem';
@@ -185,277 +184,7 @@ function ManagerModal({ groups, labels, onClose, onUpdateLabels, onAddGroup, onR
   );
 }
 
-// === SECTION: Enhanced Task Modal Component ===
-function TaskDetailPanel({ task, onClose, onUpdate, availableLabels, breadcrumb = [] }) {
-  const [newComment, setNewComment] = useState('');
-  const [newSubtaskText, setNewSubtaskText] = useState('');
-  const [editedTask, setEditedTask] = useState({
-    ...task, // Start with all properties from the original task
-    text:        task?.text        || '',
-    date:        task?.date        || '',
-    priority:    task?.priority    || 4,
-    label:       task?.label       || '',
-    description: task?.description || '',
-    comments:    task?.comments    || [],
-    subtasks:    task?.subtasks    || []
-  });
 
-
-  const priorityColors = {
-    1: '#ff4444', // High priority - red
-    2: '#ff8800', // Medium-high - orange  
-    3: '#ffdd00', // Medium - yellow
-    4: '#88cc88'  // Low - green
-  };
-const handleAddComment = () => {
-  if (!newComment.trim()) return;
-  const comment = {
-    id: generateUniqueId(),
-    text: newComment.trim(),
-    author: 'You',
-    timestamp: new Date().toISOString()
-  };
-  setEditedTask(prev => ({
-    ...prev,
-    comments: [...prev.comments, comment]
-  }));
-  setNewComment('');
-};
-const handleAddSubtask = () => {
-  if (!newSubtaskText.trim()) return;
-  const sub = {
-    id:          generateUniqueId(),
-    text:        newSubtaskText.trim(),
-    completed:   false,
-    date:        '',
-    priority:    4,
-    label:       '',
-    description: '',
-    comments:    [],
-    subtasks:    []
-  };
-  setEditedTask(prev => ({
-    ...prev,
-    subtasks: [...prev.subtasks, sub]
-  }));
-  setNewSubtaskText('');
-};
-const handleDeleteSubtask = (subtaskId) => {
-  setEditedTask(prev => ({
-    ...prev,
-    subtasks: prev.subtasks.filter(st => st.id !== subtaskId)
-  }));
-};
-// 🟢 DnD-kit sensors setup for sortable subtasks
-const sensors = useSensors(useSensor(PointerSensor));
-
-// 🟢 Handler to reorder subtasks on drag end
-function handleSubtaskDragEnd(event) {
-  const { active, over } = event;
-  if (!over || active.id === over.id) return;
-  setEditedTask(prev => ({
-    ...prev,
-    subtasks: arrayMove(
-      prev.subtasks,
-      prev.subtasks.findIndex(s => s.id === active.id),
-      prev.subtasks.findIndex(s => s.id === over.id)
-    )
-  }));
-}
-// 🟢 Component for a single sortable subtask
-function SortableSubtask({ subtask }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition
-  } = useSortable({ id: subtask.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition
-  };
-  return (
-    <li
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={`subtask-item${subtask.completed ? ' completed' : ''}`}
-    >
-      <input
-  type="checkbox"
-  checked={subtask.completed}
-  onPointerDown={e => e.stopPropagation()}
-  onChange={() =>
-    setEditedTask(prev => ({
-      ...prev,
-      subtasks: prev.subtasks.map(s =>
-        s.id === subtask.id ? { ...s, completed: !s.completed } : s
-      )
-    }))
-  }
-/>
-
-      <span className="subtask-text">{subtask.text}</span>
-      <button
-  className="delete-subtask-btn"
-  onPointerDown={e => e.stopPropagation()}
-  onClick={() => handleDeleteSubtask(subtask.id)}
->
-  🗑️
-</button>
-    </li>
-  );
-}
-
-  const handleSave = () => {
-    const saveData = {
-      text: editedTask.text,
-      description: editedTask.description,
-      date: editedTask.date,
-      priority: editedTask.priority,
-      label: editedTask.label,
-      comments: editedTask.comments,
-      subtasks: editedTask.subtasks,
-    };
-    console.log("2. Saving task data:", saveData);
-    onUpdate(saveData);
-    onClose();
-  };
-
-  if (!task) return null;
-
-  return (
-    <div className={`task-detail-panel ${task ? 'open' : ''}`}>
-        <div className="modal-header">
-          <h3>Edit Task</h3>
-          <button className="close-btn" onClick={onClose}>×</button>
-        </div>
-       
-        <div className="modal-body">
-          <div className="form-group">
-  <label>Task Title</label>
-  <input
-    type="text"
-    value={editedTask.text}
-    onChange={(e) => setEditedTask({...editedTask, text: e.target.value})}
-  />
-</div>
-<div className="form-group">
-  <label>Task Description</label>
-  <textarea
-    value={editedTask.description}
-    onChange={(e) => setEditedTask({...editedTask, description: e.target.value})}
-    rows="3"
-  />
-</div>
-<div className="form-group">
-  <label>Comments</label>
-  <div className="comments-list">
-      {editedTask.comments?.map(c => (
-      <div key={c.id} className="comment-item">
-        <p className="comment-text">{c.text}</p>
-        <p className="comment-meta">
-          {c.author} • {new Date(c.timestamp).toLocaleString()}
-        </p>
-      </div>
-    ))}
-  </div>
-  <textarea
-    rows="2"
-    placeholder="Add a comment…"
-    value={newComment}
-    onChange={e => setNewComment(e.target.value)}
-  />
-  <button onClick={handleAddComment}>Add Comment</button>
-      <div className="form-group">
-      <label>Subtasks</label>
-      {/* sort so incomplete come first */}
-<DndContext
-  sensors={sensors}
-  collisionDetection={closestCenter}
-  onDragEnd={handleSubtaskDragEnd}
->
-  <SortableContext
-    items={editedTask.subtasks.map(s => s.id)}
-    strategy={verticalListSortingStrategy}
-  >
-    <ul className="subtask-list">
-      {editedTask.subtasks
-        .slice()
-        .sort((a, b) => a.completed - b.completed)
-        .map(subtask => (
-          <SortableSubtask
-            key={subtask.id}
-            subtask={subtask}
-          />
-        ))}
-    </ul>
-  </SortableContext>
-  </DndContext>
-
-      <input
-        type="text"
-        placeholder="New subtask…"
-        value={newSubtaskText}
-        onChange={e => setNewSubtaskText(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && handleAddSubtask()}
-      />
-      <button onClick={handleAddSubtask}>Add Subtask</button>
-    </div>
-</div>
-
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Date</label>
-              <input
-                type="date"
-                value={editedTask.date}
-                onChange={(e) => setEditedTask({...editedTask, date: e.target.value})}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Priority</label>
-              <select
-                value={editedTask.priority}
-                onChange={(e) => setEditedTask({...editedTask, priority: parseInt(e.target.value)})}
-                style={{backgroundColor: priorityColors[editedTask.priority]}}
-              >
-                <option value={1}>1 - Urgent</option>
-                <option value={2}>2 - High</option>
-                <option value={3}>3 - Medium</option>
-                <option value={4}>4 - Low</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Add Tag</label>
-            <select
-  value={editedTask.label}
-  onChange={(e) => setEditedTask({...editedTask, label: e.target.value})}
->
-  <option value="">Select Tag</option>
-  {availableLabels.map(({ name, emoji }) => (
-    <option key={name} value={name}>
-      {emoji ? `${emoji} ` : ''}{name}
-    </option>
-  ))}
-</select>
-
-          </div>
-        </div>
-
-        <div className="modal-footer">
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={handleSave} className="save-btn">Save</button>
-        </div>
-      </div>
-);
-}
 
 // === SECTION: Editable Title Component ===
 function EditableTitle({ title, onUpdate, className = "" }) {
@@ -1140,7 +869,7 @@ function App() {
   const [currentProject, setCurrentProject] = useState(null);
   const [modalTask, setModalTask] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showLabelManager, setShowLabelManager] = useState(false);
+  
   const [showProjectEditModal, setShowProjectEditModal] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
@@ -1905,170 +1634,185 @@ const findTaskById = (taskId) => {
     if (isLoading) {
     return <div style={{ padding: 20 }}><h2>Loading...</h2></div>;
   }
-    switch (currentView) {
-          case 'goals':
-        return <GoalsPage />;
-      case 'today':
-  return (
-    <TodayView 
-      projects={projectData}
-      onUpdateTask={updateTask}
-      onOpenTask={(task) => setModalTask(task)}
-      availableLabels={projectLabels}
-    />
-  );
-        case 'tomorrow':
-  return (
-    <TomorrowView
-      projects={projectData}
-      onUpdateTask={updateTask}
-      onOpenTask={(task) => setModalTask(task)}
-      availableLabels={projectLabels}
-    />
-  );
-  case 'thisWeek':
-  return (
-    <ThisWeekView
-      projects={projectData}
-      onUpdateTask={updateTask}
-      onOpenTask={(task) => setModalTask(task)}
-      availableLabels={projectLabels}
-    />
-  );
-case 'nextWeek':
-  return (
-    <NextWeekView
-      projects={projectData}
-      onUpdateTask={updateTask}
-      onOpenTask={(task) => setModalTask(task)}
-      availableLabels={projectLabels}
-    />
-  );
-
-      case 'inbox':
-        return (
-          <div className="inbox-view">
-            <h1>Capture Your Tasks</h1>
-            <Column
-  title="Quick Capture"
-  tasks={inboxTasks}
-  onAddTask={addTask}
-  onUpdateTask={() => {}}
-  onOpenTask={(task) => {
-  console.log("Opening task from inbox:", task);
-  setModalTask({ ...task });
-}}
-  onRenameColumn={() => {}} // Inbox column name is not editable
-  availableLabels={projectLabels}
-/>
-          </div>
-        );
-      default:
-  
-  const activeTask = activeId ? findTaskById(activeId) : null;
-
-  if (!currentProjectData) {
-    // If no project is selected, show a welcome/instructional message.
+   switch (currentView) {
+  case 'settings':
     return (
-      <div style={{ padding: 20 }}>
-        <h2>Welcome to Rocket Productivity!</h2>
-        <p>Select a project from the sidebar to get started, or create a new one.</p>
-      </div>
+      <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Settings...</h2></div>}>
+        <SettingsPage
+          initialLabels={projectLabels}
+          initialGroups={projectData.map(g => g.name)}
+          onUpdateLabels={updateLabels}
+          onAddGroup={handleAddGroup}
+          onRenameGroup={handleRenameGroup}
+          onDeleteGroup={handleDeleteGroup}
+        />
+      </Suspense>
     );
-  }
-
-   return (
-    <DndContext
-  onDragStart={event => setActiveId(event.active.id)}
-  onDragEnd={event => { handleDrop(event); setActiveId(null); }}
-  onDragCancel={() => setActiveId(null)}
->
-  <div className="board">
-    {currentProjectData.columnOrder.map((colName) => (
-      <Column
-        key={colName}
-        title={colName}
-        tasks={currentProjectData.columns[colName] || []}
-        onAddTask={addTask}
-        onUpdateTask={(column, taskId, updatedTask) => {
-  // Pass the project's Firestore ID, not its name or group
-  updateTask(currentProjectData.id, taskId, updatedTask);
-}}
-        onOpenTask={(task) => {
-  console.log("Opening task from project board:", task);
-  setModalTask({ ...task, projectId: currentProjectData.id });
-}}
-        onRenameColumn={(newName) => renameColumn(colName, newName)}
-        onDeleteColumn={deleteColumn}
+  case 'goals':
+    return (
+      <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Page...</h2></div>}>
+        <GoalsPage />
+      </Suspense>
+    );
+  case 'today':
+    return (
+      <TodayView 
+        projects={projectData}
+        onUpdateTask={updateTask}
+        onOpenTask={(task) => setModalTask(task)}
         availableLabels={projectLabels}
       />
-    ))}
+    );
+  case 'tomorrow':
+    return (
+      <TomorrowView
+        projects={projectData}
+        onUpdateTask={updateTask}
+        onOpenTask={(task) => setModalTask(task)}
+        availableLabels={projectLabels}
+      />
+    );
+  case 'thisWeek':
+    return (
+      <ThisWeekView
+        projects={projectData}
+        onUpdateTask={updateTask}
+        onOpenTask={(task) => setModalTask(task)}
+        availableLabels={projectLabels}
+      />
+    );
+  case 'nextWeek':
+    return (
+      <NextWeekView
+        projects={projectData}
+        onUpdateTask={updateTask}
+        onOpenTask={(task) => setModalTask(task)}
+        availableLabels={projectLabels}
+      />
+    );
+  case 'inbox':
+    return (
+      <div className="inbox-view">
+        <h1>Capture Your Tasks</h1>
+        <Column
+          title="Quick Capture"
+          tasks={inboxTasks}
+          onAddTask={addTask}
+          onUpdateTask={() => {}}
+          onOpenTask={(task) => {
+            console.log("Opening task from inbox:", task);
+            setModalTask({ ...task });
+          }}
+          onRenameColumn={() => {}} // Inbox column name is not editable
+          availableLabels={projectLabels}
+        />
+      </div>
+    );
+  default:
+    const activeTask = activeId ? findTaskById(activeId) : null;
 
-    {/* ← Add‐Column placeholder at end */}
-    <button
-  className="add-column-btn add-column-placeholder"
-  onClick={async () => {
-    const name = prompt("Enter new column name:");
-    if (!name || !name.trim() || !user || !currentProjectData) return;
-    
-    const colName = name.trim();
-    const projectId = currentProjectData.id;
-
-    if (currentProjectData.columnOrder.includes(colName)) {
-      alert("Column already exists.");
-      return;
+    if (!currentProjectData) {
+      // If no project is selected, show a welcome/instructional message.
+      return (
+        <div style={{ padding: 20 }}>
+          <h2>Welcome to Rocket Productivity!</h2>
+          <p>Select a project from the sidebar to get started, or create a new one.</p>
+        </div>
+      );
     }
 
-    const updatedColumnOrder = [...currentProjectData.columnOrder, colName];
-    const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+    return (
+      <DndContext
+        onDragStart={event => setActiveId(event.active.id)}
+        onDragEnd={event => { handleDrop(event); setActiveId(null); }}
+        onDragCancel={() => setActiveId(null)}
+      >
+        <div className="board">
+          {currentProjectData.columnOrder.map((colName) => (
+            <Column
+              key={colName}
+              title={colName}
+              tasks={currentProjectData.columns[colName] || []}
+              onAddTask={addTask}
+              onUpdateTask={(column, taskId, updatedTask) => {
+                // Pass the project's Firestore ID, not its name or group
+                updateTask(currentProjectData.id, taskId, updatedTask);
+              }}
+              onOpenTask={(task) => {
+                console.log("Opening task from project board:", task);
+                setModalTask({ ...task, projectId: currentProjectData.id });
+              }}
+              onRenameColumn={(newName) => renameColumn(colName, newName)}
+              onDeleteColumn={deleteColumn}
+              availableLabels={projectLabels}
+            />
+          ))}
 
-    try {
-      await updateDoc(projectRef, { columnOrder: updatedColumnOrder });
-      setProjectData(prevData => {
-        const newData = JSON.parse(JSON.stringify(prevData));
-        const project = newData
-          .find(g => g.name === currentGroup)?.projects
-          .find(p => p.id === projectId);
-        if (project) {
-          project.columnOrder = updatedColumnOrder;
-          project.columns[colName] = [];
-        }
-        return newData;
-      });
-    } catch (error) {
-      console.error("Error adding column:", error);
-      alert("Failed to add column.");
-    }
-  }}
->
-  + Add Column
-</button>
-  </div>
-  <DragOverlay>
-  {activeTask ? (
-    <TaskItem
-      task={activeTask}
-      availableLabels={projectLabels}
-    />
-  ) : null}
-</DragOverlay>
-</DndContext>
-  );
+          {/* ← Add‐Column placeholder at end */}
+          <button
+            className="add-column-btn add-column-placeholder"
+            onClick={async () => {
+              const name = prompt("Enter new column name:");
+              if (!name || !name.trim() || !user || !currentProjectData) return;
 
+              const colName = name.trim();
+              const projectId = currentProjectData.id;
 
-    }
+              if (currentProjectData.columnOrder.includes(colName)) {
+                alert("Column already exists.");
+                return;
+              }
+
+              const updatedColumnOrder = [...currentProjectData.columnOrder, colName];
+              const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+
+              try {
+                await updateDoc(projectRef, { columnOrder: updatedColumnOrder });
+                setProjectData(prevData => {
+                  const newData = JSON.parse(JSON.stringify(prevData));
+                  const project = newData
+                    .find(g => g.name === currentGroup)?.projects
+                    .find(p => p.id === projectId);
+                  if (project) {
+                    project.columnOrder = updatedColumnOrder;
+                    project.columns[colName] = [];
+                  }
+                  return newData;
+                });
+              } catch (error) {
+                console.error("Error adding column:", error);
+                alert("Failed to add column.");
+              }
+            }}
+          >
+            + Add Column
+          </button>
+        </div>
+        <DragOverlay>
+        {activeTask ? (
+          <TaskItem
+            task={activeTask}
+            availableLabels={projectLabels}
+          />
+        ) : null}
+      </DragOverlay>
+      </DndContext>
+    );
+}
   };
 
   return (
     <div className="app">
       {modalTask && (
-            <TaskDetailPanel
-              task={modalTask}
-              onClose={() => setModalTask(null)}
-              onUpdate={handleTaskUpdate}
-              availableLabels={projectLabels}
-            />
-          )}
+  <Suspense fallback={<div>Loading...</div>}>
+    <TaskDetailPanel
+      task={modalTask}
+      onClose={() => setModalTask(null)}
+      onUpdate={handleTaskUpdate}
+      availableLabels={projectLabels}
+    />
+  </Suspense>
+)}
       {!user ? (
         <Auth onSignUp={handleSignUp} onLogin={handleLogin} />
       ) : (
@@ -2077,65 +1821,57 @@ case 'nextWeek':
             <h2>🚀 Rocket Productivity</h2>
 
             <div className="nav-section">
-              <h3>Views</h3>
-              <button
-                className={currentView === 'goals' ? 'active' : ''}
-                onClick={() => setCurrentView('goals')}
-              >
-                Goals
-              </button>
-              <button 
-                className={currentView === 'today' ? 'active' : ''}
-                onClick={() => setCurrentView('today')}
-              >
-                Today
-              </button>
-              <button 
-                className={currentView === 'inbox' ? 'active' : ''}
-                onClick={() => setCurrentView('inbox')}
-              >
-                Inbox
-              </button>
-              <button
-                className={currentView === 'tomorrow' ? 'active' : ''}
-                onClick={() => setCurrentView('tomorrow')}
-              >
-                Tomorrow
-              </button>
-              <button
-                className={currentView === 'thisWeek' ? 'active' : ''}
-                onClick={() => setCurrentView('thisWeek')}
-              >
-                This Week
-              </button>
-              <button
-                className={currentView === 'nextWeek' ? 'active' : ''}
-                onClick={() => setCurrentView('nextWeek')}
-              >
-                Next Week
-              </button>
-            </div>
+  <h3>Views</h3>
+    <button
+    className={currentView === 'goals' ? 'active' : ''}
+    onClick={() => setCurrentView('goals')}
+  >
+    Goals
+  </button>
+  <button 
+    className={currentView === 'today' ? 'active' : ''}
+    onClick={() => setCurrentView('today')}
+  >
+    Today
+  </button>
+  <button 
+    className={currentView === 'inbox' ? 'active' : ''}
+    onClick={() => setCurrentView('inbox')}
+  >
+    Inbox
+  </button>
+  <button
+    className={currentView === 'tomorrow' ? 'active' : ''}
+    onClick={() => setCurrentView('tomorrow')}
+  >
+    Tomorrow
+  </button>
+  <button
+    className={currentView === 'thisWeek' ? 'active' : ''}
+    onClick={() => setCurrentView('thisWeek')}
+  >
+    This Week
+  </button>
+  <button
+    className={currentView === 'nextWeek' ? 'active' : ''}
+    onClick={() => setCurrentView('nextWeek')}
+  >
+    Next Week
+  </button>
+</div>
 
-            <div className="nav-section">
-              <div className="nav-header">
-                <h3>Projects</h3>
-                <div className="nav-buttons">
-                  <button 
-                    className="manage-btn"
-                    onClick={() => setShowLabelManager(true)}
-                    title="Manage Labels & Groups"
-                  >
-                    ⚙️
-                  </button>
-                  <button 
-                    className="manage-btn"
-                    onClick={handleAddProject}
-                    title="Add New Project"
-                  >
-                    ➕
-                  </button>
-                </div>
-              </div>
+            <div className="nav-header">
+  <h3>Projects</h3>
+  <div className="nav-buttons">
+    <button 
+      className="manage-btn"
+      onClick={handleAddProject}
+      title="Add New Project"
+    >
+      ➕
+    </button>
+  </div>
+</div>
               <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
                 {projectData.map((group) => (
                   <div key={group.name} style={{ marginBottom: '1rem' }}>
@@ -2173,14 +1909,19 @@ case 'nextWeek':
                       ))}
                     </SortableContext>
                   </div>
-                ))}
-              </DndContext>
-            </div>
-             <div className="logout-section">
-              <p>Logged in as: <strong>{user.email}</strong></p>
-              <button onClick={handleLogout} className="logout-btn">Logout</button>
-            </div>
-          </div>
+            ))}
+          </DndContext>
+          <div className="logout-section">
+  <button
+    onClick={() => setCurrentView('settings')}
+    className={`sidebar-utility-btn ${currentView === 'settings' ? 'active' : ''}`}
+  >
+    Settings
+  </button>
+  <p>Logged in as: <strong>{user.email}</strong></p>
+  <button onClick={handleLogout} className="logout-btn">Logout</button>
+</div>
+      </div>
 
           <div className="main-content">
             <div className="header">
@@ -2215,49 +1956,12 @@ case 'nextWeek':
                 {renderContent()}
               </div>
               {showCalendar && (
-                <div className="calendar-panel">
-                  <FullCalendar
-                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                    initialView="timeGridDay"
-                    nowIndicator={true}
-                    headerToolbar={{
-                      left: 'prev,next today',
-                      center: 'title',
-                      right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                    }}
-                    editable={true}
-                    eventResizableFromStart={true}
-                    slotMinTime="00:00:00"
-                    slotMaxTime="22:00:00"
-                    height="auto"
-                    events={calendarEvents}
-                    selectable={true}
-                    select={(info) => {
-                      const title = prompt('Enter task name for this time block:');
-                      if (title) {
-                        setCalendarEvents([
-                          ...calendarEvents,
-                          { id: `${title}-${info.startStr}`, title, start: info.start, end: info.end }
-                        ]);
-                      }
-                    }}
-                    eventDrop={(info) => {
-                      setCalendarEvents(calendarEvents.map(evt => evt.id === info.event.id ? { ...evt, start: info.event.start, end: info.event.end } : evt));
-                    }}
-                    eventResize={(info) => {
-                      setCalendarEvents(calendarEvents.map(evt => evt.id === info.event.id ? { ...evt, start: info.event.start, end: info.event.end } : evt));
-                    }}
-                    eventClick={(info) => {
-                      const input = prompt('Edit event title (leave empty to delete):', info.event.title);
-                      if (input === null) return;
-                      if (!input.trim()) {
-                        setCalendarEvents(calendarEvents.filter(evt => evt.id !== info.event.id));
-                      } else {
-                        setCalendarEvents(calendarEvents.map(evt => evt.id === info.event.id ? { ...evt, title: input } : evt));
-                      }
-                    }}
+                <Suspense fallback={<div className="calendar-panel"><h2>Loading Calendar...</h2></div>}>
+                  <CalendarPanel
+                    calendarEvents={calendarEvents}
+                    setCalendarEvents={setCalendarEvents}
                   />
-                </div>
+                </Suspense>
               )}
             </div>
           </div>
@@ -2271,42 +1975,31 @@ case 'nextWeek':
             />
           )}
           <NewProjectModal
-            show={showNewProjectModal}
-            onClose={() => setShowNewProjectModal(false)}
-            onSave={handleCreateProject}
-            groups={projectData.map(g => g.name)}
-          />
-          
-          {showLabelManager && (
-            <ManagerModal
-              groups={projectData.map(g => g.name)}
-              labels={projectLabels}
-              onClose={() => setShowLabelManager(false)}
-              onUpdateLabels={updateLabels}
-              onAddGroup={handleAddGroup}
-              onRenameGroup={handleRenameGroup}
-              onDeleteGroup={handleDeleteGroup}
-            />
-          )}
-          {showTimerModal && (
-            <TimerModal
-              onClose={() => setShowTimerModal(false)}
-              time={timerTime}
-              setTime={setTimerTime}
-              inputTime={timerInputTime}
-              setInputTime={setTimerInputTime}
-              isRunning={timerIsRunning}
-              onStart={handleStartTimer}
-              onPause={handlePauseTimer}
-              onResume={handleResumeTimer}
-              onReset={handleResetTimer}
-              formatTime={formatTime}
-            />
-          )}
-        </>
+        show={showNewProjectModal}
+        onClose={() => setShowNewProjectModal(false)}
+        onSave={handleCreateProject}
+        groups={projectData.map(g => g.name)}
+      />
+
+      {showTimerModal && (
+        <TimerModal
+          onClose={() => setShowTimerModal(false)}
+          time={timerTime}
+          setTime={setTimerTime}
+          inputTime={timerInputTime}
+          setInputTime={setTimerInputTime}
+          isRunning={timerIsRunning}
+          onStart={handleStartTimer}
+          onPause={handlePauseTimer}
+          onResume={handleResumeTimer}
+          onReset={handleResetTimer}
+          formatTime={formatTime}
+        />
       )}
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 }
 
 export default App;
