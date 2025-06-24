@@ -1183,3 +1183,35 @@
 .logout-btn:hover {
   background: #e2e6ea !important;
 }
+
+/* === Task Detail Slide-In Panel === */
+.task-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 500px; /* You can adjust this width */
+  max-width: 90vw;
+  background-color: #ffffff;
+  color: #333;
+  box-shadow: -2px 0 15px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+
+  /* Start off-screen */
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.task-detail-panel.open {
+  /* Slide into view */
+  transform: translateX(0);
+}
+
+/* This makes sure the content inside the panel scrolls, not the whole panel */
+.task-detail-panel .modal-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px;
+}

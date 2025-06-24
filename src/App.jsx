@@ -230,7 +230,7 @@ function ManagerModal({ groups, labels, onClose, onUpdateGroups, onUpdateLabels 
 }
 
 // === SECTION: Enhanced Task Modal Component ===
-function TaskModal({ task, onClose, onUpdate, availableLabels, breadcrumb = [] }) {
+function TaskDetailPanel({ task, onClose, onUpdate, availableLabels, breadcrumb = [] }) {
   const [newComment, setNewComment] = useState('');
   const [newSubtaskText, setNewSubtaskText] = useState('');
   const [editedTask, setEditedTask] = useState({
@@ -371,9 +371,7 @@ function SortableSubtask({ subtask }) {
   if (!task) return null;
 
   return (
-  <>
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className={`task-detail-panel ${task ? 'open' : ''}`}>
         <div className="modal-header">
           <h3>Edit Task</h3>
           <button className="close-btn" onClick={onClose}>×</button>
@@ -500,8 +498,6 @@ function SortableSubtask({ subtask }) {
           <button onClick={handleSave} className="save-btn">Save</button>
         </div>
       </div>
-        </div>
-      </>
 );
 }
 
@@ -2020,6 +2016,14 @@ case 'nextWeek':
 
   return (
     <div className="app">
+      {modalTask && (
+            <TaskDetailPanel
+              task={modalTask}
+              onClose={() => setModalTask(null)}
+              onUpdate={handleTaskUpdate}
+              availableLabels={projectLabels}
+            />
+          )}
       {!user ? (
         <Auth onSignUp={handleSignUp} onLogin={handleLogin} />
       ) : (
@@ -2219,14 +2223,7 @@ case 'nextWeek':
             onSave={handleCreateProject}
             groups={projectData.map(g => g.name)}
           />
-          {modalTask && (
-            <TaskModal
-              task={modalTask}
-              onClose={() => setModalTask(null)}
-              onUpdate={handleTaskUpdate}
-              availableLabels={projectLabels}
-            />
-          )}
+          
           {showLabelManager && (
             <ManagerModal
               groups={projectData.map(g => g.name)}
