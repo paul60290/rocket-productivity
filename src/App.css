@@ -431,18 +431,20 @@
 
 
 
-        .header {
-          padding: 20px;
-          border-bottom: 1px solid #e9ecef;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
+.header {
+  padding: 20px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px; /* Add some space between items */
+}
 
-        .header h1 {
-          margin: 0;
-          text-transform: capitalize;
-        }
+.header h1 {
+  margin: 0;
+  text-transform: capitalize;
+  flex-grow: 1; /* Allows the title to take up available space */
+}
 
         .calendar-toggle {
           padding: 8px 16px;
@@ -475,13 +477,24 @@
           transition: transform 0.3s ease;
         }
 
-        .board {
-          display: flex;
-          gap: 20px;
-          padding: 20px;
-          height: calc(100vh - 100px);
-          overflow-x: auto;
-        }
+.board {
+  display: flex;
+  flex-direction: row; /* Always keep columns in a row */
+  gap: 20px;
+  padding: 20px;
+  overflow-x: auto;   /* Always allow horizontal scrolling */
+  height: calc(100vh - 70px); /* Ensure it takes up the available height */
+
+  /* For a smoother swipe/scroll experience on touch devices */
+  -webkit-overflow-scrolling: touch;
+  
+  /* Hides the scrollbar for a cleaner look but keeps it functional */
+  scrollbar-width: none; /* For Firefox */
+}
+
+.board::-webkit-scrollbar {
+  display: none; /* For Chrome, Safari, and Opera */
+}
 
         .column {
           flex: 0 0 280px;
@@ -706,10 +719,18 @@
         }
 
         .today-columns {
-          display: flex;
-          gap: 20px;
-          overflow-x: auto;
-        }
+  display: flex;
+  flex-direction: column; /* Stack columns vertically on mobile */
+  gap: 20px;
+  padding: 0 20px; /* Add some horizontal padding */
+}
+
+@media (min-width: 768px) {
+  .today-columns {
+    flex-direction: row; /* Horizontal for tablets and larger */
+    overflow-x: auto;
+  }
+}
 
         .inbox-view {
           padding: 20px;
@@ -1301,11 +1322,14 @@
 .settings-page-header h1 {
   margin: 0;
 }
+
 /* === Collapsible Sidebar Header Styles === */
+
 .sidebar-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 30px; /* Add some space below the header */
 }
 
 .sidebar-logo {
@@ -1405,8 +1429,16 @@
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  /* Default to a single column for mobile */
+  grid-template-columns: 1fr;
   gap: 20px;
+}
+
+/* For tablets and larger, switch to the multi-column grid */
+@media (min-width: 768px) {
+  .project-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
 }
 
 .project-card {
@@ -1505,4 +1537,113 @@
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
+}
+
+/* === Mobile Responsiveness === */
+
+.mobile-menu-toggle {
+  display: none; /* Hidden on desktop */
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #343a40;
+  padding: 0;
+  margin-right: 15px;
+}
+
+@media (max-width: 767px) {
+  .app {
+    overflow-x: hidden; /* Prevents horizontal scrollbar during animation */
+  }
+
+  .mobile-menu-toggle {
+    display: block; /* Shown on mobile */
+  }
+
+  .sidebar {
+    position: fixed;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    z-index: 1000; /* z-index is still useful */
+    background-color: #fff;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  
+  .main-content,
+  .main-content.collapsed {
+    margin-left: 0;
+    width: 100%;
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .main-content.mobile-menu-is-open {
+    transform: translateX(250px); /* Slides the content right by the width of the sidebar */
+  }
+
+  /* Hide the desktop sidebar toggle on mobile */
+  .sidebar-toggle-btn {
+    display: none;
+  }
+}
+
+.mobile-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1999; /* Lower than the sidebar's z-index */
+  display: none; /* Hidden by default */
+}
+
+@media (max-width: 767px) {
+  .sidebar.mobile-open ~ .main-content .mobile-menu-overlay {
+    display: block; /* Show the overlay when the menu is open */
+  }
+}
+
+/* === Responsive Goals Table === */
+
+@media (max-width: 767px) {
+  .goals-table thead {
+    /* Hide the original table headers on mobile */
+    border: none;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+  }
+
+  .goals-table tr {
+    border-bottom: 3px solid #ddd;
+    display: block;
+    margin-bottom: 1rem;
+  }
+
+  .goals-table td {
+    border-bottom: 1px dotted #ccc;
+    display: block;
+    font-size: .8em;
+    text-align: right; /* Align data to the right */
+  }
+
+  .goals-table td::before {
+    /* Use the table header text as a label */
+    content: attr(data-label);
+    float: left;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  .goals-table td:last-child {
+    border-bottom: 0;
+  }
 }

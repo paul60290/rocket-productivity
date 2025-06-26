@@ -372,13 +372,11 @@ const TaskItem = React.forwardRef(({ task, availableLabels, onComplete, onClick,
     e.preventDefault();
     if(onComplete) onComplete();
   };
-
-  // This handler is now for the whole card.
-  const handleCardDoubleClick = (e) => {
+  
+  const handleTextClick = (e) => {
     e.stopPropagation();
-    e.preventDefault();
     if(onClick) onClick();
-  };
+  }
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
@@ -386,8 +384,8 @@ const TaskItem = React.forwardRef(({ task, availableLabels, onComplete, onClick,
   };
 
   return (
-    // We apply the double-click handler here now.
-    <div ref={ref} {...props} onDoubleClick={handleCardDoubleClick} className={`task-card ${task.completed ? 'completed' : ''}`}>
+    // We now apply a single onClick handler to the entire card.
+    <div ref={ref} {...props} onClick={onClick} className={`task-card ${task.completed ? 'completed' : ''}`}>
       {/* This is the new drag handle. The listeners are applied ONLY here. */}
       <div className="drag-handle" {...listeners}>
         <svg viewBox="0 0 20 20" width="12"><path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z" fill="currentColor"></path></svg>
@@ -397,8 +395,9 @@ const TaskItem = React.forwardRef(({ task, availableLabels, onComplete, onClick,
         className="complete-btn"
         onMouseDown={handleRadioClick}
         onChange={() => {}}
+        onClick={(e) => e.stopPropagation()}
       />
-      <div className="task-content">
+      <div className="task-content" onClick={handleTextClick}>
         <span className="task-text">
           {task.text}
         </span>
@@ -880,6 +879,7 @@ function App() {
   const [currentProject, setCurrentProject] = useState(null);
   const [modalTask, setModalTask] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [showProjectEditModal, setShowProjectEditModal] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
@@ -1842,17 +1842,17 @@ const findTaskById = (taskId) => {
         <Auth onSignUp={handleSignUp} onLogin={handleLogin} />
       ) : (
         <>
-          <div className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
-<div className="sidebar-header">
-  <img src={logoUrl} alt="Rocket Productivity" className="sidebar-logo" />
-  <button
-    className="sidebar-toggle-btn"
-    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-    title="Toggle Sidebar"
-  >
-    «
-  </button>
-</div>
+<div className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
+  <div className="sidebar-header">
+    <img src={logoUrl} alt="Rocket Productivity" className="sidebar-logo" />
+    <button
+      className="sidebar-toggle-btn"
+      onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      title="Toggle Sidebar"
+    >
+      «
+    </button>
+  </div>
 
     <div className="nav-section">
   <button
@@ -1981,8 +1981,12 @@ const findTaskById = (taskId) => {
 </div>
       </div>
 
-          <div className={`main-content ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+<div className={`main-content ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-menu-is-open' : ''}`}>
+      {isMobileMenuOpen && <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
             <div className="header">
+ <button className="mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+    {isMobileMenuOpen ? '✕' : '☰'}
+  </button>
   <h1>
     {currentView === 'board' && currentProject
       ? currentProject

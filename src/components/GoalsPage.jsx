@@ -27,19 +27,19 @@ function SortableRow({ goal, expandedGoal, setExpandedGoal, toggleMilestone, del
 
   return (
     <tr ref={setNodeRef} style={style}>
-      <td {...attributes} {...listeners} className="drag-handle" style={{ cursor: 'grab', textAlign: 'center' }}>
+      <td data-label="Drag" {...attributes} {...listeners} className="drag-handle" style={{ cursor: 'grab', textAlign: 'center' }}>
         ⠿
       </td>
-      <td>{goal.title}</td>
-      <td>{goal.type}</td>
-      <td>{goal.deadline}</td>
-      <td>
+      <td data-label="Goal">{goal.title}</td>
+      <td data-label="Type">{goal.type}</td>
+      <td data-label="Deadline">{goal.deadline}</td>
+      <td data-label="Progress">
         <div className="progress-bar">
           <div className="progress" style={{ width: `${goal.progress}%` }} />
         </div>
         {goal.progress}%
       </td>
-      <td onClick={() => setExpandedGoal(expandedGoal === goal.id ? null : goal.id)} style={{ cursor: 'pointer' }}>
+      <td data-label="Milestones" onClick={() => setExpandedGoal(expandedGoal === goal.id ? null : goal.id)} style={{ cursor: 'pointer' }}>
         {expandedGoal === goal.id ? (
           <ul style={{ margin: 0, paddingLeft: '1.2em' }}>
             {goal.milestones.map((m, i) => (
@@ -64,8 +64,8 @@ function SortableRow({ goal, expandedGoal, setExpandedGoal, toggleMilestone, del
           '—'
         )}
       </td>
-      <td>{goal.status}</td>
-       <td>
+      <td data-label="Status">{goal.status}</td>
+       <td data-label="Delete">
         <button className="delete-goal-btn" onClick={() => deleteGoal(goal.id)}>🗑️</button>
       </td>
     </tr>
