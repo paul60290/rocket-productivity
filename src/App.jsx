@@ -10,9 +10,20 @@ const GoalsPage = lazy(() => import('./components/GoalsPage'));
 const CalendarPanel = lazy(() => import('./components/CalendarPanel'));
 const TaskDetailPanel = lazy(() => import('./components/TaskDetailPanel'));
 const SettingsPage = lazy(() => import('./components/SettingsPage'));
+const ProjectsPage = lazy(() => import('./components/ProjectsPage'));
 import Auth from './Auth';
 import NewProjectModal from './components/NewProjectModal';
 import SortableProjectItem from './components/SortableProjectItem';
+import logoUrl from './assets/logo.svg';
+import goalsIconUrl from './assets/goals-icon.svg';
+import todayIconUrl from './assets/today-icon.svg';
+import inboxIconUrl from './assets/inbox-icon.svg';
+import tomorrowIconUrl from './assets/tomorrow-icon.svg';
+import thisWeekIconUrl from './assets/this-week-icon.svg';
+import nextWeekIconUrl from './assets/next-week-icon.svg';
+import projectsIconUrl from './assets/projects-icon.svg';
+import settingsIconUrl from './assets/settings-icon.svg';
+import logoutIconUrl from './assets/logout-icon.svg';
 import { auth, db } from './firebase';
 import {
   // Authentication
@@ -873,6 +884,7 @@ function App() {
   const [showProjectEditModal, setShowProjectEditModal] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
   // State for Data - Initialized as empty. Will be filled from Firestore.
   const [projectData, setProjectData] = useState([]);
@@ -1635,6 +1647,19 @@ const findTaskById = (taskId) => {
     return <div style={{ padding: 20 }}><h2>Loading...</h2></div>;
   }
    switch (currentView) {
+  case 'projects':
+  return (
+    <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Projects...</h2></div>}>
+      <ProjectsPage 
+        projectData={projectData}
+        onSelectProject={(groupName, projectName) => {
+  setCurrentGroup(groupName);
+  setCurrentProject(projectName);
+  setCurrentView('board'); // <-- ADD THIS LINE
+}}
+      />
+    </Suspense>
+  );
   case 'settings':
     return (
       <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Settings...</h2></div>}>
@@ -1802,7 +1827,7 @@ const findTaskById = (taskId) => {
   };
 
   return (
-    <div className="app">
+    <div className={`app ${isSidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
       {modalTask && (
   <Suspense fallback={<div>Loading...</div>}>
     <TaskDetailPanel
@@ -1817,51 +1842,77 @@ const findTaskById = (taskId) => {
         <Auth onSignUp={handleSignUp} onLogin={handleLogin} />
       ) : (
         <>
-          <div className="sidebar">
-            <h2>🚀 Rocket Productivity</h2>
-
-            <div className="nav-section">
-  <h3>Views</h3>
-    <button
-    className={currentView === 'goals' ? 'active' : ''}
-    onClick={() => setCurrentView('goals')}
-  >
-    Goals
-  </button>
-  <button 
-    className={currentView === 'today' ? 'active' : ''}
-    onClick={() => setCurrentView('today')}
-  >
-    Today
-  </button>
-  <button 
-    className={currentView === 'inbox' ? 'active' : ''}
-    onClick={() => setCurrentView('inbox')}
-  >
-    Inbox
-  </button>
+          <div className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+<div className="sidebar-header">
+  <img src={logoUrl} alt="Rocket Productivity" className="sidebar-logo" />
   <button
-    className={currentView === 'tomorrow' ? 'active' : ''}
-    onClick={() => setCurrentView('tomorrow')}
+    className="sidebar-toggle-btn"
+    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+    title="Toggle Sidebar"
   >
-    Tomorrow
-  </button>
-  <button
-    className={currentView === 'thisWeek' ? 'active' : ''}
-    onClick={() => setCurrentView('thisWeek')}
-  >
-    This Week
-  </button>
-  <button
-    className={currentView === 'nextWeek' ? 'active' : ''}
-    onClick={() => setCurrentView('nextWeek')}
-  >
-    Next Week
+    «
   </button>
 </div>
 
-            <div className="nav-header">
-  <h3>Projects</h3>
+    <div className="nav-section">
+  <button
+    title="Goals"
+    className={`nav-btn ${currentView === 'goals' ? 'active' : ''}`}
+    onClick={() => setCurrentView('goals')}
+  >
+    <img src={goalsIconUrl} className="nav-icon" alt="Goals" />
+    <span className="nav-btn-text">Goals</span>
+  </button>
+  <button
+    title="Today" 
+    className={`nav-btn ${currentView === 'today' ? 'active' : ''}`}
+    onClick={() => setCurrentView('today')}
+  >
+    <img src={todayIconUrl} className="nav-icon" alt="Today" />
+    <span className="nav-btn-text">Today</span>
+  </button>
+  <button
+    title="Inbox" 
+    className={`nav-btn ${currentView === 'inbox' ? 'active' : ''}`}
+    onClick={() => setCurrentView('inbox')}
+  >
+    <img src={inboxIconUrl} className="nav-icon" alt="Inbox" />
+    <span className="nav-btn-text">Inbox</span>
+  </button>
+  <button
+    title="Tomorrow"
+    className={`nav-btn ${currentView === 'tomorrow' ? 'active' : ''}`}
+    onClick={() => setCurrentView('tomorrow')}
+  >
+    <img src={tomorrowIconUrl} className="nav-icon" alt="Tomorrow" />
+    <span className="nav-btn-text">Tomorrow</span>
+  </button>
+  <button
+    title="This Week"
+    className={`nav-btn ${currentView === 'thisWeek' ? 'active' : ''}`}
+    onClick={() => setCurrentView('thisWeek')}
+  >
+    <img src={thisWeekIconUrl} className="nav-icon" alt="This Week" />
+    <span className="nav-btn-text">This Week</span>
+  </button>
+  <button
+    title="Next Week"
+    className={`nav-btn ${currentView === 'nextWeek' ? 'active' : ''}`}
+    onClick={() => setCurrentView('nextWeek')}
+  >
+    <img src={nextWeekIconUrl} className="nav-icon" alt="Next Week" />
+    <span className="nav-btn-text">Next Week</span>
+  </button>
+</div>
+
+  <div 
+  className={`nav-header project-nav-header ${currentView === 'projects' ? 'active' : ''}`}
+  onClick={() => setCurrentView('projects')}
+>
+  <div className="nav-header-title">
+    <img src={projectsIconUrl} className="nav-icon" alt="Projects" />
+    <h3>Projects</h3>
+  </div>
   <div className="nav-buttons">
     <button 
       className="manage-btn"
@@ -1872,84 +1923,96 @@ const findTaskById = (taskId) => {
     </button>
   </div>
 </div>
-              <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
-                {projectData.map((group) => (
-                  <div key={group.name} style={{ marginBottom: '1rem' }}>
-                    <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', color: '#666' }}>{group.name}</h4>
-                    <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                      {group.projects.map(project => (
-                        <SortableProjectItem
-  key={project.id}
-  id={project.id}
->
-  <div
-    className={`project-button ${currentView === 'projects' && currentProject === project.name && currentGroup === group.name ? 'active' : ''}`}
-    onClick={() => {
-      setCurrentView('projects');
-      setCurrentGroup(group.name);
-      setCurrentProject(project.name);
-    }}
-  >
-    <span className="project-entry">
-      {project.name}
-      <span 
-        className="edit-project-btn"
-        title="Edit Project"
-        onClick={(e) => {
-          e.stopPropagation();
-          setProjectToEdit({ oldGroup: group.name, oldName: project.name });
-          setShowProjectEditModal(true);
-        }}
-      >
-        ✏️
-      </span>
-    </span>
-  </div>
-</SortableProjectItem>
-                      ))}
-                    </SortableContext>
-                  </div>
-            ))}
-          </DndContext>
-          <div className="logout-section">
+
+<div className="sidebar-project-list">
+  <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
+    {projectData.map((group) => (
+      <div key={group.name} style={{ marginBottom: '1rem' }}>
+        <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', color: '#666' }}>{group.name}</h4>
+        <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+          {group.projects.map(project => (
+            <SortableProjectItem
+              key={project.id}
+              id={project.id}
+            >
+              <div
+                className={`project-button ${currentView === 'board' && currentProject === project.name && currentGroup === group.name ? 'active' : ''}`}
+                onClick={() => {
+                  setCurrentView('board'); // Change the view to show the board
+                  setCurrentGroup(group.name);
+                  setCurrentProject(project.name);
+                }}
+              >
+                <span className="project-entry">
+                  {project.name}
+                  <span 
+                    className="edit-project-btn"
+                    title="Edit Project"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProjectToEdit({ oldGroup: group.name, oldName: project.name });
+                      setShowProjectEditModal(true);
+                    }}
+                  >
+                    ✏️
+                  </span>
+                </span>
+              </div>
+            </SortableProjectItem>
+          ))}
+        </SortableContext>
+      </div>
+    ))}
+  </DndContext>
+</div>
+<div className="logout-section">
   <button
+    title="Settings"
     onClick={() => setCurrentView('settings')}
-    className={`sidebar-utility-btn ${currentView === 'settings' ? 'active' : ''}`}
+    className={`nav-btn ${currentView === 'settings' ? 'active' : ''}`}
   >
-    Settings
+    <img src={settingsIconUrl} className="nav-icon" alt="Settings" />
+    <span className="nav-btn-text">Settings</span>
   </button>
-  <p>Logged in as: <strong>{user.email}</strong></p>
-  <button onClick={handleLogout} className="logout-btn">Logout</button>
+  <button title="Logout" onClick={handleLogout} className="nav-btn logout-btn-override">
+    <img src={logoutIconUrl} className="nav-icon" alt="Logout" />
+    <span className="nav-btn-text">Logout</span>
+  </button>
 </div>
       </div>
 
-          <div className="main-content">
+          <div className={`main-content ${isSidebarCollapsed ? 'collapsed' : ''}`}>
             <div className="header">
-              <h1>
-                  {currentView === 'projects'
-                    ? currentProject
-                    : currentView === 'today'
-                    ? 'Today'
-                    : currentView}
-              </h1>
-              {!timerIsRunning && timerTime === timerInputTime * 60 ? (
-                <button className="timer-toggle" onClick={() => setShowTimerModal(true)}>
-                  ⏰ Timer
-                </button>
-              ) : (
-                <div className="mini-timer">
-                  <span>{formatTime(timerTime)}</span>
-                  <button className="mini-timer-btn" onClick={() => setShowTimerModal(true)}>⚙️</button>
-                  <button className="mini-timer-btn" onClick={handleCancelTimer}>❌</button>
-                </div>
-              )}
-              <button 
-                className="calendar-toggle"
-                onClick={() => setShowCalendar(!showCalendar)}
-              >
-                📅 Calendar
-              </button>
-            </div>
+  <h1>
+    {currentView === 'board' && currentProject
+      ? currentProject
+      : currentView === 'projects'
+      ? 'Projects'
+      : currentView === 'today'
+      ? 'Today'
+      : currentView
+    }
+  </h1>
+  <div className="header-actions">
+    {!timerIsRunning && timerTime === timerInputTime * 60 ? (
+      <button className="timer-toggle" onClick={() => setShowTimerModal(true)}>
+        ⏰ Timer
+      </button>
+    ) : (
+      <div className="mini-timer">
+        <span>{formatTime(timerTime)}</span>
+        <button className="mini-timer-btn" onClick={() => setShowTimerModal(true)}>⚙️</button>
+        <button className="mini-timer-btn" onClick={handleCancelTimer}>❌</button>
+      </div>
+    )}
+    <button 
+      className="calendar-toggle"
+      onClick={() => setShowCalendar(!showCalendar)}
+    >
+      📅 Calendar
+    </button>
+  </div>
+</div>
             
             <div className={`content-wrapper ${showCalendar ? 'with-calendar' : ''}`}>
               <div className="content">

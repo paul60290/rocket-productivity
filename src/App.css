@@ -236,17 +236,18 @@
         }
 
         .sidebar {
-  		box-sizing: border-box;  /* ← add this */
-  		position: fixed;
-  		top: 0;
-  		left: 0;
-  		bottom: 0;
-  		z-index: 10;
-  		width: 250px;
-  		padding: 20px;
-  		border-right: 1px solid #e9ecef;
-  		overflow-y: auto;
-	}
+  box-sizing: border-box;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 10;
+  width: 250px;
+  padding: 20px;
+  border-right: 1px solid #e9ecef;
+  overflow-y: auto;
+  transition: width 0.2s ease-in-out; /* <-- ADD THIS LINE */
+}
 
 
 
@@ -383,35 +384,50 @@
           cursor: pointer;
         }
 
-        .sidebar button {
-          display: block;
-          width: 100%;
-          padding: 10px 15px;
-          margin-bottom: 5px;
-          background: none;
-          border: none;
-          text-align: left;
-          border-radius: 6px;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
+/* === Main Sidebar Navigation Button Styles === */
+.nav-btn {
+  display: flex;         /* Lays out items in a row */
+  align-items: center;   /* Vertically centers them */
+  gap: 12px;             /* Adds space between icon and text */
+  width: 100%;
+  padding: 10px 15px;
+  margin-bottom: 5px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  font-size: 0.95rem;
+  color: #343a40; /* Default text color */
+}
 
-        .sidebar button:hover {
-          background: #e9ecef;
-        }
+.nav-btn:hover {
+  background: #e9ecef;
+}
 
-        .sidebar button.active {
-          background: #007bff;
-          color: white;
-        }
+.nav-btn.active {
+  background: #007bff;
+  color: white;
+}
+
+/* This makes the icon white when the button is active */
+.nav-btn.active .nav-icon {
+  filter: brightness(0) invert(1);
+}
+
+/* We need a new class for the text spans */
+.nav-btn-text {
+  line-height: 1;
+}
 
         .main-content {
-  		margin-left: 250px; /* same as sidebar width */
-  		display: flex;
-  		flex-direction: column;
-  		height: 100vh;
-  		width: calc(100% - 250px);
-	}
+  margin-left: 250px; /* same as sidebar width */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: calc(100% - 250px);
+  transition: all 0.2s ease-in-out; /* <-- ADD THIS LINE */
+}
 
 
 
@@ -1165,17 +1181,17 @@
 
 .sidebar-utility-btn {
   display: block;
-  width: 100%;
-  padding: 6px 15px; /* Less vertical padding */
-  margin-bottom: 10px; /* Space it out from the text below */
+  width: auto; /* <-- CHANGE THIS */
+  padding: 6px; /* <-- ADJUST PADDING FOR AN ICON */
+  margin-bottom: 10px; 
   background: none;
   border: none;
   text-align: left;
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s;
-  font-size: 0.9rem; /* Smaller font size */
-  color: #6c757d; /* A more subtle color */
+  font-size: 0.9rem; 
+  color: #6c757d;
 }
 
 .sidebar-utility-btn:hover {
@@ -1193,16 +1209,19 @@
   margin-top: auto; /* Pushes to the bottom */
   padding-top: 20px;
   border-top: 1px solid #e9ecef;
-  font-size: 0.9rem;
-  color: #6c757d;
+  display: flex; /* <-- ADD THIS */
+  justify-content: center; /* <-- ADD THIS */
+  align-items: center; /* <-- ADD THIS */
+  gap: 10px; /* <-- ADD THIS for spacing */
 }
 
 .logout-btn {
-  background: #f8f9fa !important; /* Override other button styles */
+  background: #f8f9fa !important;
   color: #dc3545 !important;
   font-weight: bold;
-  width: 100%;
-  text-align: center !important;
+  width: auto; /* <-- CHANGE THIS */
+  padding: 6px; /* <-- ADD PADDING FOR AN ICON */
+  border-radius: 6px; /* <-- ADD FOR CONSISTENCY */
 }
 
 .logout-btn:hover {
@@ -1281,4 +1300,209 @@
 
 .settings-page-header h1 {
   margin: 0;
+}
+/* === Collapsible Sidebar Header Styles === */
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-logo {
+  height: 32px; /* You can adjust this value to fit your logo's design */
+  transition: all 0.2s ease-in-out;
+}
+
+/* Remove bottom margin from the h2 since the parent now controls spacing */
+.sidebar-header h2 {
+  margin-bottom: 0;
+}
+
+.sidebar-toggle-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: #6c757d;
+  line-height: 1; /* Helps with vertical alignment */
+}
+
+.sidebar-toggle-btn:hover {
+  background-color: #e9ecef;
+}
+/* === Collapsed Sidebar Styles === */
+.sidebar.collapsed {
+  width: 80px;
+}
+.main-content.collapsed {
+  margin-left: 80px; /* Match the new sidebar width */
+  width: calc(100% - 80px);
+}
+
+.sidebar.collapsed .sidebar-logo {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-toggle-btn {
+  transform: rotate(180deg);
+}
+/* --- Styles for Hiding Text in Collapsed Sidebar --- */
+
+/* Hide the 'Views' and 'Projects' headers */
+.sidebar.collapsed .nav-header h3,
+.sidebar.collapsed .nav-section h3 {
+  display: none;
+}
+
+/* A trick to hide the project name text, but keep the edit icon */
+.sidebar.collapsed .project-entry {
+  font-size: 0; /* Hide text by making font size zero */
+}
+.sidebar.collapsed .project-entry .edit-project-btn {
+  font-size: 0.9rem; /* Restore the font size ONLY for the icon */
+}
+
+/* Hide the user email paragraph */
+.sidebar.collapsed .logout-section p {
+  display: none;
+}
+
+/* Center align the utility buttons */
+.sidebar.collapsed .sidebar-utility-btn,
+.sidebar.collapsed .logout-btn {
+  text-align: center;
+}
+
+.nav-icon {
+  width: 24px;
+  height: 24px;
+  display: block; /* Helps with alignment inside the button */
+}
+
+.sidebar.collapsed .sidebar-project-list {
+  display: none;
+}
+
+/* === Projects Page Styles === */
+.projects-page-container {
+  padding: 20px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.project-group-section {
+  margin-bottom: 40px;
+}
+
+.project-group-title {
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+  color: #343a40;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.project-card {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.project-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  border-color: #007bff;
+}
+
+/* === Project Navigation Header Styles === */
+.project-nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  margin: 0 -10px 10px -10px; /* Use negative margin to make the clickable area bigger */
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.project-nav-header:hover {
+  background-color: #e9ecef;
+}
+
+/* Styles for when the projects page is active */
+.project-nav-header.active {
+  background: #007bff;
+}
+
+.project-nav-header.active h3 {
+  color: white;
+}
+
+.project-nav-header.active .nav-icon {
+  /* This filter turns a black SVG icon white */
+  filter: brightness(0) invert(1);
+}
+
+.project-nav-header.active .manage-btn {
+    color: white;
+    opacity: 0.8;
+}
+ .project-nav-header.active .manage-btn:hover {
+    opacity: 1;
+    background-color: rgba(255,255,255,0.2);
+}
+
+/* Container for the icon and H3 title */
+.nav-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* --- Conditional Visibility Logic --- */
+
+/* HIDE THE ICON when the sidebar is EXPANDED */
+.sidebar:not(.collapsed) .project-nav-header .nav-icon {
+  display: none;
+}
+
+/* HIDE THE TEXT and ADD button when the sidebar is COLLAPSED */
+.sidebar.collapsed .project-nav-header h3,
+.sidebar.collapsed .project-nav-header .nav-buttons {
+  display: none;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* === Final Styles for Collapsed Sidebar View === */
+
+/* This is the key rule: It finds all our text labels and hides them,
+   but ONLY when the main app container has the .sidebar-is-collapsed class. */
+.app.sidebar-is-collapsed .nav-btn-text {
+  display: none;
+}
+
+/* These are small polishing rules to make the centered icons look better */
+.app.sidebar-is-collapsed .nav-btn,
+.app.sidebar-is-collapsed .project-nav-header {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
 }
