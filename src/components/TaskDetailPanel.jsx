@@ -1,9 +1,10 @@
 // src/components/TaskDetailPanel.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DndContext, closestCenter, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { collection, getDocs } from "firebase/firestore";
 
 const generateUniqueId = () => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -24,7 +25,7 @@ function SortableSubtask({ subtask, onToggle, onDelete }) {
     );
 }
 
-export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabels }) {
+export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabels, user, db }) {
   const [editedTask, setEditedTask] = useState({
     ...task,
     text: task?.text || '',
@@ -37,6 +38,22 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
   });
   const [newComment, setNewComment] = useState('');
   const [newSubtaskText, setNewSubtaskText] = useState('');
+  const [projectTags, setProjectTags] = useState([]);
+
+  useEffect(() => {
+    // Fetch project-specific tags when the task changes and has a projectId
+    if (task?.projectId && user) {
+      const fetchProjectTags = async () => {
+        const tagsCollectionRef = collection(db, 'users', user.uid, 'projects', task.projectId, 'tags');
+        const tagsSnapshot = await getDocs(tagsCollectionRef);
+        const fetchedTags = tagsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setProjectTags(fetchedTags);
+      };
+      fetchProjectTags();
+    } else {
+      setProjectTags([]);
+    }
+  }, [task, user, db]);
 
   const priorityColors = { 1: '#ff4444', 2: '#ff8800', 3: '#ffdd00', 4: '#88cc88' };
 
@@ -88,6 +105,7 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
       date: editedTask.date,
       priority: editedTask.priority,
       label: editedTask.label,
+      tag: editedTask.tag,
       comments: editedTask.comments,
       subtasks: editedTask.subtasks,
     };
@@ -102,7 +120,6 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
       <div className="modal-body">
-        {/* All the form JSX from the original component goes here */}
         <div className="form-group">
             <label>Task Title</label>
             <input type="text" value={editedTask.text} onChange={(e) => handleFieldChange('text', e.target.value)} />
@@ -141,10 +158,19 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
             </div>
         </div>
         <div className="form-group">
-            <label>Add Tag</label>
+            <label>Add Label</label>
             <select value={editedTask.label} onChange={(e) => handleFieldChange('label', e.target.value)}>
-                <option value="">Select Tag</option>
+                <option value="">Select Label</option>
                 {availableLabels.map(({ name, emoji }) => (<option key={name} value={name}>{emoji ? `${emoji} ` : ''}{name}</option>))}
+            </select>
+        </div>
+        <div className="form-group">
+            <label>Add Tag</label>
+            <select value={editedTask.tag || ''} onChange={(e) => handleFieldChange('tag', e.target.value)}>
+                <option value="">Select Tag</option>
+                {projectTags.map((tag) => (
+                    <option key={tag.id} value={tag.name}>{tag.name}</option>
+                ))}
             </select>
         </div>
          <div className="form-group">

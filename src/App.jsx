@@ -13,6 +13,7 @@ const SettingsPage = lazy(() => import('./components/SettingsPage'));
 const ProjectsPage = lazy(() => import('./components/ProjectsPage'));
 import Auth from './Auth';
 import NewProjectModal from './components/NewProjectModal';
+import ProjectDetailPanel from './components/ProjectDetailPanel';
 import SortableProjectItem from './components/SortableProjectItem';
 import logoUrl from './assets/logo.svg';
 import goalsIconUrl from './assets/goals-icon.svg';
@@ -252,7 +253,7 @@ function EditableTitle({ title, onUpdate, className = "" }) {
     </span>
   );
 }
-function Column({ title, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels }) {
+function Column({ title, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels, projectTags = [] }) {
 
   const [adding, setAdding] = useState(false);
   const [newTask, setNewTask] = useState('');
@@ -275,6 +276,7 @@ const sortedTasks = Array.isArray(tasks)
       date: '',
       priority: 4,
       label: '',
+      tag: '',
       description: '',
       comments: [],
       subtasks: []
@@ -334,6 +336,7 @@ const sortedTasks = Array.isArray(tasks)
       onComplete={() => onUpdateTask(title, task.id, null)}
       onClick={() => onOpenTask(task)}
       availableLabels={availableLabels}
+      projectTags={projectTags}
     />
   ))}
 </SortableContext>
@@ -364,7 +367,7 @@ const sortedTasks = Array.isArray(tasks)
 // === SECTION: Task Item Components ===
 
 // 1. Presentational Component (The Visuals)
-const TaskItem = React.forwardRef(({ task, availableLabels, onComplete, onClick, listeners, ...props }, ref) => {
+const TaskItem = React.forwardRef(({ task, availableLabels, projectTags, onComplete, onClick, listeners, ...props }, ref) => {
   const priorityColors = { 1: '#ff4444', 2: '#ff8800', 3: '#ffdd00', 4: '#88cc88' };
 
   const handleRadioClick = (e) => {
@@ -372,7 +375,7 @@ const TaskItem = React.forwardRef(({ task, availableLabels, onComplete, onClick,
     e.preventDefault();
     if(onComplete) onComplete();
   };
-  
+
   const handleTextClick = (e) => {
     e.stopPropagation();
     if(onClick) onClick();
@@ -395,6 +398,7 @@ const TaskItem = React.forwardRef(({ task, availableLabels, onComplete, onClick,
       <input
         type="radio"
         className="complete-btn"
+        checked={task.completed}
         onMouseDown={handleRadioClick}
         onChange={() => {}}
         onClick={(e) => e.stopPropagation()}
@@ -403,17 +407,30 @@ const TaskItem = React.forwardRef(({ task, availableLabels, onComplete, onClick,
         <span className="task-text">
           {task.text}
         </span>
-        {(task.date || task.label) && (
+        {(task.date || task.label || task.tag || task.comments?.length > 0) && (
           <div className="task-meta">
             {task.date && <span className="task-date">{formatDate(task.date)}</span>}
+
+            {/* Renders the Global Label */}
             {task.label && (() => {
-              const label = availableLabels?.find(l => l.name === task.label);
-              return label ? (
-                <span className="task-label" style={{ backgroundColor: label.color || '#007bff' }}>
-                  {label.emoji ? `${label.emoji} ` : ''}{label.name}
+              const labelInfo = availableLabels?.find(l => l.name === task.label);
+              return labelInfo ? (
+                <span className="task-label" style={{ backgroundColor: labelInfo.color || '#007bff' }}>
+                  {labelInfo.emoji ? `${labelInfo.emoji} ` : ''}{labelInfo.name}
                 </span>
               ) : null;
             })()}
+
+            {/* Renders the Project Tag */}
+            {task.tag && (() => {
+              const tagInfo = projectTags?.find(t => t.name === task.tag);
+              return tagInfo ? (
+                <span className="task-label" style={{ backgroundColor: tagInfo.color || '#888888' }}>
+                  {tagInfo.name}
+                </span>
+              ) : null;
+            })()}
+
             {task.comments?.length > 0 && (
               <span className="task-comment-count">💬 {task.comments.length}</span>
             )}
@@ -426,7 +443,7 @@ const TaskItem = React.forwardRef(({ task, availableLabels, onComplete, onClick,
 
 
 // 2. Sortable Logic Component (The DnD Logic)
-function SortableTask({ task, onComplete, onClick, availableLabels }) {
+function SortableTask({ task, onComplete, onClick, availableLabels, projectTags }) {
   const {
     attributes,
     listeners,
@@ -451,6 +468,7 @@ function SortableTask({ task, onComplete, onClick, availableLabels }) {
       style={style}
       task={task}
       availableLabels={availableLabels}
+      projectTags={projectTags}
       onComplete={onComplete}
       onClick={onClick}
       listeners={listeners} // Pass listeners as a separate prop
@@ -828,50 +846,6 @@ function TimerModal({
     </div>
   );
 }
-function EditProjectModal({ projectData, current, onClose, onSave }) {
-  const [newName, setNewName] = useState(current.oldName);
-  const [newGroup, setNewGroup] = useState(current.oldGroup);
-
-  const groupOptions = projectData.map(g => g.name);
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <h3>Edit Project</h3>
-
-        <div className="form-group">
-          <label>Project Name</label>
-          <input 
-            type="text" 
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-          />
-        </div>
-
-        <div className="form-group">
-  <label>Project Group</label>
-  <select value={newGroup} onChange={e => setNewGroup(e.target.value)}>
-  {groupOptions.map(group => (
-    <option key={group} value={group}>{group}</option>
-  ))}
-</select>
-
-</div>
-
-
-        <div className="modal-footer">
-          <button onClick={onClose}>Cancel</button>
-          <button 
-            onClick={() => onSave({ oldGroup: current.oldGroup, oldName: current.oldName, newGroup, newName })}
-            className="save-btn"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // === SECTION: Main App Component ===
 function App() {
@@ -883,7 +857,7 @@ function App() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  const [showProjectEditModal, setShowProjectEditModal] = useState(false);
+  const [showProjectDetailPanel, setShowProjectDetailPanel] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -894,6 +868,7 @@ function App() {
   const [projectLabels, setProjectLabels] = useState([]);
   const [inboxTasks, setInboxTasks] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
+  const [currentProjectTags, setCurrentProjectTags] = useState([]);
   
   
   // State for App Logic
@@ -916,6 +891,20 @@ function App() {
     }
     return projectData.find(g => g.name === currentGroup)?.projects.find(p => p.name === currentProject);
   }, [projectData, currentGroup, currentProject]);
+  useEffect(() => {
+  if (currentProjectData && user) {
+    const fetchTags = async () => {
+      const tagsCollectionRef = collection(db, 'users', user.uid, 'projects', currentProjectData.id, 'tags');
+      const tagsSnapshot = await getDocs(tagsCollectionRef);
+      const fetchedTags = tagsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCurrentProjectTags(fetchedTags);
+    };
+    fetchTags();
+  } else {
+    // Clear tags if no project is selected
+    setCurrentProjectTags([]); 
+  }
+}, [currentProjectData, user, db]); // Reruns when the active project changes
 // --- Timer Logic & Effect ---
   const timerIntervalRef = useRef(null);
 const sensors = useSensors(useSensor(PointerSensor, {
@@ -1244,76 +1233,65 @@ const sensors = useSensors(useSensor(PointerSensor, {
       alert("Failed to create project. Please try again.");
     }
   };
-  const handleSaveProjectEdit = async ({ oldGroup, oldName, newGroup, newName }) => {
-    if (!newName.trim() || !user) return;
+  const handleSaveProjectEdit = async (projectToUpdate, updatedData) => {
+  if (!user || !projectToUpdate) return;
 
-    let projectToMove;
-  
-    // Find the project and its ID from the current state
-    const oldGroupData = projectData.find(g => g.name === oldGroup);
-    if (oldGroupData) {
-      projectToMove = oldGroupData.projects.find(p => p.name === oldName);
-    }
-  
-    if (!projectToMove || !projectToMove.id) {
-      console.error("Could not find project to update in local state.");
-      return;
-    }
-  
-    const projectId = projectToMove.id;
-    const trimmedNewName = newName.trim();
-  
-    const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
-  
-    try {
-      // Update the document in Firestore
-      await updateDoc(projectRef, {
-        name: trimmedNewName,
-        group: newGroup
-      });
-  
-      // Optimistically update the local state array
-      setProjectData(prevData => {
+  // Merge the original project data with the updated fields from the panel
+  const finalProjectData = { ...projectToUpdate, ...updatedData };
+  const { id: projectId, name: newName } = finalProjectData;
+  const { group: oldGroup, name: oldName } = projectToUpdate;
+
+  if (!newName || !newName.trim()) {
+    console.error("Project name cannot be empty.");
+    // Optionally, reset the edit state to the original name
+    // For now, we just prevent the save.
+    return; 
+  }
+
+  const trimmedNewName = newName.trim();
+
+  // Prevent saving if the name hasn't changed
+  if (trimmedNewName === oldName) {
+    return;
+  }
+
+  const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+
+  try {
+    // Only save the name field for now
+    await updateDoc(projectRef, {
+      name: trimmedNewName,
+    });
+
+    // Optimistically update the local state array
+    setProjectData(prevData => {
         const newData = JSON.parse(JSON.stringify(prevData));
-  
-        // 1. Find and remove the project from its old group
-        const oldGroupIndex = newData.findIndex(g => g.name === oldGroup);
-        if (oldGroupIndex > -1) {
-          newData[oldGroupIndex].projects = newData[oldGroupIndex].projects.filter(p => p.id !== projectId);
+        const groupIndex = newData.findIndex(g => g.name === oldGroup);
+
+        if (groupIndex > -1) {
+            const projectIndex = newData[groupIndex].projects.findIndex(p => p.id === projectId);
+            if (projectIndex > -1) {
+                // Update the name of the project in the array
+                newData[oldGroupIndex].projects[projectIndex].name = trimmedNewName;
+            }
         }
-  
-        // 2. Prepare the updated project object
-        const updatedProject = { ...projectToMove, name: trimmedNewName, group: newGroup };
-  
-        // 3. Find the new group and add the project to it
-        const newGroupIndex = newData.findIndex(g => g.name === newGroup);
-        if (newGroupIndex > -1) {
-          newData[newGroupIndex].projects.push(updatedProject);
-          // Sort projects in the new group by their original order
-          newData[newGroupIndex].projects.sort((a, b) => a.order - b.order);
-        } else {
-          // If the group doesn't exist, create it and add the project
-          newData.push({ name: newGroup, projects: [updatedProject] });
-        }
-  
-        // 4. Clean up any groups that may have become empty
-        return newData.filter(g => g.projects.length > 0);
-      });
-  
-      // If the currently viewed project was the one being edited, update the view
-      if (currentProject === oldName && currentGroup === oldGroup) {
-        setCurrentProject(trimmedNewName);
-        setCurrentGroup(newGroup);
-      }
-  
-    } catch (error) {
-      console.error("Error updating project:", error);
-      alert("Failed to update project.");
+        return newData;
+    });
+
+    // If the currently viewed project was the one being edited, update its title in the header
+    if (currentProject === oldName && currentGroup === oldGroup) {
+      setCurrentProject(trimmedNewName);
     }
-  
-    setShowProjectEditModal(false);
-    setProjectToEdit(null);
-  };
+
+    // Also update the project object in the 'projectToEdit' state
+    setProjectToEdit(prev => ({...prev, name: trimmedNewName }));
+
+  } catch (error) {
+    console.error("Error updating project:", error);
+    alert("Failed to update project.");
+    // Optional: Revert optimistic updates here if needed
+  }
+};
 
   const handleAddGroup = async (newGroupName) => {
     if (!user || !newGroupName) return;
@@ -1819,6 +1797,7 @@ const findTaskById = (taskId) => {
               onRenameColumn={(newName) => renameColumn(colName, newName)}
               onDeleteColumn={deleteColumn}
               availableLabels={projectLabels}
+              projectTags={currentProjectTags}
             />
           ))}
 
@@ -1880,11 +1859,13 @@ const findTaskById = (taskId) => {
       {modalTask && (
   <Suspense fallback={<div>Loading...</div>}>
     <TaskDetailPanel
-      task={modalTask}
-      onClose={() => setModalTask(null)}
-      onUpdate={handleTaskUpdate}
-      availableLabels={projectLabels}
-    />
+  task={modalTask}
+  onClose={() => setModalTask(null)}
+  onUpdate={handleTaskUpdate}
+  availableLabels={projectLabels}
+  user={user}
+  db={db}
+/>
   </Suspense>
 )}
       {!user ? (
@@ -1998,10 +1979,10 @@ const findTaskById = (taskId) => {
                     className="edit-project-btn"
                     title="Edit Project"
                     onClick={(e) => {
-                      e.stopPropagation();
-                      setProjectToEdit({ oldGroup: group.name, oldName: project.name });
-                      setShowProjectEditModal(true);
-                    }}
+  e.stopPropagation();
+  setProjectToEdit(project); // Store the whole project object
+  setShowProjectDetailPanel(true);
+}}
                   >
                     ✏️
                   </span>
@@ -2103,15 +2084,20 @@ const findTaskById = (taskId) => {
             </div>
           </div>
 
-          {showProjectEditModal && projectToEdit && (
-            <EditProjectModal
-              projectData={projectData}
-              current={projectToEdit}
-              onClose={() => setShowProjectEditModal(false)}
-              onSave={handleSaveProjectEdit}
-            />
-          )}
-          <NewProjectModal
+          {showProjectDetailPanel && projectToEdit && (
+        <Suspense fallback={<div>Loading...</div>}>
+          <ProjectDetailPanel
+        project={projectToEdit}
+        user={user}
+        db={db}
+        onClose={() => setShowProjectDetailPanel(false)}
+        onUpdate={(updatedData) => {
+          handleSaveProjectEdit(projectToEdit, updatedData)
+        }}
+      />
+        </Suspense>
+      )}
+      <NewProjectModal
         show={showNewProjectModal}
         onClose={() => setShowNewProjectModal(false)}
         onSave={handleCreateProject}
