@@ -888,6 +888,7 @@ function App() {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
+  
   // State for Data - Initialized as empty. Will be filled from Firestore.
   const [projectData, setProjectData] = useState([]);
   const [projectLabels, setProjectLabels] = useState([]);
@@ -899,6 +900,8 @@ function App() {
   const [user, setUser] = useState(null); // Will hold the logged-in user object
   const [isLoading, setIsLoading] = useState(true); // Used to show loading indicators
   const [activeId, setActiveId] = useState(null); // For drag-and-drop
+  const [isCalendarMaximized, setIsCalendarMaximized] = useState(false);
+  
   
   // State for Timer
   const [showTimerModal, setShowTimerModal] = useState(false);
@@ -2025,12 +2028,16 @@ const findTaskById = (taskId) => {
                 {renderContent()}
               </div>
               {showCalendar && (
-                <Suspense fallback={<div className="calendar-panel"><h2>Loading Calendar...</h2></div>}>
-                  <CalendarPanel
-                    calendarEvents={calendarEvents}
-                    setCalendarEvents={setCalendarEvents}
-                  />
-                </Suspense>
+                <div className={`calendar-container ${isCalendarMaximized ? 'calendar-maximized' : ''}`}>
+                  <Suspense fallback={<div className="calendar-panel"><h2>Loading Calendar...</h2></div>}>
+                    <CalendarPanel
+                      isMaximized={isCalendarMaximized}
+                      onToggleMaximize={() => setIsCalendarMaximized(!isCalendarMaximized)}
+                      calendarEvents={calendarEvents}
+                      setCalendarEvents={setCalendarEvents}
+                    />
+                  </Suspense>
+                </div>
               )}
             </div>
           </div>
