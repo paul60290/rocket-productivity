@@ -380,7 +380,9 @@ const TaskItem = React.forwardRef(({ task, availableLabels, onComplete, onClick,
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString();
+    // By adding 'T00:00:00', we specify that the date string is in the local timezone,
+    // which prevents the off-by-one day error.
+    return new Date(`${dateStr}T00:00:00`).toLocaleDateString();
   };
 
   return (
