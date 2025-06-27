@@ -2058,19 +2058,19 @@ const findTaskById = (taskId) => {
         <button className="mini-timer-btn" onClick={handleCancelTimer}>❌</button>
       </div>
     )}
-    <button 
+    <button
     className="calendar-toggle"
     onClick={() => {
-      const isMobile = window.innerWidth < 768;
-      if (isMobile) {
-        setShowCalendar(true);
-        setIsCalendarMaximized(true);
-      } else {
-        setShowCalendar(!showCalendar);
-      }
+        const isMobile = window.innerWidth < 768;
+        if (isMobile) {
+            setShowCalendar(true);
+            setIsCalendarMaximized(true);
+        } else {
+            setShowCalendar(!showCalendar);
+        }
     }}
 >
-  📅 Calendar
+    📅 Calendar
 </button>
   </div>
 </div>

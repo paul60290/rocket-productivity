@@ -1703,31 +1703,73 @@
     height: 100%; /* Make the calendar fill the maximized container */
 }
 
-/* === Responsive FullCalendar Header === */
+/* === Final Responsive Calendar and Modal CSS === */
+
+/* Default state for toolbar (maximized desktop) */
 .fc .fc-toolbar {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center; /* Center chunks by default */
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* --- Styles for MINIMIZED (Sidebar) Calendar on DESKTOP --- */
+.calendar-container:not(.calendar-maximized) .fc-toolbar {
+    display: flex;
+    flex-direction: column; /* Stack chunks vertically */
+    align-items: stretch;    /* Stretch chunks to fill width */
     gap: 10px;
 }
-
-.fc .fc-toolbar-chunk {
+.calendar-container:not(.calendar-maximized) .fc-toolbar-chunk {
     display: flex;
-    align-items: center;
-    justify-content: center; /* Center buttons within their chunk */
-    flex-wrap: nowrap;
+    justify-content: center; /* Center the content of each chunk */
+    gap: 5px;
 }
 
-/* Ensure title doesn't shrink and takes available space */
-.fc .fc-toolbar-title {
-    flex-shrink: 0;
-    text-align: center;
-    margin: 0 1em;
-}
-
-/* On very small screens, make the toolbar fully vertical for clarity */
-@media (max-width: 400px) {
+/* --- Styles for ALL Mobile Views (<768px) and MAXIMIZED Mobile --- */
+@media (max-width: 767px) {
     .fc .fc-toolbar {
         flex-direction: column;
+        align-items: center;
     }
+    .fc .fc-toolbar-chunk {
+        justify-content: center;
+    }
+
+    /* Stack Start/End time inputs in the modal on mobile */
+    .modal-content .form-row {
+        flex-direction: column;
+    }
+}
+
+/* === Calendar Floating Action Button (FAB) === */
+.calendar-fab {
+  position: absolute;
+  bottom: 25px;
+  right: 25px;
+  width: 56px;
+  height: 56px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 24px;
+  line-height: 56px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  cursor: pointer;
+  z-index: 400; /* Below calendar header but above content */
+  transition: transform 0.2s ease-in-out;
+}
+
+.calendar-fab:hover {
+  transform: scale(1.05);
+}
+
+/* Ensure delete button in modal has correct styling */
+.modal-footer .remove-btn {
+  margin-right: auto; /* Pushes to the left */
+  background-color: #dc3545;
+}
+.modal-footer .remove-btn:hover {
+  background-color: #c82333;
 }

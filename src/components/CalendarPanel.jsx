@@ -6,48 +6,92 @@ import interactionPlugin from '@fullcalendar/interaction';
 import maximizeIcon from '../assets/maximize-icon.svg';
 import minimizeIcon from '../assets/minimize-icon.svg';
 
+// Helper function to format dates for the datetime-local input
+const toDateTimeLocal = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+};
+
 export default function CalendarPanel({ calendarEvents, setCalendarEvents, isMaximized, onToggleMaximize }) {
-  const [modalInfo, setModalInfo] = useState({ isOpen: false, start: null, end: null });
-  const [eventTitle, setEventTitle] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({});
   const calendarRef = useRef(null);
 
-  // This effect runs when the calendar is maximized or minimized
   useEffect(() => {
-    // Wait for the CSS transition to finish (300ms) before updating the calendar's size
     const timer = setTimeout(() => {
-      const calendarApi = calendarRef.current?.getApi();
-      if (calendarApi) {
-        calendarApi.updateSize();
-      }
-    }, 300); // This duration should match the transition time in App.css
-
-    return () => clearTimeout(timer); // Cleanup the timer
-  }, [isMaximized]); // Only run this effect when isMaximized changes
+      calendarRef.current?.getApi().updateSize();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [isMaximized]);
 
   const handleSelectSlot = (info) => {
-    setModalInfo({ isOpen: true, start: info.startStr, end: info.endStr });
-    setEventTitle('');
+    setFormData({
+      id: null, // This is a new event
+      title: '',
+      start: toDateTimeLocal(info.startStr),
+      end: toDateTimeLocal(info.endStr),
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleEventClick = (info) => {
+    setFormData({
+      id: info.event.id,
+      title: info.event.title,
+      start: toDateTimeLocal(info.event.startStr),
+      end: toDateTimeLocal(info.event.endStr),
+    });
+    setIsModalOpen(true);
+  };
+  
+  const handleFabClick = () => {
+    const now = new Date();
+    const start = new Date(now.getTime() - now.getTimezoneOffset() * 60000); // Current local time
+    const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour later
+    
+    setFormData({
+        id: null,
+        title: '',
+        start: start.toISOString().slice(0, 16),
+        end: end.toISOString().slice(0, 16),
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleModalChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSaveEvent = () => {
-    if (!eventTitle.trim()) return;
-    
-    const newEvent = {
-      id: `${Date.now()}-${eventTitle}`,
-      title: eventTitle,
-      start: modalInfo.start,
-      end: modalInfo.end,
+    if (!formData.title?.trim()) return;
+
+    const eventData = {
+      title: formData.title,
+      start: new Date(formData.start).toISOString(),
+      end: new Date(formData.end).toISOString(),
     };
 
-    setCalendarEvents(prevEvents => [...prevEvents, newEvent]);
-    setModalInfo({ isOpen: false, start: null, end: null });
+    if (formData.id) {
+      // Update existing event
+      setCalendarEvents(prev => prev.map(evt => evt.id === formData.id ? { ...evt, ...eventData } : evt));
+    } else {
+      // Create new event
+      setCalendarEvents(prev => [...prev, { ...eventData, id: `${Date.now()}` }]);
+    }
+    setIsModalOpen(false);
+  };
+
+  const handleDeleteEvent = () => {
+    if (!formData.id) return;
+    setCalendarEvents(prev => prev.filter(evt => evt.id !== formData.id));
+    setIsModalOpen(false);
   };
 
   const goToToday = () => {
-    const calendarApi = calendarRef.current?.getApi();
-    if (calendarApi) {
-      calendarApi.today();
-    }
+    calendarRef.current?.getApi().today();
   };
 
   return (
@@ -55,28 +99,26 @@ export default function CalendarPanel({ calendarEvents, setCalendarEvents, isMax
       <div className="panel-header">
         <h3>Calendar</h3>
         {onToggleMaximize && (
-            <button onClick={onToggleMaximize} className="maximize-btn" title={isMaximized ? "Minimize" : "Maximize"}>
-              <img src={isMaximized ? minimizeIcon : maximizeIcon} alt={isMaximized ? "Minimize" : "Maximize"} />
-            </button>
+          <button onClick={onToggleMaximize} className="maximize-btn" title={isMaximized ? "Minimize" : "Maximize"}>
+            <img src={isMaximized ? minimizeIcon : maximizeIcon} alt={isMaximized ? "Minimize" : "Maximize"} />
+          </button>
         )}
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '0 10px 10px 10px' }}>
-        <FullCalendar
+      <div style={{ flex: 1, position: 'relative' }}>
+        <div style={{ height: '100%', overflow: 'auto', padding: '0 10px 10px 10px' }}>
+          <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="timeGridDay"
             nowIndicator={true}
             headerToolbar={{
-    left: 'title',
-    center: 'dayGridMonth,timeGridWeek,timeGridDay',
-    right: 'prev,next customToday'
-}}
+              left: 'prev,next customToday',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            }}
             customButtons={{
-              customToday: {
-                text: 'Today',
-                click: goToToday,
-              }
+              customToday: { text: 'Today', click: goToToday }
             }}
             editable={true}
             eventResizableFromStart={true}
@@ -85,40 +127,60 @@ export default function CalendarPanel({ calendarEvents, setCalendarEvents, isMax
             events={calendarEvents}
             selectable={true}
             select={handleSelectSlot}
+            eventClick={handleEventClick}
             eventDrop={(info) => {
-              setCalendarEvents(prevEvents => prevEvents.map(evt => 
+              setCalendarEvents(prev => prev.map(evt => 
                 evt.id === info.event.id ? { ...evt, start: info.event.startStr, end: info.event.endStr } : evt
               ));
             }}
             eventResize={(info) => {
-              setCalendarEvents(prevEvents => prevEvents.map(evt => 
+              setCalendarEvents(prev => prev.map(evt => 
                 evt.id === info.event.id ? { ...evt, start: info.event.startStr, end: info.event.endStr } : evt
               ));
             }}
-            eventClick={(info) => {
-              if (window.confirm(`Delete event "${info.event.title}"?`)) {
-                setCalendarEvents(prevEvents => prevEvents.filter(evt => evt.id !== info.event.id));
-              }
-            }}
-        />
+          />
+        </div>
+        <button className="calendar-fab" onClick={handleFabClick} title="Add New Event">+</button>
       </div>
 
-      {modalInfo.isOpen && (
+      {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <h3>Add New Event</h3>
+            <h3>{formData.id ? 'Edit Event' : 'Add New Event'}</h3>
             <div className="form-group">
               <label>Event Title</label>
               <input
+                name="title"
                 type="text"
-                value={eventTitle}
-                onChange={e => setEventTitle(e.target.value)}
+                value={formData.title || ''}
+                onChange={handleModalChange}
                 autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEvent(); }}
               />
             </div>
+            <div className="form-row">
+                <div className="form-group">
+                    <label>Start Time</label>
+                    <input
+                        name="start"
+                        type="datetime-local"
+                        value={formData.start || ''}
+                        onChange={handleModalChange}
+                    />
+                </div>
+                <div className="form-group">
+                    <label>End Time</label>
+                    <input
+                        name="end"
+                        type="datetime-local"
+                        value={formData.end || ''}
+                        onChange={handleModalChange}
+                    />
+                </div>
+            </div>
             <div className="modal-footer">
-              <button type="button" onClick={() => setModalInfo({ isOpen: false, start: null, end: null })}>Cancel</button>
+              {formData.id && <button type="button" className="remove-btn" onClick={handleDeleteEvent}>Delete</button>}
+              <div style={{flexGrow: 1}}></div> {/* Spacer */}
+              <button type="button" onClick={() => setIsModalOpen(false)}>Cancel</button>
               <button type="button" className="save-btn" onClick={handleSaveEvent}>Save</button>
             </div>
           </div>
