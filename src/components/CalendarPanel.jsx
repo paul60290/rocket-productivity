@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -9,7 +9,20 @@ import minimizeIcon from '../assets/minimize-icon.svg';
 export default function CalendarPanel({ calendarEvents, setCalendarEvents, isMaximized, onToggleMaximize }) {
   const [modalInfo, setModalInfo] = useState({ isOpen: false, start: null, end: null });
   const [eventTitle, setEventTitle] = useState('');
-  const calendarRef = useRef(null); // Create a ref for the calendar
+  const calendarRef = useRef(null);
+
+  // This effect runs when the calendar is maximized or minimized
+  useEffect(() => {
+    // Wait for the CSS transition to finish (300ms) before updating the calendar's size
+    const timer = setTimeout(() => {
+      const calendarApi = calendarRef.current?.getApi();
+      if (calendarApi) {
+        calendarApi.updateSize();
+      }
+    }, 300); // This duration should match the transition time in App.css
+
+    return () => clearTimeout(timer); // Cleanup the timer
+  }, [isMaximized]); // Only run this effect when isMaximized changes
 
   const handleSelectSlot = (info) => {
     setModalInfo({ isOpen: true, start: info.startStr, end: info.endStr });
@@ -50,25 +63,25 @@ export default function CalendarPanel({ calendarEvents, setCalendarEvents, isMax
 
       <div style={{ flex: 1, overflow: 'auto', padding: '0 10px 10px 10px' }}>
         <FullCalendar
-            ref={calendarRef} // Assign the ref to the component
+            ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView="timeGridDay" // FIX: Changed to day view by default
+            initialView="timeGridDay"
             nowIndicator={true}
             headerToolbar={{
-              left: 'prev,next customToday', // Use our custom "Today" button
-              center: 'title',
-              right: 'dayGridMonth,timeGridWeek,timeGridDay'
-            }}
+    left: 'title',
+    center: 'dayGridMonth,timeGridWeek,timeGridDay',
+    right: 'prev,next customToday'
+}}
             customButtons={{
               customToday: {
                 text: 'Today',
-                click: goToToday, // FIX: The click handler now works
+                click: goToToday,
               }
             }}
             editable={true}
             eventResizableFromStart={true}
-            slotMinTime="06:00:00"
-            height="100%" // FIX: Ensure calendar fills its container
+            slotMinTime="00:00:00"
+            height="100%"
             events={calendarEvents}
             selectable={true}
             select={handleSelectSlot}

@@ -1002,6 +1002,12 @@ const sensors = useSensors(useSensor(PointerSensor, {
         const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
         const appDataSnap = await getDoc(appDataRef);
         const appData = appDataSnap.exists() ? appDataSnap.data() : {};
+
+        // 1.5. Fetch Calendar Events
+        const calendarEventsRef = collection(db, 'users', user.uid, 'calendarEvents');
+        const calendarEventsSnap = await getDocs(calendarEventsRef);
+        const fetchedCalendarEvents = calendarEventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setCalendarEvents(fetchedCalendarEvents);
         
         setInboxTasks(appData.inboxTasks || []);
         setProjectLabels(appData.projectLabels || [
@@ -1081,6 +1087,44 @@ const sensors = useSensors(useSensor(PointerSensor, {
       setIsLoading(false);
     }
   }, [user]);
+
+  // This effect syncs local calendar events state with Firestore
+  useEffect(() => {
+    // Don't run on initial load or if the user is not logged in
+    if (isLoading || !user) {
+      return;
+    }
+
+    const syncCalendarEvents = async () => {
+      const calendarEventsRef = collection(db, 'users', user.uid, 'calendarEvents');
+      const querySnapshot = await getDocs(calendarEventsRef);
+      const batch = writeBatch(db);
+
+      // Delete all existing events in Firestore for this user
+      querySnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      // Add all current local events to the batch
+      calendarEvents.forEach(event => {
+        // Ensure the event has an ID before trying to save it
+        const eventId = event.id || `${Date.now()}-${Math.random()}`;
+        const newEventRef = doc(calendarEventsRef, eventId);
+        batch.set(newEventRef, { ...event, id: eventId });
+      });
+
+      // Commit the batch
+      await batch.commit();
+    };
+
+    // Use a timeout to debounce the sync, preventing rapid writes
+    const debounceSync = setTimeout(() => {
+        syncCalendarEvents();
+    }, 1500); // Wait 1.5 seconds after the last change to sync
+
+    return () => clearTimeout(debounceSync); // Clean up the timeout
+
+  }, [calendarEvents, user, isLoading]);
 
   // --- Authentication Handlers ---
   const handleSignUp = (email, password) => {
@@ -2015,11 +2059,19 @@ const findTaskById = (taskId) => {
       </div>
     )}
     <button 
-      className="calendar-toggle"
-      onClick={() => setShowCalendar(!showCalendar)}
-    >
-      📅 Calendar
-    </button>
+    className="calendar-toggle"
+    onClick={() => {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        setShowCalendar(true);
+        setIsCalendarMaximized(true);
+      } else {
+        setShowCalendar(!showCalendar);
+      }
+    }}
+>
+  📅 Calendar
+</button>
   </div>
 </div>
             
@@ -2031,11 +2083,20 @@ const findTaskById = (taskId) => {
                 <div className={`calendar-container ${isCalendarMaximized ? 'calendar-maximized' : ''}`}>
                   <Suspense fallback={<div className="calendar-panel"><h2>Loading Calendar...</h2></div>}>
                     <CalendarPanel
-                      isMaximized={isCalendarMaximized}
-                      onToggleMaximize={() => setIsCalendarMaximized(!isCalendarMaximized)}
-                      calendarEvents={calendarEvents}
-                      setCalendarEvents={setCalendarEvents}
-                    />
+    isMaximized={isCalendarMaximized}
+    onToggleMaximize={() => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+        // On mobile, the "minimize" button should just close the calendar
+        setShowCalendar(false);
+        setIsCalendarMaximized(false);
+    } else {
+        setIsCalendarMaximized(!isCalendarMaximized);
+    }
+}}
+    calendarEvents={calendarEvents}
+    setCalendarEvents={setCalendarEvents}
+/>
                   </Suspense>
                 </div>
               )}

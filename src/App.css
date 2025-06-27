@@ -1702,3 +1702,32 @@
 .calendar-maximized .fc {
     height: 100%; /* Make the calendar fill the maximized container */
 }
+
+/* === Responsive FullCalendar Header === */
+.fc .fc-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center; /* Center chunks by default */
+    gap: 10px;
+}
+
+.fc .fc-toolbar-chunk {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center buttons within their chunk */
+    flex-wrap: nowrap;
+}
+
+/* Ensure title doesn't shrink and takes available space */
+.fc .fc-toolbar-title {
+    flex-shrink: 0;
+    text-align: center;
+    margin: 0 1em;
+}
+
+/* On very small screens, make the toolbar fully vertical for clarity */
+@media (max-width: 400px) {
+    .fc .fc-toolbar {
+        flex-direction: column;
+    }
+}
