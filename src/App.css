@@ -964,12 +964,19 @@
   /* ensure FullCalendar fills the panel */
   max-width: 100%;
 }
+
 /* Goals header */
 .goals-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.goals-header h2 {
+  margin: 0;
 }
 
 .goals-summary {
@@ -990,7 +997,43 @@
   background: #4dabf7;
   color: #fff;
 }
+
+/* Goals Table Styling */
+.goals-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden; /* Ensures the border-radius is applied to the table corners */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.goals-table th, .goals-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.goals-table thead th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+.goals-table tbody tr:nth-of-type(even) {
+  background-color: #f8f9fa;
+}
+
+.goals-table tbody tr:hover {
+  background-color: #e9ecef;
+}
+
 /* Goals progress bar */
+
 .goals-table .progress-bar {
   width: 100%;
   background-color: #e9ecef;
@@ -1006,6 +1049,87 @@
   border-radius: 4px 0 0 4px;
   transition: width 0.3s ease;
 }
+
+/* Styling for the clickable milestones cell */
+.goals-table .milestones-cell {
+  cursor: pointer;
+  user-select: none; /* Prevents text selection on click */
+}
+
+/* Styling for the expanded milestone list */
+.goals-table .milestone-list-expanded {
+  margin: 0;
+  padding-left: 1.2em;
+  list-style-type: none; /* Remove default bullets */
+}
+
+.goals-table .milestone-list-expanded li {
+  padding: 4px 0;
+}
+
+/* === Milestone Item Styling in Modal === */
+.milestone-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* This is KEY: pushes left and right groups apart */
+  width: 100%;
+  padding: 6px 0;
+  list-style: none;
+}
+
+.milestone-item .milestone-content-left {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* Creates the small 5px space you want */
+}
+
+.milestone-item .drag-handle {
+  cursor: grab;
+  color: #888;
+}
+
+.milestone-item .delete-milestone-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 2px 4px;
+  margin: 0;
+}
+
+.milestone-item .delete-milestone-btn:hover {
+  color: #dc3545;
+  background-color: transparent; /* Ensure no background on hover */
+}
+
+.milestone-item input[type="checkbox"] {
+  margin-right: 8px; /* Controls space after checkbox */
+}
+
+.milestone-item .milestone-text {
+  /* We do NOT want this to grow. */
+  text-align: left;
+}
+
+.milestone-item .delete-milestone-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 2px 4px;
+  /* This is the key: it creates a flexible margin that pushes the button to the end. */
+  margin-left: auto;
+}
+
+.milestone-item .delete-milestone-btn:hover {
+  color: #dc3545;
+}
+
+.milestone-item .delete-milestone-btn:hover {
+  color: #dc3545;
+  background: none;
+}
+
 /* Subtasks styling: incomplete on top, completed greyed & crossed off */
 .subtask-list {
   list-style: none;
