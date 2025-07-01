@@ -268,10 +268,9 @@ const sortedTasks = Array.isArray(tasks)
   const handleAddTask = () => {
     if (!newTask.trim()) return;
     
-    // Create a task object WITHOUT a client-side ID.
-    // Firestore will generate the one and only ID.
     const taskData = {
       text: newTask.trim(),
+      column: title, // This is the key change: add the column name to the object
       completed: false,
       date: '',
       priority: 4,
@@ -282,7 +281,7 @@ const sortedTasks = Array.isArray(tasks)
       subtasks: []
     };
     
-    onAddTask(title, taskData);
+    onAddTask(taskData); // Pass the single, complete task object
     setNewTask('');
     setAdding(false);
   };
@@ -325,41 +324,47 @@ const sortedTasks = Array.isArray(tasks)
   )}
 </div>
            <div className="task-list">
-  <SortableContext
-  items={sortedTasks.map(task => task.id)}
-  strategy={verticalListSortingStrategy}
->
-  {sortedTasks.map((task, index) => (
-    <SortableTask
-      key={task.id}
-      task={task}
-      onComplete={() => onUpdateTask(title, task.id, null)}
-      onClick={() => onOpenTask(task)}
-      availableLabels={availableLabels}
-      projectTags={projectTags}
-    />
-  ))}
-</SortableContext>
-</div>
+             <SortableContext
+               items={sortedTasks.map(task => task.id)}
+               strategy={verticalListSortingStrategy}
+             >
+               {sortedTasks.map((task) => (
+                 <SortableTask
+                   key={task.id}
+                   task={task}
+                   onComplete={() => onUpdateTask(title, task.id, null)}
+                   onClick={() => onOpenTask(task)}
+                   availableLabels={availableLabels}
+                   projectTags={projectTags}
+                 />
+               ))}
+             </SortableContext>
+           </div>
 
-
-      {isEditable && (adding ? (
-        <div className="task-input">
-          <input
-            ref={inputRef}
-            type="text"
-            value={newTask}
-            onChange={(e) => setNewTask(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-            placeholder="Type your task..."
-          />
-          <button onClick={handleAddTask}>Add</button>
-        </div>
-      ) : (
-        <button className="add-task-btn" onClick={() => setAdding(true)}>
-          + Add Task
-        </button>
-      ))}
+           {/* --- The "Add Task" section is now outside the scrollable list --- */}
+           {isEditable && (
+             adding ? (
+               <div className="task-input" style={{ marginTop: 'auto', paddingTop: '10px' }}>
+                 <input
+                   ref={inputRef}
+                   type="text"
+                   value={newTask}
+                   onChange={(e) => setNewTask(e.target.value)}
+                   onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+                   placeholder="Type your task..."
+                 />
+                 <button onClick={handleAddTask}>Add</button>
+               </div>
+             ) : (
+               <button
+                 className="add-task-btn"
+                 onClick={() => setAdding(true)}
+                 style={{ marginTop: 'auto', paddingTop: '10px' }}
+               >
+                 + Add Task
+               </button>
+             )
+           )}
     </div>
   );
 }
@@ -1460,40 +1465,29 @@ const sensors = useSensors(useSensor(PointerSensor, {
     }
   };
 
-  const addTask = async (columnName, taskData) => {
-    // --- SCENARIO 1: Adding to the Inbox ---
-    if (currentView === 'inbox') {
-      const newInboxTasks = [...inboxTasks, taskData];
-      setInboxTasks(newInboxTasks);
-      if (!user) return;
-      const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-      await setDoc(appDataRef, { inboxTasks: newInboxTasks }, { merge: true });
+  const addTask = async (taskData, projectId) => {
+    if (!user || !projectId || !taskData.column) {
+      alert("Cannot add task without a project and a column.");
       return;
     }
 
-    // --- SCENARIO 2: Adding to a Project Board ---
-    if (!user || !currentProjectData) {
-      alert("No project selected!");
-      return;
-    }
-    
-    const newTaskForFirestore = { ...taskData, column: columnName };
+    const newTaskForFirestore = { ...taskData };
+
     try {
-      const tasksCollectionRef = collection(db, 'users', user.uid, 'projects', currentProjectData.id, 'tasks');
+      const tasksCollectionRef = collection(db, 'users', user.uid, 'projects', projectId, 'tasks');
       const newDocRef = await addDoc(tasksCollectionRef, newTaskForFirestore);
 
-      // Optimistically update local state
       setProjectData(prevData => {
         const newData = JSON.parse(JSON.stringify(prevData));
-        const project = newData
-          .find(g => g.name === currentGroup)?.projects
-          .find(p => p.id === currentProjectData.id);
-        
-        if (project) {
-          if (!project.columns[columnName]) {
-            project.columns[columnName] = [];
+        const group = newData.find(g => g.name === currentGroup);
+        if (group) {
+          const project = group.projects.find(p => p.id === projectId);
+          if (project) {
+            if (!project.columns[taskData.column]) {
+              project.columns[taskData.column] = [];
+            }
+            project.columns[taskData.column].push({ ...newTaskForFirestore, id: newDocRef.id });
           }
-          project.columns[columnName].push({ ...newTaskForFirestore, id: newDocRef.id });
         }
         return newData;
       });
@@ -1552,10 +1546,15 @@ const sensors = useSensors(useSensor(PointerSensor, {
 
   const handleTaskUpdate = async (updatedTaskData) => {
     const taskToUpdate = modalTask;
-    if (!taskToUpdate || !taskToUpdate.id) return;
+    if (!taskToUpdate) return;
   
-    // The modalTask object now has the projectId if it's from a project
-    if (taskToUpdate.projectId) {
+    // If it's a new task, call the addTask function
+    if (taskToUpdate.isNew) {
+      // The updatedTaskData object from the panel is already complete.
+      await addTask(updatedTaskData, taskToUpdate.projectId);
+    }
+    // If it's an existing task, call the updateTask function
+    else if (taskToUpdate.projectId && taskToUpdate.id) {
       await updateTask(taskToUpdate.projectId, taskToUpdate.id, updatedTaskData);
     } else {
       // It's an inbox task
@@ -1859,13 +1858,15 @@ const findTaskById = (taskId) => {
       {modalTask && (
   <Suspense fallback={<div>Loading...</div>}>
     <TaskDetailPanel
-  task={modalTask}
-  onClose={() => setModalTask(null)}
-  onUpdate={handleTaskUpdate}
-  availableLabels={projectLabels}
-  user={user}
-  db={db}
-/>
+      task={modalTask}
+      onClose={() => setModalTask(null)}
+      onUpdate={handleTaskUpdate}
+      availableLabels={projectLabels}
+      user={user}
+      db={db}
+      // Pass the column order of the current project
+      projectColumns={currentProjectData?.columnOrder || []}
+    />
   </Suspense>
 )}
       {!user ? (
@@ -2028,6 +2029,12 @@ const findTaskById = (taskId) => {
     }
   </h1>
   <div className="header-actions">
+    {/* Add New Task Button - only shows on board view */}
+    {currentView === 'board' && (
+      <button className="header-add-task-btn" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
+        + Add Task
+      </button>
+    )}
     {!timerIsRunning && timerTime === timerInputTime * 60 ? (
       <button className="timer-toggle" onClick={() => setShowTimerModal(true)}>
         ⏰ Timer

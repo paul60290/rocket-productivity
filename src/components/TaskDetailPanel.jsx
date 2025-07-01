@@ -25,7 +25,9 @@ function SortableSubtask({ subtask, onToggle, onDelete }) {
     );
 }
 
-export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabels, user, db }) {
+export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabels, user, db, projectColumns = [] }) {
+  const isCreateMode = task?.isNew;
+
   const [editedTask, setEditedTask] = useState({
     ...task,
     text: task?.text || '',
@@ -35,6 +37,8 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
     description: task?.description || '',
     comments: task?.comments || [],
     subtasks: task?.subtasks || [],
+    // Add a column field to the state, defaulting to the first column if available
+    column: task?.column || (projectColumns.length > 0 ? projectColumns[0] : ''),
   });
   const [newComment, setNewComment] = useState('');
   const [newSubtaskText, setNewSubtaskText] = useState('');
@@ -108,6 +112,7 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
       tag: editedTask.tag,
       comments: editedTask.comments,
       subtasks: editedTask.subtasks,
+      column: editedTask.column, // <-- ADD THIS LINE
     };
     onUpdate(saveData);
     onClose();
@@ -116,7 +121,7 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
   return (
     <div className={`task-detail-panel ${task ? 'open' : ''}`}>
       <div className="modal-header">
-        <h3>Edit Task</h3>
+        <h3>{isCreateMode ? 'Create New Task' : 'Edit Task'}</h3>
         <button className="close-btn" onClick={onClose}>×</button>
       </div>
       <div className="modal-body">
@@ -157,6 +162,17 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
                 </select>
             </div>
         </div>
+
+        {/* Column Selector - Only in Create Mode */}
+        {isCreateMode && (
+          <div className="form-group">
+            <label>Column</label>
+            <select value={editedTask.column} onChange={(e) => handleFieldChange('column', e.target.value)}>
+              {projectColumns.map(col => <option key={col} value={col}>{col}</option>)}
+            </select>
+          </div>
+        )}
+
         <div className="form-group">
             <label>Add Label</label>
             <select value={editedTask.label} onChange={(e) => handleFieldChange('label', e.target.value)}>

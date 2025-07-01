@@ -497,12 +497,17 @@
 }
 
         .column {
-          flex: 0 0 280px;
+          flex: 0 0 280px; /* Do not grow or shrink horizontally */
           background: #f8f9fa;
           border-radius: 8px;
           padding: 15px;
+
+          /* Make the column a vertical flex container */
           display: flex;
           flex-direction: column;
+
+          /* Constrain the column's height to its parent (.board) */
+          max-height: 100%;
         }
 
         .column h2 {
@@ -511,16 +516,17 @@
           color: #343a40;
         }
 
-     .task-list {
-  position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: visible;
-}
+        .task-list {
+          flex: 1; /* This makes the task list grow to fill available space */
+          min-height: 0; /* THIS IS THE CRITICAL FIX */
+          overflow-y: auto; /* This enables scrolling */
+
+          /* Visual styling */
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding-right: 4px; /* Space for the scrollbar */
+        }
 
         .task-card {
           position: relative;
@@ -1896,4 +1902,18 @@
 }
 .modal-footer .remove-btn:hover {
   background-color: #c82333;
+}
+
+.header-add-task-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.header-add-task-btn:hover {
+  background-color: #218838;
 }
