@@ -1466,33 +1466,54 @@ const sensors = useSensors(useSensor(PointerSensor, {
   };
 
   const addTask = async (taskData, projectId) => {
-    if (!user || !projectId || !taskData.column) {
-      alert("Cannot add task without a project and a column.");
+    if (!user || !projectId) {
+      alert("Cannot add task without a project ID.");
       return;
     }
 
-    const newTaskForFirestore = { ...taskData };
+    // The incoming task data should already have a column name.
+    const columnName = taskData.column;
+    if (!columnName) {
+      alert("Could not determine the column for the new task. Please select one.");
+      return;
+    }
+
+    // Create a complete task object, ensuring all default fields are present.
+    const newTaskForFirestore = {
+      text: taskData.text || 'Untitled Task',
+      description: taskData.description || '',
+      date: taskData.date || '',
+      priority: taskData.priority || 4,
+      label: taskData.label || '',
+      tag: taskData.tag || '',
+      comments: taskData.comments || [],
+      subtasks: taskData.subtasks || [],
+      completed: taskData.completed || false,
+      column: columnName,
+    };
 
     try {
       const tasksCollectionRef = collection(db, 'users', user.uid, 'projects', projectId, 'tasks');
       const newDocRef = await addDoc(tasksCollectionRef, newTaskForFirestore);
 
+      // Update local state to show the new task immediately.
       setProjectData(prevData => {
         const newData = JSON.parse(JSON.stringify(prevData));
-        const group = newData.find(g => g.name === currentGroup);
-        if (group) {
+        for (const group of newData) {
           const project = group.projects.find(p => p.id === projectId);
           if (project) {
-            if (!project.columns[taskData.column]) {
-              project.columns[taskData.column] = [];
+            if (!project.columns[columnName]) {
+              project.columns[columnName] = [];
             }
-            project.columns[taskData.column].push({ ...newTaskForFirestore, id: newDocRef.id });
+            project.columns[columnName].push({ ...newTaskForFirestore, id: newDocRef.id });
+            break; // Exit the loop once the project is found and updated
           }
         }
         return newData;
       });
     } catch (error) {
       console.error("Error adding task to Firestore:", error);
+      alert("There was an error saving your task.");
     }
   };
 
@@ -1544,14 +1565,14 @@ const sensors = useSensors(useSensor(PointerSensor, {
     }
   };
 
-  const handleTaskUpdate = async (updatedTaskData) => {
+  const handleTaskUpdate = async (updatedTaskData, projectId) => {
     const taskToUpdate = modalTask;
     if (!taskToUpdate) return;
   
     // If it's a new task, call the addTask function
     if (taskToUpdate.isNew) {
       // The updatedTaskData object from the panel is already complete.
-      await addTask(updatedTaskData, taskToUpdate.projectId);
+      await addTask(updatedTaskData, projectId);
     }
     // If it's an existing task, call the updateTask function
     else if (taskToUpdate.projectId && taskToUpdate.id) {
@@ -1784,7 +1805,7 @@ const findTaskById = (taskId) => {
               key={colName}
               title={colName}
               tasks={currentProjectData.columns[colName] || []}
-              onAddTask={addTask}
+              onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
               onUpdateTask={(column, taskId, updatedTask) => {
                 // Pass the project's Firestore ID, not its name or group
                 updateTask(currentProjectData.id, taskId, updatedTask);
@@ -1858,15 +1879,16 @@ const findTaskById = (taskId) => {
       {modalTask && (
   <Suspense fallback={<div>Loading...</div>}>
     <TaskDetailPanel
-      task={modalTask}
-      onClose={() => setModalTask(null)}
-      onUpdate={handleTaskUpdate}
-      availableLabels={projectLabels}
-      user={user}
-      db={db}
-      // Pass the column order of the current project
-      projectColumns={currentProjectData?.columnOrder || []}
-    />
+  task={modalTask}
+  onClose={() => setModalTask(null)}
+  // Pass both args through so handleTaskUpdate(updatedData, projectId) gets the real ID
+  onUpdate={handleTaskUpdate}
+  availableLabels={projectLabels}
+  user={user}
+  db={db}
+  projectColumns={currentProjectData?.columnOrder || []}
+/>
+
   </Suspense>
 )}
       {!user ? (

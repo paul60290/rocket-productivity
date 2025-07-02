@@ -39,6 +39,7 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
     subtasks: task?.subtasks || [],
     // Add a column field to the state, defaulting to the first column if available
     column: task?.column || (projectColumns.length > 0 ? projectColumns[0] : ''),
+    projectId: task?.projectId || null, // Explicitly include projectId
   });
   const [newComment, setNewComment] = useState('');
   const [newSubtaskText, setNewSubtaskText] = useState('');
@@ -102,7 +103,7 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
     });
   };
 
-  const handleSave = () => {
+ const handleSave = () => {
     const saveData = {
       text: editedTask.text,
       description: editedTask.description,
@@ -112,9 +113,10 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
       tag: editedTask.tag,
       comments: editedTask.comments,
       subtasks: editedTask.subtasks,
-      column: editedTask.column, // <-- ADD THIS LINE
+      column: editedTask.column,
     };
-    onUpdate(saveData);
+    // Pass the projectId back along with the task data
+    onUpdate(saveData, editedTask.projectId);
     onClose();
   };
 
