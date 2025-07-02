@@ -324,47 +324,46 @@ const sortedTasks = Array.isArray(tasks)
   )}
 </div>
            <div className="task-list">
-             <SortableContext
-               items={sortedTasks.map(task => task.id)}
-               strategy={verticalListSortingStrategy}
-             >
-               {sortedTasks.map((task) => (
-                 <SortableTask
-                   key={task.id}
-                   task={task}
-                   onComplete={() => onUpdateTask(title, task.id, null)}
-                   onClick={() => onOpenTask(task)}
-                   availableLabels={availableLabels}
-                   projectTags={projectTags}
-                 />
-               ))}
-             </SortableContext>
-           </div>
+        <SortableContext
+          items={sortedTasks.map(task => task.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {sortedTasks.map((task) => (
+            <SortableTask
+              key={task.id}
+              task={task}
+              onComplete={() => onUpdateTask(title, task.id, null)}
+              onClick={() => onOpenTask(task)}
+              availableLabels={availableLabels}
+              projectTags={projectTags}
+            />
+          ))}
+        </SortableContext>
 
-           {/* --- The "Add Task" section is now outside the scrollable list --- */}
-           {isEditable && (
-             adding ? (
-               <div className="task-input" style={{ marginTop: 'auto', paddingTop: '10px' }}>
-                 <input
-                   ref={inputRef}
-                   type="text"
-                   value={newTask}
-                   onChange={(e) => setNewTask(e.target.value)}
-                   onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-                   placeholder="Type your task..."
-                 />
-                 <button onClick={handleAddTask}>Add</button>
-               </div>
-             ) : (
-               <button
-                 className="add-task-btn"
-                 onClick={() => setAdding(true)}
-                 style={{ marginTop: 'auto', paddingTop: '10px' }}
-               >
-                 + Add Task
-               </button>
-             )
-           )}
+        {/* --- The "Add Task" section is now INSIDE the scrollable list --- */}
+        {isEditable && (
+          adding ? (
+            <div className="task-input">
+              <input
+                ref={inputRef}
+                type="text"
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+                placeholder="Type your task..."
+              />
+              <button onClick={handleAddTask}>Add</button>
+            </div>
+          ) : (
+            <button
+              className="add-task-btn"
+              onClick={() => setAdding(true)}
+            >
+              + Add Task
+            </button>
+          )
+        )}
+      </div>
     </div>
   );
 }
