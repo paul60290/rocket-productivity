@@ -55,9 +55,9 @@ export default function Auth({ onSignUp, onLogin }) {
           </div>
           {error && <p className="auth-error">{error}</p>}
           <div className="auth-buttons">
-            <button type="submit" onClick={handleLogin}>Login</button>
-            <button type="button" onClick={handleSignUp}>Sign Up</button>
-          </div>
+    <button type="submit" onClick={handleLogin} className="btn btn-primary">Login</button>
+    <button type="button" onClick={handleSignUp} className="btn btn-secondary">Sign Up</button>
+  </div>
         </form>
       </div>
     </div>

@@ -203,9 +203,9 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
         </div>
       </div>
       <div className="modal-footer">
-        <button onClick={onClose}>Cancel</button>
-        <button onClick={handleSave} className="save-btn">Save</button>
-      </div>
+    <button onClick={onClose} className="btn btn-tertiary">Cancel</button>
+    <button onClick={handleSave} className="btn btn-primary">Save</button>
+  </div>
     </div>
   );
 }

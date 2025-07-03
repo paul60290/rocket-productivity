@@ -4,7 +4,6 @@
   height: 100vh;
   margin: 0;
   padding: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 
@@ -47,7 +46,7 @@
   border-radius: 6px;
   border: 1px solid #444;
   color: #212529;
-  font-size: 0.95rem;
+  font-size: 1rem;
   text-align: left;
   cursor: grab;
   user-select: none;
@@ -232,7 +231,6 @@
 .app {
           display: flex;
           height: 100vh;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         .sidebar {
@@ -397,7 +395,8 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  font-weight: 600;
   color: #343a40; /* Default text color */
 }
 
@@ -440,10 +439,24 @@
   gap: 15px; /* Add some space between items */
 }
 
-.header h1 {
-  margin: 0;
+.header-title-container {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Reduced the gap slightly */
+  flex-grow: 1;
+}
+
+.header-view-icon {
+  width: 24px; /* Slightly smaller size to match text better */
+  height: 24px;
+}
+
+.header-title-container h1 {
+  margin: 0; /* Removes default h1 margin */
+  font-size: 1.75rem; /* ~24.5px, a better match for the icon size */
+  line-height: 1; /* Aligns text vertically */
   text-transform: capitalize;
-  flex-grow: 1; /* Allows the title to take up available space */
+  font-weight: 700;
 }
 
         .calendar-toggle {
@@ -1916,4 +1929,47 @@
 
 .header-add-task-btn:hover {
   background-color: #218838;
+}
+
+/* === FONT, SIZING, AND HEADER ICON ADJUSTMENTS === */
+
+/* Remove conflicting font-family rules */
+#root {
+  font-family: inherit;
+}
+
+.app {
+  font-family: inherit;
+}
+
+/* Header Specific Title & Icon */
+.header-title-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-grow: 1;
+}
+
+.header-view-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.header-title-container h1 {
+  margin: 0;
+  font-size: 1.5rem; /* 21px */
+  font-weight: 700;
+  line-height: 1;
+  text-transform: capitalize;
+}
+
+/* Other Font Adjustments */
+.task-card {
+  font-size: 1rem; /* 14px */
+}
+
+.nav-btn {
+  font-size: 1rem;
+  font-weight: 600;
 }

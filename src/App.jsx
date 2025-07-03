@@ -26,6 +26,18 @@ import projectsIconUrl from './assets/projects-icon.svg';
 import settingsIconUrl from './assets/settings-icon.svg';
 import logoutIconUrl from './assets/logout-icon.svg';
 import { auth, db } from './firebase';
+
+const viewIcons = {
+  goals: goalsIconUrl,
+  today: todayIconUrl,
+  inbox: inboxIconUrl,
+  tomorrow: tomorrowIconUrl,
+  thisWeek: thisWeekIconUrl,
+  nextWeek: nextWeekIconUrl,
+  projects: projectsIconUrl,
+  settings: settingsIconUrl,
+};
+
 import {
   // Authentication
   createUserWithEmailAndPassword,
@@ -2039,16 +2051,15 @@ const findTaskById = (taskId) => {
  <button className="mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
     {isMobileMenuOpen ? '✕' : '☰'}
   </button>
-  <h1>
-    {currentView === 'board' && currentProject
-      ? currentProject
-      : currentView === 'projects'
-      ? 'Projects'
-      : currentView === 'today'
-      ? 'Today'
-      : currentView
-    }
-  </h1>
+  <div className="header-title-container">
+    {viewIcons[currentView] && <img src={viewIcons[currentView]} alt="" className="header-view-icon" />}
+    <h1>
+      {currentView === 'board' && currentProject
+        ? currentProject
+        : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim()
+      }
+    </h1>
+</div>
   <div className="header-actions">
     {/* Add New Task Button - only shows on board view */}
     {currentView === 'board' && (
