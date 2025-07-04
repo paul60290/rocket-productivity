@@ -1149,25 +1149,52 @@
   background: none;
 }
 
-/* Subtasks styling: incomplete on top, completed greyed & crossed off */
+/* === Subtask List and Item Styling === */
+
 .subtask-list {
   list-style: none;
   padding: 0;
   margin: 0 0 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* A little space between each subtask item */
 }
+
 .subtask-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  width: 100%;
+  gap: 8px; /* Space between the checkbox and the text */
 }
+
+
+
+
+/* Style for completed subtasks */
 .subtask-item.completed {
   color: #888;
   text-decoration: line-through;
 }
 
+/* Make the subtask text fill all available space */
 .subtask-text {
+  flex-grow: 1;
+  text-align: left; /* Ensure text inside the span is left-aligned */
   cursor: pointer;
 }
+
+/*
+ * NEW FIX: Override the global 'width: 100%' for the subtask checkbox specifically.
+ * This restores the checkbox to its natural size.
+*/
+.subtask-item input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+
+
+
 
 .drag-handle {
   display: flex;

@@ -12,15 +12,32 @@ const generateUniqueId = () => {
 
 function SortableSubtask({ subtask, onToggle, onDelete }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: subtask.id });
+
+    // The styles from dnd-kit for dragging
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
     };
+
+    // We stop the drag from starting if the user clicks the checkbox or the delete button
+    const stopPropagation = (e) => e.stopPropagation();
+
     return (
         <li ref={setNodeRef} style={style} {...attributes} {...listeners} className={`subtask-item ${subtask.completed ? 'completed' : ''}`}>
-            <input type="checkbox" checked={subtask.completed} onPointerDown={e => e.stopPropagation()} onChange={() => onToggle(subtask.id)} />
+            <input
+                type="checkbox"
+                checked={subtask.completed}
+                onChange={() => onToggle(subtask.id)}
+                onPointerDown={stopPropagation}
+            />
             <span className="subtask-text">{subtask.text}</span>
-            <button className="delete-subtask-btn" onPointerDown={e => e.stopPropagation()} onClick={() => onDelete(subtask.id)}>🗑️</button>
+            <button
+                className="delete-subtask-btn"
+                onClick={() => onDelete(subtask.id)}
+                onPointerDown={stopPropagation}
+            >
+                🗑️
+            </button>
         </li>
     );
 }
