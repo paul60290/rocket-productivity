@@ -774,7 +774,8 @@
   border-radius: 3px;
 }
 
-.edit-project-btn img {
+.edit-project-btn img,
+.edit-goal-btn img {
   width: 16px;
   height: 16px;
   vertical-align: middle;

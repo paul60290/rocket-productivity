@@ -194,7 +194,9 @@ function ManagerModal({ groups, labels, onClose, onUpdateLabels, onAddGroup, onR
                     <div>
                       {groupName !== 'Ungrouped' && (
                         <>
-                          <button onClick={() => handleStartEditGroup(groupName)} className="edit-project-btn" title="Rename Group">✏️</button>
+                          <button onClick={() => handleStartEditGroup(groupName)} className="edit-project-btn" title="Rename Group">
+  <img src={editIconUrl} alt="Rename Group" />
+</button>
                           <button onClick={() => onDeleteGroup(groupName)} className="remove-btn" title="Delete Group">×</button>
                         </>
                       )}

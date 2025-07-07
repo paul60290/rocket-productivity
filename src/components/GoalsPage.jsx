@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 // Import Firebase services
 import deleteIconUrl from '../assets/delete.svg';
+import editIconUrl from '../assets/edit.svg';
 import { auth, db } from '../firebase';
 import {
   collection,
@@ -121,7 +122,9 @@ function SortableRow({ goal, expandedGoal, setExpandedGoal, toggleMilestone, del
       </td>
       <td data-label="Status">{goal.status}</td>
        <td data-label="Edit">
-        <button className="edit-goal-btn" onClick={() => onEdit(goal)}>✏️</button>
+        <button className="edit-goal-btn" onClick={() => onEdit(goal)}>
+    <img src={editIconUrl} alt="Edit goal" />
+</button>
       </td>
       <td data-label="Delete">
         <button className="delete-goal-btn" onClick={() => deleteGoal(goal.id)}>
