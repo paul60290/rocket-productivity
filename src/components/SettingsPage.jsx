@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import deleteIconUrl from '../assets/delete.svg';
 
 
 export default function SettingsPage({
@@ -151,7 +152,9 @@ export default function SettingsPage({
                       {groupName !== 'Ungrouped' && (
                         <>
                           <button onClick={() => handleStartEditGroup(groupName)} className="edit-project-btn" title="Rename Group">✏️</button>
-                          <button onClick={() => onDeleteGroup(groupName)} className="remove-btn" title="Delete Group">×</button>
+                          <button onClick={() => onDeleteGroup(groupName)} className="delete-group-btn" title="Delete Group">
+    <img src={deleteIconUrl} alt="Delete Group" />
+</button>
                         </>
                       )}
                     </div>

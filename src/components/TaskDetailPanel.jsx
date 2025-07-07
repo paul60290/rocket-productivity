@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { DndContext, closestCenter, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import deleteIconUrl from '../assets/delete.svg';
 import { collection, getDocs } from "firebase/firestore";
 
 const generateUniqueId = () => {
@@ -32,12 +33,12 @@ function SortableSubtask({ subtask, onToggle, onDelete }) {
             />
             <span className="subtask-text">{subtask.text}</span>
             <button
-                className="delete-subtask-btn"
-                onClick={() => onDelete(subtask.id)}
-                onPointerDown={stopPropagation}
-            >
-                🗑️
-            </button>
+    className="delete-subtask-btn"
+    onClick={() => onDelete(subtask.id)}
+    onPointerDown={stopPropagation}
+>
+  <img src={deleteIconUrl} alt="Delete subtask" />
+</button>
         </li>
     );
 }

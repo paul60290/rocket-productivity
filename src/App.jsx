@@ -25,6 +25,8 @@ import nextWeekIconUrl from './assets/next-week-icon.svg';
 import projectsIconUrl from './assets/projects-icon.svg';
 import settingsIconUrl from './assets/settings-icon.svg';
 import logoutIconUrl from './assets/logout-icon.svg';
+import editIconUrl from './assets/edit.svg';
+import deleteIconUrl from './assets/delete.svg';
 import { auth, db } from './firebase';
 
 const viewIcons = {
@@ -339,11 +341,11 @@ const sortedTasks = Array.isArray(tasks)
   />
   {isEditable && (
     <button
-      className="delete-column-btn"
-      onClick={() => onDeleteColumn(title)}
-    >
-      🗑️
-    </button>
+  className="delete-column-btn"
+  onClick={() => onDeleteColumn(title)}
+>
+  <img src={deleteIconUrl} alt="Delete column" />
+</button>
   )}
 </div>
            <div className="task-list">
@@ -2020,17 +2022,17 @@ const findTaskById = (taskId) => {
               >
                 <span className="project-entry">
                   {project.name}
-                  <span 
-                    className="edit-project-btn"
-                    title="Edit Project"
-                    onClick={(e) => {
-  e.stopPropagation();
-  setProjectToEdit(project); // Store the whole project object
-  setShowProjectDetailPanel(true);
-}}
-                  >
-                    ✏️
-                  </span>
+                  <button
+  className="edit-project-btn"
+  title="Edit Project"
+  onClick={(e) => {
+    e.stopPropagation();
+    setProjectToEdit(project); // Store the whole project object
+    setShowProjectDetailPanel(true);
+  }}
+>
+  <img src={editIconUrl} alt="Edit Project" />
+</button>
                 </span>
               </div>
             </SortableProjectItem>

@@ -355,7 +355,7 @@
 
 /* This makes the icon white when the button is active */
 .nav-btn.active .nav-icon {
-  filter: brightness(0) invert(1);
+  filter: brightness(0.2);
 }
 
 /* We need a new class for the text spans */
@@ -773,6 +773,14 @@
   background: #e9ecef;
   border-radius: 3px;
 }
+
+.edit-project-btn img {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  filter: brightness(0.5);
+}
+
   .modal-tabs {
   display: flex;
   justify-content: center;
@@ -916,6 +924,34 @@
 
 .delete-column-btn:hover {
   color: #d9534f;
+}
+
+.delete-column-btn img,
+.delete-milestone-btn img,
+.delete-goal-btn img,
+.delete-subtask-btn img,
+.delete-group-btn img {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+}
+
+.delete-milestone-btn,
+.delete-goal-btn,
+.delete-subtask-btn,
+.delete-group-btn {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.delete-milestone-btn:hover,
+.delete-goal-btn:hover,
+.delete-subtask-btn:hover,
+.delete-group-btn:hover {
+    opacity: 1;
 }
 
 .calendar-panel {

@@ -4,6 +4,7 @@ import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 
 // Import Firebase services
+import deleteIconUrl from '../assets/delete.svg';
 import { auth, db } from '../firebase';
 import {
   collection,
@@ -63,7 +64,9 @@ function SortableMilestone({ milestone, onToggle, onDelete, isEditing, setEditin
           </span>
         )}
       </div>
-      <button className="delete-milestone-btn" onClick={() => onDelete(milestone.text)}>🗑️</button>
+      <button className="delete-milestone-btn" onClick={() => onDelete(milestone.text)}>
+  <img src={deleteIconUrl} alt="Delete milestone" />
+</button>
     </li>
   );
 }
@@ -121,7 +124,9 @@ function SortableRow({ goal, expandedGoal, setExpandedGoal, toggleMilestone, del
         <button className="edit-goal-btn" onClick={() => onEdit(goal)}>✏️</button>
       </td>
       <td data-label="Delete">
-        <button className="delete-goal-btn" onClick={() => deleteGoal(goal.id)}>🗑️</button>
+        <button className="delete-goal-btn" onClick={() => deleteGoal(goal.id)}>
+  <img src={deleteIconUrl} alt="Delete goal" />
+</button>
       </td>
     </tr>
   );
