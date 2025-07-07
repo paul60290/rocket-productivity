@@ -10,59 +10,6 @@
 /* === TASK BOARD === */
 
 
-.column {
-  background-color: #1e1e1e;
-  border: 1px solid #2c2c2c;
-  border-radius: 8px;
-  flex: 1;
-  min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  padding: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-}
-
-.column h2 {
-  margin: 0 0 1rem 0;
-  font-size: 1.2rem;
-  color: #ffffff;
-}
-
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  flex-shrink: 0;
-}
-
-.task-card {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background-color: #2a2a2a;
-  padding: 0.5rem;
-  border-radius: 6px;
-  border: 1px solid #444;
-  color: #212529;
-  font-size: 1rem;
-  text-align: left;
-  cursor: grab;
-  user-select: none;
-}
-
-.task-card:hover {
-  border-color: #666;
-}
-
-.task-card.completed {
-  background-color: #2e4a2e;
-  color: #a6f3a6;
-  opacity: 0;
-  transition: opacity 0.5s ease, background-color 0.3s ease;
-}
-
 .task-text {
   flex: 1;
   color: inherit;
@@ -142,7 +89,7 @@
   width: 100%;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
   max-height: 80vh;      /* limit modal height to 80% of viewport */
-  overflow-y: auto;      /* enable vertical scrolling when content exceeds */
+  /* overflow-y: auto; */      /* THIS IS THE PROBLEM - REMOVE IT */
 }
 
 
@@ -178,37 +125,24 @@
   width: 100%;
 }
 
+/* When a color picker is open, boost the entire label-item's z-index */
+.label-item:has(.color-list) {
+  z-index: 2000;
+}
+
+/* Fallback for browsers that don't support :has() */
+.label-item.picker-open {
+  z-index: 2000;
+}
+
 .label-color-control {
   position: relative;
-  z-index: 10000;
+  z-index: 100; /* Reduced from 10000 but still high enough */
   display: inline-block;
-  width: 24px;           /* 👈 NEW: guarantees the color circle gets space */
-  height: 24px;          /* 👈 NEW */
-  flex-shrink: 0;        /* 👈 prevents it from being collapsed by flex */
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
   margin-left: 0.5rem;
-}
-
-.color-grid {
-  position: absolute;
-  top: 28px;
-  display: grid;
-  grid-template-columns: repeat(7, 18px);
-  gap: 6px;
-  background: #1e1e1e;
-  padding: 8px;
-  border-radius: 6px;
-  z-index: 10001; /* NEW - highest priority */
-  box-shadow: 0 0 6px rgba(0,0,0,0.4);
-}
-
-.color-display {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #ccc;
-  cursor: pointer;
-  display: inline-block;
 }
 
 .color-option {
@@ -223,11 +157,12 @@
 .label-item input {
   flex: 1;
   min-width: 0;
-  max-width: 70%; /* ✅ limits input width so color circle fits */
+  max-width: 60%; /* ✅ limits input width so color circle fits */
   padding: 6px;
   border: 1px solid #ddd;
   border-radius: 4px;
 }
+
 .app {
           display: flex;
           height: 100vh;
@@ -330,20 +265,6 @@
           margin-bottom: 20px;
         }
 
-        .label-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 8px;
-        }
-
-        .label-item input {
-          flex: 1;
-          padding: 6px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-        }
-
         .remove-btn {
           background: #dc3545;
           color: white;
@@ -381,6 +302,29 @@
           border-radius: 4px;
           cursor: pointer;
         }
+
+/* Override any conflicting modal styles */
+.modal-content .label-color-control,
+.modal-scroll-body .label-color-control {
+    overflow: visible; /* Ensure dropdown isn't clipped */
+}
+
+/* Ensure the parent containers don't clip the dropdown */
+.label-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  overflow-x: visible; /* Allow horizontal overflow for dropdown */
+}
+
+/* For Settings page, ensure similar behavior */
+.settings-page .label-color-control {
+  z-index: 100;
+}
+
+.settings-page .color-list {
+  z-index: 1000;
+}
 
 /* === Main Sidebar Navigation Button Styles === */
 .nav-btn {
@@ -658,7 +602,7 @@
 
 .modal-scroll-body {
   max-height: 70vh;
-  overflow-y: auto;
+  /* overflow-y: auto; */  /* This line has been commented out */
   padding: 1rem;
 }
         .modal-header {
@@ -877,13 +821,7 @@
   font-weight: bold;
 }
 
-.color-circle {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #ccc;
-}
+
   .color-display {
   width: 18px;
   height: 18px;
@@ -893,18 +831,22 @@
   cursor: pointer;
   display: inline-block;
 }
+
   .color-list {
   position: absolute;
-  top: 28px;
-  left: 0;
+  top: 100%; /* Position below the color display, not overlapping */
+  left: 50%; /* Center horizontally */
+  transform: translateX(-50%); /* Perfect centering */
   background: #1e1e1e;
   border-radius: 6px;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
-  z-index: 10001;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); /* Better shadow */
+  z-index: 1000; /* Much higher to ensure it's on top */
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 120px; /* Ensure minimum width for readability */
+  margin-top: 4px; /* Small gap between circle and dropdown */
 }
 
 .color-option-row {
@@ -915,6 +857,7 @@
   padding: 4px 8px;
   border-radius: 4px;
   transition: background 0.2s ease;
+  white-space: nowrap; /* Prevent text wrapping */
 }
 
 .color-option-row:hover {
@@ -927,6 +870,7 @@
   border-radius: 50%;
   border: 2px solid #fff;
   box-shadow: 0 0 0 1px #ccc;
+  flex-shrink: 0; /* Prevent circle from shrinking */
 }
 
 .color-name {

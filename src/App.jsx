@@ -131,10 +131,21 @@ function ManagerModal({ groups, labels, onClose, onUpdateLabels, onAddGroup, onR
                       setEditedLabels(updated);
                     }}/>
                     <div className="label-color-control">
-                      <div className="color-display" style={{ backgroundColor: label.color }} onClick={() => {
-                        const updated = [...editedLabels];
-                        updated[index] = { ...updated[index], showPicker: !updated[index].showPicker };
+                      <div className="color-display" style={{ backgroundColor: label.color }} onClick={(e) => {
+                        // Close all other pickers first
+                        const updated = editedLabels.map((l, i) => ({
+                          ...l, 
+                          showPicker: i === index ? !l.showPicker : false
+                        }));
                         setEditedLabels(updated);
+                        
+                        // Manage CSS classes for z-index stacking
+                        const labelItems = document.querySelectorAll('.label-item');
+                        labelItems.forEach(item => item.classList.remove('picker-open'));
+                        
+                        if (!updated[index].showPicker) {
+                          e.target.closest('.label-item').classList.add('picker-open');
+                        }
                       }}></div>
                       {label.showPicker && (
                         <div className="color-list">
@@ -145,8 +156,8 @@ function ManagerModal({ groups, labels, onClose, onUpdateLabels, onAddGroup, onR
                               setEditedLabels(updated);
                             }}>
                               <span className="color-circle" style={{ backgroundColor: option.value }}>
-                                {label.color === option.value && <span className="checkmark">✓</span>}
-                              </span>
+  {label.color === option.value && <span className="checkmark">✓</span>}
+</span>
                               <span className="color-name">{option.name}</span>
                             </div>
                           ))}

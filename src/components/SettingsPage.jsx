@@ -87,27 +87,40 @@ export default function SettingsPage({
                       setEditedLabels(updated);
                     }}/>
                     <div className="label-color-control">
-                      <div className="color-display" style={{ backgroundColor: label.color }} onClick={() => {
-                        const updated = [...editedLabels];
-                        updated[index] = { ...updated[index], showPicker: !updated[index].showPicker };
+                      <div className="color-display" style={{ backgroundColor: label.color }} onClick={(e) => {
+                        // Close all other pickers first
+                        const updated = editedLabels.map((l, i) => ({
+                          ...l, 
+                          showPicker: i === index ? !l.showPicker : false
+                        }));
                         setEditedLabels(updated);
+                        
+                        // Manage CSS classes for z-index stacking
+                        const labelItems = document.querySelectorAll('.label-item');
+                        labelItems.forEach(item => item.classList.remove('picker-open'));
+                        
+                        if (!updated[index].showPicker) {
+                          e.target.closest('.label-item').classList.add('picker-open');
+                        }
                       }}></div>
                       {label.showPicker && (
-                        <div className="color-list">
-                          {colorOptions.map((option) => (
-                            <div key={option.value} className="color-option-row" onClick={() => {
-                              const updated = [...editedLabels];
-                              updated[index] = { ...updated[index], color: option.value, showPicker: false };
-                              setEditedLabels(updated);
-                            }}>
-                              <span className="color-circle" style={{ backgroundColor: option.value }}>
-                                {label.color === option.value && <span className="checkmark">✓</span>}
-                              </span>
-                              <span className="color-name">{option.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+  <div className="color-list">
+    {colorOptions.map((option) => (
+      <div key={option.value} className="color-option-row" onClick={() => {
+        const updated = [...editedLabels];
+        updated[index] = { ...updated[index], color: option.value, showPicker: false };
+        setEditedLabels(updated);
+      }}>
+        <span className="color-circle" style={{ backgroundColor: option.value }}>
+          {label.color === option.value && <span className="checkmark">✓</span>}
+        </span>
+        <span className="color-name">{option.name}</span>
+      </div>
+    ))}
+  </div>
+)}
+
+
                     </div>
                     <button onClick={() => removeLabel(label)} className="remove-btn">×</button>
                   </div>
