@@ -27,6 +27,9 @@ import settingsIconUrl from './assets/settings-icon.svg';
 import logoutIconUrl from './assets/logout-icon.svg';
 import editIconUrl from './assets/edit.svg';
 import deleteIconUrl from './assets/delete.svg';
+import timerIconUrl from './assets/timer.svg';
+import calendarIconUrl from './assets/calendar.svg';
+import addIconUrl from './assets/add.svg';
 import { auth, db } from './firebase';
 
 const viewIcons = {
@@ -383,11 +386,12 @@ const sortedTasks = Array.isArray(tasks)
             </div>
           ) : (
             <button
-              className="add-task-btn"
-              onClick={() => setAdding(true)}
-            >
-              + Add Task
-            </button>
+  className="add-task-btn"
+  onClick={() => setAdding(true)}
+>
+  <img src={addIconUrl} alt="Add Task" />
+  <span>Add Task</span>
+</button>
           )
         )}
       </div>
@@ -2079,13 +2083,15 @@ const findTaskById = (taskId) => {
     {/* Add New Task Button - only shows on board view */}
     {currentView === 'board' && (
       <button className="header-add-task-btn" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
-        + Add Task
-      </button>
+  <img src={addIconUrl} alt="Add Task" />
+  <span>Add Task</span>
+</button>
     )}
     {!timerIsRunning && timerTime === timerInputTime * 60 ? (
       <button className="timer-toggle" onClick={() => setShowTimerModal(true)}>
-        ⏰ Timer
-      </button>
+  <img src={timerIconUrl} alt="Timer" />
+  <span>Timer</span>
+</button>
     ) : (
       <div className="mini-timer">
         <span>{formatTime(timerTime)}</span>
@@ -2094,18 +2100,19 @@ const findTaskById = (taskId) => {
       </div>
     )}
     <button
-    className="calendar-toggle"
-    onClick={() => {
-        const isMobile = window.innerWidth < 768;
-        if (isMobile) {
-            setShowCalendar(true);
-            setIsCalendarMaximized(true);
-        } else {
-            setShowCalendar(!showCalendar);
-        }
-    }}
+  className="calendar-toggle"
+  onClick={() => {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+        setShowCalendar(true);
+        setIsCalendarMaximized(true);
+    } else {
+        setShowCalendar(!showCalendar);
+    }
+  }}
 >
-    📅 Calendar
+  <img src={calendarIconUrl} alt="Calendar" />
+  <span>Calendar</span>
 </button>
   </div>
 </div>
