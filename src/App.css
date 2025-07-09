@@ -421,13 +421,6 @@
   height: 24px;
 }
 
-.header-title-container h1 {
-  margin: 0; /* Removes default h1 margin */
-  font-size: 1.75rem; /* ~24.5px, a better match for the icon size */
-  line-height: 1; /* Aligns text vertically */
-  text-transform: capitalize;
-  font-weight: 700;
-}
 
         .calendar-toggle {
   display: flex;
@@ -1704,6 +1697,13 @@
 }
 
 @media (max-width: 767px) {
+/* Hide text on header action buttons on mobile */
+  .header-add-task-btn span,
+  .timer-toggle span,
+  .calendar-toggle span {
+    display: none;
+  }
+
   .app {
     overflow-x: hidden; /* Prevents horizontal scrollbar during animation */
   }
@@ -1972,7 +1972,7 @@
 
 .header-title-container h1 {
   margin: 0;
-  font-size: 1.5rem; /* 21px */
+  font-size: 1.25rem; /* Changed from 1.5rem */
   font-weight: 700;
   line-height: 1;
   text-transform: capitalize;
