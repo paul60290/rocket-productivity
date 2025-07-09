@@ -449,12 +449,12 @@
 }
 
 
-        .content-wrapper {
-  		flex: 1;
-  		display: flex;
-  		overflow: hidden;
-  		position: relative;
-	}
+ .content-wrapper {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
 
 
         .content {
@@ -481,16 +481,9 @@
 
   /* For a smoother swipe/scroll experience on touch devices */
   -webkit-overflow-scrolling: touch;
+}
   
-  /* Hides the scrollbar for a cleaner look but keeps it functional */
-  scrollbar-width: none; /* For Firefox */
-}
-
-.board::-webkit-scrollbar {
-  display: none; /* For Chrome, Safari, and Opera */
-}
-
-        .column {
+          .column {
           flex: 0 0 280px; /* Do not grow or shrink horizontally */
           background: #f8f9fa;
           border-radius: 8px;

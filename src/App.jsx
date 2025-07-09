@@ -1307,7 +1307,7 @@ const sensors = useSensors(useSensor(PointerSensor, {
             const projectIndex = newData[groupIndex].projects.findIndex(p => p.id === projectId);
             if (projectIndex > -1) {
                 // Update the name of the project in the array
-                newData[oldGroupIndex].projects[projectIndex].name = trimmedNewName;
+newData[groupIndex].projects[projectIndex].name = trimmedNewName;
             }
         }
         return newData;
