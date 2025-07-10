@@ -1014,8 +1014,8 @@ const sensors = useSensors(useSensor(PointerSensor, {
         if (prev <= 1) {
           clearInterval(timerIntervalRef.current);
           setTimerIsRunning(false);
-          // Show the new completion modal
-          setShowTimerCompleteModal(true); 
+          // Call our new, unified handler
+          handleTimerCompletion(); 
           return 0;
         }
         return prev - 1;
@@ -1067,6 +1067,18 @@ const sensors = useSensors(useSensor(PointerSensor, {
       // Reset to default 25 minutes
       setTimerInputTime(25);
       setTimerTime(25 * 60);
+  };
+
+  const handleTimerCompletion = () => {
+    // Play the chime
+    const chime = document.getElementById('timer-chime');
+    if (chime) {
+      chime.play().catch(error => {
+        console.error("Audio playback failed on completion:", error);
+      });
+    }
+    // Show the completion modal
+    setShowTimerCompleteModal(true);
   };
       
 // Listen to authentication state changes
