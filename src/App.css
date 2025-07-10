@@ -1240,31 +1240,66 @@
   padding: 2px;
   opacity: 0.7;
 }
+
+.mini-timer-btn img {
+  width: 16px;
+  height: 16px;
+  /* This filter combination creates the dark gray color to match other icons */
+  filter: brightness(0) saturate(100%) invert(18%) sepia(11%) saturate(589%) hue-rotate(167deg) brightness(95%) contrast(93%);
+}
+
 .mini-timer-btn:hover {
   opacity: 1;
 }
 
-/* --- Timer Modal Specifics --- */
+/* === Timer Modal Specifics === */
+.timer-modal h3 {
+  color: #343a40; /* Standard header color */
+}
+
 .timer-modal .timer-display {
   font-size: 4rem;
   font-weight: bold;
   margin: 1rem 0;
   font-family: monospace;
-  color: #fff;
+  color: #343a40; /* Dark text color for visibility */
   text-align: center;
+}
+
+.timer-modal .timer-quick-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.timer-modal .timer-quick-select button {
+  background-color: #f1f3f5;
+  color: #495057;
+  border: 1px solid #dee2e6;
+  flex: 1 1 60px; /* Allow buttons to grow and wrap */
+}
+.timer-modal .timer-quick-select button:not(:disabled):hover {
+  background-color: #e9ecef;
+}
+
+.timer-modal .timer-quick-select button.active {
+  background-color: #adb5bd; /* A lighter gray for the active state */
+  color: white;
+  border-color: #adb5bd;
 }
 
 .timer-modal .timer-controls {
   display: flex;
-  justify-content: center;
+  flex-direction: column; /* Stack label and input */
   align-items: center;
-  gap: 10px;
+  gap: 5px;
   margin: 1rem 0;
 }
+
 .timer-modal .timer-controls input {
-   background-color: #333;
-   color: #fff;
-   border: 1px solid #555;
+   text-align: center;
 }
 
 .timer-modal .timer-buttons {
@@ -1272,6 +1307,24 @@
   gap: 1rem;
   justify-content: center;
 }
+
+/* Generic button styles for the modal */
+.timer-modal button.btn-primary {
+    background-color: #6c757d; /* Standard gray for all buttons */
+    color: white;
+}
+.timer-modal button.btn-primary:hover {
+    background-color: #5a6268;
+}
+
+.timer-modal button.btn-secondary {
+    background-color: #6c757d; /* Gray for Pause/Reset */
+    color: white;
+}
+.timer-modal button.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
 /* --- Authentication Page --- */
 .auth-container {
   display: flex;

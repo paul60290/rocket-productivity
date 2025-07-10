@@ -851,31 +851,63 @@ function TimerModal({
   onReset,
   formatTime 
 }) {
+  const quickDurations = [5, 10, 15, 20, 25, 30, 45, 60];
+
+  const selectQuickDuration = (minutes) => {
+    if (!isRunning) {
+      setInputTime(minutes);
+      setTime(minutes * 60);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content timer-modal" onClick={(e) => e.stopPropagation()}>
         <h3>Timer</h3>
         <div className="timer-display">{formatTime(time)}</div>
+        
+        <div className="timer-quick-select">
+          {quickDurations.map(duration => (
+            <button 
+              key={duration} 
+              onClick={() => selectQuickDuration(duration)}
+              className={inputTime === duration ? 'active' : ''}
+              disabled={isRunning}
+            >
+              {duration}m
+            </button>
+          ))}
+        </div>
+
         <div className="timer-controls">
-          <label>Set duration (minutes):</label>
+          <label>Custom duration (minutes):</label>
           <input
             type="number"
             value={inputTime}
-            onChange={(e) => setInputTime(parseInt(e.target.value) || 1)}
+            onChange={(e) => {
+              const val = parseInt(e.target.value);
+              if (val > 0) {
+                setInputTime(val);
+                if (!isRunning) setTime(val * 60);
+              } else {
+                setInputTime('');
+              }
+            }}
             min="1"
             max="120"
             disabled={isRunning}
           />
         </div>
+
         <div className="timer-buttons">
           {isRunning ? (
-            <button onClick={onPause}>Pause</button>
+            <button onClick={onPause} className="btn-secondary">Pause</button>
           ) : (
-            <button onClick={time > 0 && time < inputTime * 60 ? onResume : onStart}>
-              {time > 0 && time < inputTime * 60 ? 'Resume' : 'Start'}
-            </button>
+            <button onClick={time > 0 && time < inputTime * 60 ? onResume : onStart} className="btn-primary">
+    {time > 0 && time < inputTime * 60 ? 'Resume' : 'Launch'}
+</button>
           )}
-          <button onClick={onReset}>Reset</button>
+          <button onClick={onReset} className="btn-secondary">Reset</button>
         </div>
       </div>
     </div>
@@ -2094,10 +2126,14 @@ const findTaskById = (taskId) => {
 </button>
     ) : (
       <div className="mini-timer">
-        <span>{formatTime(timerTime)}</span>
-        <button className="mini-timer-btn" onClick={() => setShowTimerModal(true)}>⚙️</button>
-        <button className="mini-timer-btn" onClick={handleCancelTimer}>❌</button>
-      </div>
+  <span>{formatTime(timerTime)}</span>
+  <button className="mini-timer-btn" onClick={() => setShowTimerModal(true)}>
+    <img src={editIconUrl} alt="Edit Timer" />
+  </button>
+  <button className="mini-timer-btn" onClick={handleCancelTimer}>
+    <img src={deleteIconUrl} alt="Cancel Timer" />
+  </button>
+</div>
     )}
     <button
   className="calendar-toggle"
