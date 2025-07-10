@@ -106,7 +106,7 @@
 }
 
 .modal-content button {
-  background: #4dabf7;
+  background: #6c757d;
   color: #fff;
   border: none;
   padding: 0.5rem 1rem;
@@ -116,7 +116,7 @@
 }
 
 .modal-content button:hover {
-  background: #339af0;
+  background: #5a6268;
 }
 
 /* === LABEL COLOR PICKER === */
@@ -686,9 +686,12 @@
         }
 
         .save-btn {
-          background: #007bff;
-          color: white;
-        }
+  background: #6c757d; /* Standard gray color */
+  color: white;
+}
+.save-btn:hover {
+  background: #5a6268;
+}
 
         .today-view {
           padding: 20px;
@@ -1323,6 +1326,24 @@
 }
 .timer-modal button.btn-secondary:hover {
     background-color: #5a6268;
+}
+
+/* === Timer Completion Modal === */
+.timer-complete-modal .modal-body {
+  text-align: center;
+  padding: 2rem;
+}
+
+.timer-complete-modal h2 {
+  font-size: 2rem;
+  color: #28a745; /* A celebratory green */
+  margin-bottom: 0.5rem;
+}
+
+.timer-complete-modal p {
+  font-size: 1.1rem;
+  color: #495057;
+  margin-bottom: 1.5rem;
 }
 
 /* --- Authentication Page --- */

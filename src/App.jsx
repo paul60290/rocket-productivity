@@ -31,6 +31,7 @@ import timerIconUrl from './assets/timer.svg';
 import calendarIconUrl from './assets/calendar.svg';
 import addIconUrl from './assets/add.svg';
 import { auth, db } from './firebase';
+import timerChime from './assets/mixkit-tick-tock-clock-timer-1045.wav';
 
 const viewIcons = {
   goals: goalsIconUrl,
@@ -914,6 +915,25 @@ function TimerModal({
   );
 }
 
+// === SECTION: Timer Completion Modal ===
+function TimerCompleteModal({ onClose }) {
+ 
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content timer-complete-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-body">
+          <h2>Time's Up!</h2>
+          <p>Great focus session. Keep up the momentum!</p>
+          <button onClick={onClose} className="save-btn">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // === SECTION: Main App Component ===
 function App() {
   // State for UI and Modals
@@ -943,6 +963,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true); // Used to show loading indicators
   const [activeId, setActiveId] = useState(null); // For drag-and-drop
   const [isCalendarMaximized, setIsCalendarMaximized] = useState(false);
+  const [showTimerCompleteModal, setShowTimerCompleteModal] = useState(false);
   
   
   // State for Timer
@@ -993,8 +1014,8 @@ const sensors = useSensors(useSensor(PointerSensor, {
         if (prev <= 1) {
           clearInterval(timerIntervalRef.current);
           setTimerIsRunning(false);
-          // Optional: Add a sound or notification here
-          alert("Timer finished!");
+          // Show the new completion modal
+          setShowTimerCompleteModal(true); 
           return 0;
         }
         return prev - 1;
@@ -1003,6 +1024,15 @@ const sensors = useSensors(useSensor(PointerSensor, {
 
     return () => clearInterval(timerIntervalRef.current);
   }, [timerIsRunning]);
+
+  useEffect(() => {
+    if (showTimerCompleteModal) {
+      document.getElementById('timer-chime')?.play().catch(error => {
+        // This catch block helps diagnose issues if the browser blocks autoplay
+        console.error("Audio playback failed:", error);
+      });
+    }
+  }, [showTimerCompleteModal]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -2216,6 +2246,23 @@ const findTaskById = (taskId) => {
           formatTime={formatTime}
         />
       )}
+      {showTimerCompleteModal && (
+        <TimerCompleteModal 
+          onClose={() => {
+            // Stop and reset the chime sound
+            const chime = document.getElementById('timer-chime');
+            if (chime) {
+              chime.pause();
+              chime.currentTime = 0;
+            }
+            
+            setShowTimerCompleteModal(false);
+            handleResetTimer(); // Also reset the timer when closing
+          }} 
+        />
+      )}
+
+      <audio id="timer-chime" src={timerChime} preload="auto"></audio>
     </>
   )}
 </div>
