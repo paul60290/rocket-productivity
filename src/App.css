@@ -257,13 +257,15 @@
           width: 100%;
         }
 
-        .column-title {
-          font-size: 1.1rem;
-          font-weight: 600;
-          color: #343a40;
-          margin-bottom: 15px;
-          display: block;
-        }
+.column-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #343a40;
+  margin: 0; /* Remove any default margin */
+  display: flex;
+  align-items: center;
+  line-height: 1.2; /* Consistent line height */
+}
 
         .label-list {
           max-height: 300px;
@@ -455,14 +457,7 @@
           overflow: auto;
         }
 
-        .calendar-panel {
-          width: 300px;
-          background: #f8f9fa;
-          border-left: 1px solid #e9ecef;
-          padding: 20px;
-          transform: translateX(0);
-          transition: transform 0.3s ease;
-        }
+       
 
 .board {
   display: flex;
@@ -894,6 +889,7 @@
   color: #fff;
   font-size: 0.85rem;
 }
+
   .checkmark {
   color: white;
   font-size: 12px;
@@ -904,6 +900,7 @@
   height: 100%;
   width: 100%;
 }
+
   .add-column-btn {
   min-width: 200px;
   height: 100px;
@@ -915,11 +912,13 @@
   cursor: pointer;
   align-self: start;
 }
-  .column-header {
+
+.column-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: center; /* This ensures vertical alignment */
   margin-bottom: 10px;
+  min-height: 24px; /* Ensure consistent height */
 }
 
 .delete-column-btn {
@@ -929,10 +928,24 @@
   font-size: 1rem;
   cursor: pointer;
   padding: 2px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px; /* Match the icon height */
+  width: 24px;   /* Make it square */
+  border-radius: 4px; /* Add slight rounding */
+  transition: all 0.2s ease;
+}
+
+.delete-column-btn img {
+  width: 15px;
+  height: 15px;
+  vertical-align: middle; /* Ensure the image is centered */
 }
 
 .delete-column-btn:hover {
   color: #d9534f;
+  background-color: rgba(217, 83, 79, 0.1); /* Subtle background on hover */
 }
 
 
@@ -954,11 +967,7 @@
     opacity: 1;
 }
 
-.calendar-panel {
-  width: 300px;
-  height: calc(100vh - 70px); /* subtract header height */
-  overflow-y: auto;
-}
+
 .fc {
   /* ensure FullCalendar fills the panel */
   max-width: 100%;
@@ -1875,7 +1884,7 @@
 
 /* === Calendar Panel & Maximize === */
 .calendar-container {
-  width: 300px;
+  width: 400px;
   background: #f8f9fa;
   border-left: 1px solid #e9ecef;
   transition: all 0.3s ease-in-out;
