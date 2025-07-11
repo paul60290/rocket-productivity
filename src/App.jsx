@@ -8,6 +8,8 @@ import { CSS } from '@dnd-kit/utilities';
 import './App.css';
 const GoalsPage = lazy(() => import('./components/GoalsPage'));
 const CalendarPanel = lazy(() => import('./components/CalendarPanel'));
+const JournalsPage = lazy(() => import('./components/JournalsPage'));
+const JournalEntryPage = lazy(() => import('./components/JournalEntryPage'));
 const TaskDetailPanel = lazy(() => import('./components/TaskDetailPanel'));
 const SettingsPage = lazy(() => import('./components/SettingsPage'));
 const ProjectsPage = lazy(() => import('./components/ProjectsPage'));
@@ -19,6 +21,7 @@ import logoUrl from './assets/logo.svg';
 import goalsIconUrl from './assets/goals-icon.svg';
 import todayIconUrl from './assets/today-icon.svg';
 import inboxIconUrl from './assets/inbox-icon.svg';
+import journalIconUrl from './assets/journal.svg';
 import tomorrowIconUrl from './assets/tomorrow-icon.svg';
 import thisWeekIconUrl from './assets/this-week-icon.svg';
 import nextWeekIconUrl from './assets/next-week-icon.svg';
@@ -35,6 +38,7 @@ import timerChime from './assets/mixkit-tick-tock-clock-timer-1045.wav';
 
 const viewIcons = {
   goals: goalsIconUrl,
+  journal: journalIconUrl,
   today: todayIconUrl,
   inbox: inboxIconUrl,
   tomorrow: tomorrowIconUrl,
@@ -940,6 +944,7 @@ function App() {
   const [currentView, setCurrentView] = useState('today');
   const [currentGroup, setCurrentGroup] = useState(null);
   const [currentProject, setCurrentProject] = useState(null);
+  const [selectedJournalId, setSelectedJournalId] = useState(null);
   const [modalTask, setModalTask] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -1844,6 +1849,23 @@ const findTaskById = (taskId) => {
         <GoalsPage />
       </Suspense>
     );
+    case 'journal':
+    return (
+      <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Journals...</h2></div>}>
+        <JournalsPage 
+          onSelectJournal={(journalId) => {
+            setSelectedJournalId(journalId);
+            setCurrentView('journalEntry');
+          }}
+        />
+      </Suspense>
+    );
+    case 'journalEntry':
+    return (
+      <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Entry...</h2></div>}>
+        <JournalEntryPage journalId={selectedJournalId} />
+      </Suspense>
+    );
   case 'today':
     return (
       <TodayView 
@@ -2033,6 +2055,14 @@ const findTaskById = (taskId) => {
   >
     <img src={goalsIconUrl} className="nav-icon" alt="Goals" />
     <span className="nav-btn-text">Goals</span>
+  </button>
+  <button
+    title="Journal"
+    className={`nav-btn ${currentView === 'journal' ? 'active' : ''}`}
+    onClick={() => setCurrentView('journal')}
+  >
+    <img src={journalIconUrl} className="nav-icon" alt="Journal" />
+    <span className="nav-btn-text">Journal</span>
   </button>
   <button
     title="Today" 
