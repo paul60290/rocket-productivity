@@ -10,6 +10,8 @@ export default function SettingsPage({
   onAddGroup,
   onRenameGroup,
   onDeleteGroup,
+  currentTheme,
+  onToggleTheme,
 }) {
   const [activeTab, setActiveTab] = useState('labels');
   const [editedLabels, setEditedLabels] = useState(initialLabels.map(label => ({ ...label, showPicker: false })));
@@ -74,6 +76,16 @@ export default function SettingsPage({
         <div className="modal-tabs">
           <button className={activeTab === 'labels' ? 'active' : ''} onClick={() => setActiveTab('labels')}>Labels</button>
           <button className={activeTab === 'groups' ? 'active' : ''} onClick={() => setActiveTab('groups')}>Groups</button>
+        </div>
+
+        <div className="settings-section">
+          <h3 className="settings-section-title">Appearance</h3>
+          <div className="settings-item">
+            <span>Theme</span>
+            <button onClick={onToggleTheme} className="theme-toggle-btn">
+              Switch to {currentTheme === 'light' ? 'Dark' : 'Light'} Mode
+            </button>
+          </div>
         </div>
 
         {/* We can reuse the modal-scroll-body class or create a new one */}

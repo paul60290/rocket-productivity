@@ -943,6 +943,7 @@ function App() {
   const [modalTask, setModalTask] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState('light'); // Add this line for theme state
   
   const [showProjectDetailPanel, setShowProjectDetailPanel] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
@@ -1090,6 +1091,17 @@ const sensors = useSensors(useSensor(PointerSensor, {
     // Cleanup subscription on component unmount
     return () => unsubscribe();
   }, []);
+
+// Effect to apply the theme class to the body
+  useEffect(() => {
+    document.body.className = ''; // Clear existing classes
+    document.body.classList.add(`${theme}-mode`);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  };
+
   // Fetch all user data when user logs in
   useEffect(() => {
     if (user) {
@@ -1821,6 +1833,8 @@ const findTaskById = (taskId) => {
           onAddGroup={handleAddGroup}
           onRenameGroup={handleRenameGroup}
           onDeleteGroup={handleDeleteGroup}
+          currentTheme={theme}
+          onToggleTheme={toggleTheme}
         />
       </Suspense>
     );
