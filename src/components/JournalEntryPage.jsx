@@ -27,7 +27,7 @@ export default function JournalEntryPage({ journalId }) {
       const entrySnap = await getDoc(entryRef);
       if (entrySnap.exists()) {
         setEntry(entrySnap.data().content);
-        setIsEditing(false); // If an entry exists, start in view mode
+        setIsEditing(false); // If an entry exists, start in view modes
       } else {
         setEntry('');
         setIsEditing(true); // If no entry exists, start in edit mode

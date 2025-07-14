@@ -1255,6 +1255,11 @@
   opacity: 1;
 }
 
+.mini-timer-btn img {
+  width: 16px;
+  height: 16px;
+}
+
 .timer-modal h3 {
   color: var(--text-primary);
 }
