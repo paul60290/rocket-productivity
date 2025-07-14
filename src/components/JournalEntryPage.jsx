@@ -3,6 +3,7 @@ import { db, auth } from '../firebase';
 import { doc, getDoc, setDoc, collection } from "firebase/firestore";
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import MiniCalendar from './MiniCalendar';
 import {
   FaBold, FaItalic, FaStrikethrough, FaCode, FaHeading,
   FaListUl, FaListOl, FaQuoteLeft, FaUndo, FaRedo
@@ -70,6 +71,7 @@ export default function JournalEntryPage({ journalId }) {
   const [isEditing, setIsEditing] = useState(true);
   const [journalName, setJournalName] = useState('');
   const [entryDate, setEntryDate] = useState(new Date());
+  const [daysWithEntries, setDaysWithEntries] = useState([]);
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -81,32 +83,41 @@ export default function JournalEntryPage({ journalId }) {
   const todayDocId = entryDate.toISOString().split('T')[0];
 
   useEffect(() => {
-    if (!editor) return;
+  const fetchContent = async () => {
+    if (!editor || !journalId || !auth.currentUser) return;
+    const entryRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries', todayDocId);
+    const entrySnap = await getDoc(entryRef);
 
-    const fetchJournalData = async () => {
-      if (!journalId || !auth.currentUser) return;
+    if (entrySnap.exists()) {
+      editor.commands.setContent(entrySnap.data().content);
+      setIsEditing(false);
+    } else {
+      editor.commands.setContent('');
+      setIsEditing(true);
+    }
+  };
 
-      // 1. Fetch the journal's name
-      const journalRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId);
-      const journalSnap = await getDoc(journalRef);
-      if (journalSnap.exists()) {
-        setJournalName(journalSnap.data().name);
-      }
+  fetchContent();
+}, [todayDocId, editor]); // Only re-run when the selected date changes
 
-      // 2. Fetch today's entry for this journal
-      const entryRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries', todayDocId);
-      const entrySnap = await getDoc(entryRef);
-      if (entrySnap.exists()) {
-        editor.commands.setContent(entrySnap.data().content);
-        setIsEditing(false);
-      } else {
-        editor.commands.setContent(''); // Clear the editor for a new entry
-        setIsEditing(true);
-      }
-    };
+useEffect(() => {
+  const fetchMetadata = async () => {
+    if (!journalId || !auth.currentUser) return;
+    // 1. Fetch journal name
+    const journalRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId);
+    const journalSnap = await getDoc(journalRef);
+    if (journalSnap.exists()) {
+      setJournalName(journalSnap.data().name);
+    }
+    // 2. Fetch all entry IDs for markers
+    const entriesCollectionRef = collection(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries');
+    const querySnapshot = await getDocs(entriesCollectionRef);
+    const entryDates = querySnapshot.docs.map(doc => doc.id);
+    setDaysWithEntries(entryDates);
+  };
 
-    fetchJournalData();
-  }, [journalId, todayDocId, editor]);
+  fetchMetadata();
+}, [journalId]); // Only re-run when the journal itself changes
 
   // This effect syncs the editor's editable status with the component's state
   useEffect(() => {
@@ -117,14 +128,25 @@ export default function JournalEntryPage({ journalId }) {
  const handleSave = async () => {
     if (!journalId || !auth.currentUser || !editor) return;
 
-    const htmlContent = editor.getHTML(); // Get content as HTML from Tiptap
+    const htmlContent = editor.getHTML();
+
+    // Prevent saving an empty entry unless it's to clear an existing one
+    if (editor.isEmpty && !daysWithEntries.includes(todayDocId)) {
+        return;
+    }
 
     try {
       const entryRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries', todayDocId);
       await setDoc(entryRef, {
-        content: htmlContent, // Save the HTML content
+        content: htmlContent,
         lastModified: new Date()
       });
+
+      // Immediately update the UI with the new entry marker
+      if (!daysWithEntries.includes(todayDocId)) {
+        setDaysWithEntries([...daysWithEntries, todayDocId]);
+      }
+
       setIsEditing(false);
     } catch (error) {
       console.error("Error saving journal entry: ", error);
@@ -133,18 +155,9 @@ export default function JournalEntryPage({ journalId }) {
   };
 
   return (
-    <div className="settings-page" style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div className="settings-page" style={{ maxWidth: '1200px', margin: '0 auto' }}>
       <div className="settings-page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-    <h1>{journalName}</h1>
-    <input 
-        type="date"
-        value={entryDate.toISOString().split('T')[0]}
-        onChange={(e) => setEntryDate(new Date(e.target.value))}
-        className="form-group"
-        style={{ padding: '8px', border: '1px solid var(--border-primary)', borderRadius: '4px' }}
-    />
-</div>
+        <h1>{journalName}</h1>
         {isEditing ? (
           <button onClick={handleSave} className="save-btn">Save</button>
         ) : (
@@ -152,10 +165,19 @@ export default function JournalEntryPage({ journalId }) {
         )}
       </div>
 
-      <div className="form-group">
-    {isEditing && <MenuBar editor={editor} />}
-    <EditorContent editor={editor} />
-</div>
+      <div className="journal-entry-container">
+        <div className="journal-editor-main">
+          {isEditing && <MenuBar editor={editor} />}
+          <EditorContent editor={editor} />
+        </div>
+        <div className="journal-sidebar">
+    <MiniCalendar
+    selectedDate={entryDate}
+    onDateChange={setEntryDate}
+    entries={daysWithEntries}
+/>
+        </div>
+      </div>
     </div>
   );
 }

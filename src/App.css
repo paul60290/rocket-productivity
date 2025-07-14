@@ -2156,3 +2156,135 @@
   border-top: 2px solid var(--border-secondary);
   margin: 2rem 0;
 }
+
+/* === Journal Entry Page Layout === */
+.journal-entry-container {
+  display: flex;
+  flex-direction: column-reverse; /* Stack calendar on top on mobile */
+  gap: 30px;
+  margin-top: 1.5rem;
+}
+
+.journal-editor-main {
+  flex-grow: 1;
+}
+
+.journal-sidebar {
+  flex-shrink: 0;
+}
+
+.mini-calendar {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  padding: 15px;
+}
+
+/* Desktop layout */
+@media (min-width: 992px) {
+  .journal-entry-container {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .journal-sidebar {
+    width: 300px;
+    position: sticky;
+    top: 20px; /* Adjust as needed */
+  }
+}
+
+/* === Mini Calendar Styles === */
+.mini-calendar .calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.mini-calendar .calendar-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.mini-calendar .calendar-header button {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-primary);
+  border-radius: 4px;
+}
+
+.mini-calendar .calendar-header button:hover {
+  background-color: var(--bg-primary);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  text-align: center;
+}
+
+.day-name {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding-bottom: 5px;
+}
+
+.calendar-day {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.calendar-day:not(.empty):hover {
+  background-color: var(--bg-tertiary);
+}
+
+.calendar-day.today span {
+  background-color: var(--border-secondary);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bg-primary);
+}
+
+.calendar-day.selected {
+  background-color: var(--btn-bg) !important;
+  color: var(--text-inverted);
+}
+
+.calendar-day.selected span {
+    background-color: transparent !important;
+    color: inherit !important;
+}
+
+.dark-mode .calendar-day.today span {
+    color: var(--text-primary);
+}
+
+.calendar-day.has-entry span::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 2px;
+  background-color: var(--text-muted);
+}
+
+.calendar-day.selected.has-entry span::after {
+  background-color: var(--text-inverted);
+}
