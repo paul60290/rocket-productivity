@@ -8,7 +8,7 @@ export default function JournalEntryPage({ journalId }) {
   const [journalName, setJournalName] = useState('');
   const [entryDate, setEntryDate] = useState(new Date());
 
-  // Get today's date in YYYY-MM-DD format for the document ID
+  // Get today's date in YYYY-MM-DD format for document ID
   const todayDocId = entryDate.toISOString().split('T')[0];
 
   useEffect(() => {

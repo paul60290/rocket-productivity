@@ -1690,7 +1690,7 @@ newData[groupIndex].projects[projectIndex].name = trimmedNewName;
     const taskToUpdate = modalTask;
     if (!taskToUpdate) return;
   
-    // If it is a new task, call the addTask function
+    // If it's a new task, call the addTask function
     if (taskToUpdate.isNew) {
       // The updatedTaskData object from the panel is already complete.
       await addTask(updatedTaskData, projectId);
