@@ -3,60 +3,64 @@ import { db, auth } from '../firebase';
 import { doc, getDoc, setDoc, collection } from "firebase/firestore";
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import {
+  FaBold, FaItalic, FaStrikethrough, FaCode, FaHeading,
+  FaListUl, FaListOl, FaQuoteLeft, FaUndo, FaRedo
+} from 'react-icons/fa';
+import { MdHorizontalRule } from 'react-icons/md';
 
-// This is our new toolbar component
+// This is our new, more robust toolbar component
 const MenuBar = ({ editor }) => {
   if (!editor) {
     return null;
   }
 
   return (
-    <div className="menubar">
-      <button
-        type="button" // Add type="button" to prevent form submission
-        onClick={() => editor.chain().focus().toggleBold().run()}
-        disabled={!editor.can().chain().focus().toggleBold().run()}
-        className={editor.isActive('bold') ? 'is-active' : ''}
-      >
-        Bold
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-        disabled={!editor.can().chain().focus().toggleItalic().run()}
-        className={editor.isActive('italic') ? 'is-active' : ''}
-      >
-        Italic
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-        disabled={!editor.can().chain().focus().toggleStrike().run()}
-        className={editor.isActive('strike') ? 'is-active' : ''}
-      >
-        Strike
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().setParagraph().run()}
-        className={editor.isActive('paragraph') ? 'is-active' : ''}
-      >
-        Paragraph
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        className={editor.isActive('heading', { level: 1 }) ? 'is-active' : ''}
-      >
-        H1
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-        className={editor.isActive('bulletList') ? 'is-active' : ''}
-      >
-        List
-      </button>
+    <div className="menubar icon-toolbar">
+      <div className="toolbar-group">
+        <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} disabled={!editor.can().chain().focus().toggleBold().run()} className={editor.isActive('bold') ? 'is-active' : ''} title="Bold">
+          <FaBold />
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} disabled={!editor.can().chain().focus().toggleItalic().run()} className={editor.isActive('italic') ? 'is-active' : ''} title="Italic">
+          <FaItalic />
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleStrike().run()} disabled={!editor.can().chain().focus().toggleStrike().run()} className={editor.isActive('strike') ? 'is-active' : ''} title="Strikethrough">
+          <FaStrikethrough />
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleCode().run()} disabled={!editor.can().chain().focus().toggleCode().run()} className={editor.isActive('code') ? 'is-active' : ''} title="Code">
+          <FaCode />
+        </button>
+      </div>
+      <div className="toolbar-group">
+        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={editor.isActive('heading', { level: 1 }) ? 'is-active' : ''} title="Heading 1">
+          <FaHeading /> H1
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={editor.isActive('heading', { level: 2 }) ? 'is-active' : ''} title="Heading 2">
+          <FaHeading /> H2
+        </button>
+      </div>
+      <div className="toolbar-group">
+        <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={editor.isActive('bulletList') ? 'is-active' : ''} title="Bullet List">
+          <FaListUl />
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={editor.isActive('orderedList') ? 'is-active' : ''} title="Numbered List">
+          <FaListOl />
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={editor.isActive('blockquote') ? 'is-active' : ''} title="Blockquote">
+          <FaQuoteLeft />
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">
+          <MdHorizontalRule />
+        </button>
+      </div>
+      <div className="toolbar-group">
+        <button type="button" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().chain().focus().undo().run()} title="Undo">
+          <FaUndo />
+        </button>
+        <button type="button" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().chain().focus().redo().run()} title="Redo">
+          <FaRedo />
+        </button>
+      </div>
     </div>
   );
 };
