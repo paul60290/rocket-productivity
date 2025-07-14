@@ -13,7 +13,7 @@ export default function JournalsPage({ onSelectJournal }) {
         name: newJournalName.trim(),
         createdAt: new Date()
       });
-      // Add the new journal to our local state to update the UI
+      // Add the new journal to the local state to update the UI
       setJournals([...journals, { id: docRef.id, name: newJournalName.trim() }]);
       setNewJournalName('');
     } catch (error) {

@@ -22,7 +22,7 @@ export default function JournalEntryPage({ journalId }) {
         setJournalName(journalSnap.data().name);
       }
 
-      // 2. Fetch today's entry for this journal
+      // 2. Fetch todays entry for this journal
       const entryRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries', todayDocId);
       const entrySnap = await getDoc(entryRef);
       if (entrySnap.exists()) {
