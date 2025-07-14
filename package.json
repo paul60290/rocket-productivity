@@ -18,6 +18,9 @@
     "@fullcalendar/interaction": "^6.1.17",
     "@fullcalendar/react": "^6.1.17",
     "@fullcalendar/timegrid": "^6.1.17",
+    "@tiptap/pm": "^3.0.1",
+    "@tiptap/react": "^3.0.1",
+    "@tiptap/starter-kit": "^3.0.1",
     "firebase": "^11.9.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

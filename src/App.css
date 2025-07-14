@@ -2020,3 +2020,82 @@
 .theme-toggle-btn:hover {
   border-color: var(--text-primary);
 }
+
+/* === Tiptap Editor Styles === */
+.menubar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 10px;
+  background-color: var(--bg-tertiary);
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  border: 1px solid var(--border-primary);
+  border-bottom: none;
+}
+
+.menubar button {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.menubar button:hover {
+  background-color: var(--bg-primary);
+}
+
+.menubar button.is-active {
+  background-color: var(--btn-bg);
+  color: var(--text-inverted);
+}
+
+.ProseMirror {
+  width: 100%;
+  min-height: 400px;
+  padding: 15px;
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* Style for when the editor is not editable (view mode) */
+.ProseMirror:not(.ProseMirror-focused) {
+    border-color: transparent;
+    padding-left: 0;
+}
+
+.ProseMirror-focused {
+  outline: 2px solid var(--btn-bg);
+}
+
+.ProseMirror > * + * {
+  margin-top: 0.75em;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding: 0 1rem;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  line-height: 1.1;
+}
+
+.ProseMirror blockquote {
+  padding-left: 1rem;
+  border-left: 2px solid var(--border-secondary);
+}
+
+.ProseMirror hr {
+  border: none;
+  border-top: 2px solid var(--border-secondary);
+  margin: 2rem 0;
+}

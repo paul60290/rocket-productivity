@@ -1,20 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase';
 import { doc, getDoc, setDoc, collection } from "firebase/firestore";
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+
+// This is our new toolbar component
+const MenuBar = ({ editor }) => {
+  if (!editor) {
+    return null;
+  }
+
+  return (
+    <div className="menubar">
+      <button
+        type="button" // Add type="button" to prevent form submission
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        disabled={!editor.can().chain().focus().toggleBold().run()}
+        className={editor.isActive('bold') ? 'is-active' : ''}
+      >
+        Bold
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        disabled={!editor.can().chain().focus().toggleItalic().run()}
+        className={editor.isActive('italic') ? 'is-active' : ''}
+      >
+        Italic
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        disabled={!editor.can().chain().focus().toggleStrike().run()}
+        className={editor.isActive('strike') ? 'is-active' : ''}
+      >
+        Strike
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().setParagraph().run()}
+        className={editor.isActive('paragraph') ? 'is-active' : ''}
+      >
+        Paragraph
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        className={editor.isActive('heading', { level: 1 }) ? 'is-active' : ''}
+      >
+        H1
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={editor.isActive('bulletList') ? 'is-active' : ''}
+      >
+        List
+      </button>
+    </div>
+  );
+};
 
 export default function JournalEntryPage({ journalId }) {
-  const [entry, setEntry] = useState('');
+  // The 'entry' state is now managed by the editor, so we can remove it.
   const [isEditing, setIsEditing] = useState(true);
   const [journalName, setJournalName] = useState('');
   const [entryDate, setEntryDate] = useState(new Date());
+
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: '', // Start with empty content
+    editable: isEditing,
+  });
 
   // Get today's date in YYYY-MM-DD format for document ID
   const todayDocId = entryDate.toISOString().split('T')[0];
 
   useEffect(() => {
-    if (!journalId || !auth.currentUser) return;
+    if (!editor) return;
 
     const fetchJournalData = async () => {
+      if (!journalId || !auth.currentUser) return;
+
       // 1. Fetch the journal's name
       const journalRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId);
       const journalSnap = await getDoc(journalRef);
@@ -22,28 +89,36 @@ export default function JournalEntryPage({ journalId }) {
         setJournalName(journalSnap.data().name);
       }
 
-      // 2. Fetch todays entry for this journal
+      // 2. Fetch today's entry for this journal
       const entryRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries', todayDocId);
       const entrySnap = await getDoc(entryRef);
       if (entrySnap.exists()) {
-        setEntry(entrySnap.data().content);
-        setIsEditing(false); // If an entry exists, start in view modes
+        editor.commands.setContent(entrySnap.data().content);
+        setIsEditing(false);
       } else {
-        setEntry('');
-        setIsEditing(true); // If no entry exists, start in edit mode
+        editor.commands.setContent(''); // Clear the editor for a new entry
+        setIsEditing(true);
       }
     };
 
     fetchJournalData();
-  }, [journalId, todayDocId]); // Rerun if the journal or date changes
+  }, [journalId, todayDocId, editor]);
+
+  // This effect syncs the editor's editable status with the component's state
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(isEditing);
+  }, [isEditing, editor]);
 
  const handleSave = async () => {
-    if (!journalId || !auth.currentUser) return;
+    if (!journalId || !auth.currentUser || !editor) return;
+
+    const htmlContent = editor.getHTML(); // Get content as HTML from Tiptap
 
     try {
       const entryRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries', todayDocId);
       await setDoc(entryRef, {
-        content: entry,
+        content: htmlContent, // Save the HTML content
         lastModified: new Date()
       });
       setIsEditing(false);
@@ -74,24 +149,9 @@ export default function JournalEntryPage({ journalId }) {
       </div>
 
       <div className="form-group">
-        <textarea
-          value={entry}
-          onChange={(e) => setEntry(e.target.value)}
-          readOnly={!isEditing}
-          placeholder="What's on your mind?"
-          style={{ 
-            width: '100%', 
-            minHeight: '400px', 
-            padding: '15px',
-            border: '1px solid var(--border-primary)',
-            borderRadius: '4px',
-            backgroundColor: 'var(--bg-secondary)',
-            color: 'var(--text-primary)',
-            fontSize: '1rem',
-            lineHeight: '1.6'
-          }}
-        />
-      </div>
+    {isEditing && <MenuBar editor={editor} />}
+    <EditorContent editor={editor} />
+</div>
     </div>
   );
 }
