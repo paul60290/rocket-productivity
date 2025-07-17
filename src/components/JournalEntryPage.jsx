@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase';
-import { doc, getDoc, setDoc, collection } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import MiniCalendar from './MiniCalendar';
@@ -153,10 +153,11 @@ useEffect(() => {
         lastModified: new Date()
       });
 
-      // Immediately update the UI with the new entry marker
-      if (!daysWithEntries.includes(todayDocId)) {
-        setDaysWithEntries([...daysWithEntries, todayDocId]);
-      }
+      // Re-fetch the list of entries to ensure the calendar marks are up to date
+      const entriesCollectionRef = collection(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries');
+      const querySnapshot = await getDocs(entriesCollectionRef);
+      const entryDates = querySnapshot.docs.map(doc => doc.id);
+      setDaysWithEntries(entryDates);
 
       setIsEditing(false);
     } catch (error) {
