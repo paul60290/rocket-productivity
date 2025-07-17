@@ -66,7 +66,7 @@ const MenuBar = ({ editor }) => {
   );
 };
 
-export default function JournalEntryPage({ journalId }) {
+export default function JournalEntryPage({ journalId, user }) {
   // The 'entry' state is now managed by the editor, so we can remove it.
   const [isEditing, setIsEditing] = useState(true);
   const [journalName, setJournalName] = useState('');
@@ -84,16 +84,14 @@ export default function JournalEntryPage({ journalId }) {
 
   useEffect(() => {
     const fetchContent = async () => {
-      if (!editor || !journalId || !auth.currentUser) {
-        // If there's no user or journal, clear the editor.
+      if (!editor || !journalId || !user) { // Use user from props
         if (editor) editor.commands.setContent('');
         return;
       }
-      const entryRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries', todayDocId);
+      const entryRef = doc(db, 'users', user.uid, 'journals', journalId, 'entries', todayDocId); // Use user from props
       const entrySnap = await getDoc(entryRef);
 
       if (entrySnap.exists()) {
-        // Only set content if it's different to avoid resetting cursor
         if (editor.getHTML() !== entrySnap.data().content) {
             editor.commands.setContent(entrySnap.data().content);
         }
@@ -105,17 +103,17 @@ export default function JournalEntryPage({ journalId }) {
     };
 
     fetchContent();
-}, [todayDocId, editor, journalId, auth.currentUser]);
+}, [todayDocId, editor, journalId, user]); // Use user from props in dependency array
 
 useEffect(() => {
     const fetchMetadata = async () => {
-        if (!journalId || !auth.currentUser) {
+        if (!journalId || !user) { // Use user from props
             setJournalName('');
             setDaysWithEntries([]);
             return;
         }
         // 1. Fetch journal name
-        const journalRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId);
+        const journalRef = doc(db, 'users', user.uid, 'journals', journalId); // Use user from props
         const journalSnap = await getDoc(journalRef);
         if (journalSnap.exists()) {
             setJournalName(journalSnap.data().name);
@@ -123,14 +121,14 @@ useEffect(() => {
             setJournalName('Journal Not Found');
         }
         // 2. Fetch all entry IDs for markers
-        const entriesCollectionRef = collection(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries');
+        const entriesCollectionRef = collection(db, 'users', user.uid, 'journals', journalId, 'entries'); // Use user from props
         const querySnapshot = await getDocs(entriesCollectionRef);
         const entryDates = querySnapshot.docs.map(doc => doc.id);
         setDaysWithEntries(entryDates);
     };
 
     fetchMetadata();
-}, [journalId, auth.currentUser]);
+}, [journalId, user]); // Use user from props in dependency array
 
   // This effect syncs the editor's editable status with the component's state
   useEffect(() => {

@@ -1863,7 +1863,7 @@ const findTaskById = (taskId) => {
     case 'journalEntry':
     return (
       <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Entry...</h2></div>}>
-        <JournalEntryPage journalId={selectedJournalId} />
+        <JournalEntryPage journalId={selectedJournalId} user={user} />
       </Suspense>
     );
   case 'today':
