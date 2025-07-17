@@ -1360,64 +1360,75 @@ const sensors = useSensors(useSensor(PointerSensor, {
     }
   };
   const handleSaveProjectEdit = async (projectToUpdate, updatedData) => {
-  if (!user || !projectToUpdate) return;
+    if (!user || !projectToUpdate) return;
 
-  // Merge the original project data with the updated fields from the panel
-  const finalProjectData = { ...projectToUpdate, ...updatedData };
-  const { id: projectId, name: newName } = finalProjectData;
-  const { group: oldGroup, name: oldName } = projectToUpdate;
+    const finalProjectData = { ...projectToUpdate, ...updatedData };
+    const { id: projectId, name: newName, group: newGroup } = finalProjectData;
+    const { group: oldGroup, name: oldName } = projectToUpdate;
 
-  if (!newName || !newName.trim()) {
-    console.error("Project name cannot be empty.");
-    // Optionally, reset the edit state to the original name
-    // For now, we just prevent the save.
-    return; 
-  }
-
-  const trimmedNewName = newName.trim();
-
-  // Prevent saving if the name hasn't changed
-  if (trimmedNewName === oldName) {
-    return;
-  }
-
-  const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
-
-  try {
-    // Only save the name field for now
-    await updateDoc(projectRef, {
-      name: trimmedNewName,
-    });
-
-    // Optimistically update the local state array
-    setProjectData(prevData => {
-        const newData = JSON.parse(JSON.stringify(prevData));
-        const groupIndex = newData.findIndex(g => g.name === oldGroup);
-
-        if (groupIndex > -1) {
-            const projectIndex = newData[groupIndex].projects.findIndex(p => p.id === projectId);
-            if (projectIndex > -1) {
-                // Update the name of the project in the array
-newData[groupIndex].projects[projectIndex].name = trimmedNewName;
-            }
-        }
-        return newData;
-    });
-
-    // If the currently viewed project was the one being edited, update its title in the header
-    if (currentProject === oldName && currentGroup === oldGroup) {
-      setCurrentProject(trimmedNewName);
+    if (!newName || !newName.trim() || !newGroup || !newGroup.trim()) {
+      console.error("Project name and group cannot be empty.");
+      return;
     }
 
-    // Also update the project object in the 'projectToEdit' state
-    setProjectToEdit(prev => ({...prev, name: trimmedNewName }));
+    const trimmedNewName = newName.trim();
+    const trimmedNewGroup = newGroup.trim();
 
-  } catch (error) {
-    console.error("Error updating project:", error);
-    alert("Failed to update project.");
-    // Optional: Revert optimistic updates here if needed
-  }
-};
+    const hasChanged = trimmedNewName !== oldName || trimmedNewGroup !== oldGroup;
+    if (!hasChanged) {
+      return; // Nothing to save
+    }
+
+    const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+
+    try {
+      await updateDoc(projectRef, {
+        name: trimmedNewName,
+        group: trimmedNewGroup,
+      });
+
+      setProjectData(prevData => {
+        const newData = JSON.parse(JSON.stringify(prevData));
+        let projectToMove;
+
+        // Find and remove the project from its old group
+        const sourceGroup = newData.find(g => g.name === oldGroup);
+        if (sourceGroup) {
+          const projectIndex = sourceGroup.projects.findIndex(p => p.id === projectId);
+          if (projectIndex > -1) {
+            [projectToMove] = sourceGroup.projects.splice(projectIndex, 1);
+          }
+        }
+
+        // If the project was found, update and move it to the new group
+        if (projectToMove) {
+          projectToMove.name = trimmedNewName;
+          projectToMove.group = trimmedNewGroup;
+
+          let destinationGroup = newData.find(g => g.name === trimmedNewGroup);
+          if (!destinationGroup) {
+            // If the new group doesn't exist, create it
+            destinationGroup = { name: trimmedNewGroup, projects: [] };
+            newData.push(destinationGroup);
+          }
+          destinationGroup.projects.push(projectToMove);
+        }
+
+        return newData;
+      });
+
+      if (currentProject === oldName && currentGroup === oldGroup) {
+        setCurrentProject(trimmedNewName);
+        setCurrentGroup(trimmedNewGroup);
+      }
+
+      setProjectToEdit(prev => ({ ...prev, name: trimmedNewName, group: trimmedNewGroup }));
+
+    } catch (error) {
+      console.error("Error updating project:", error);
+      alert("Failed to update project.");
+    }
+  };
 
   const handleAddGroup = async (newGroupName) => {
     if (!user || !newGroupName) return;
@@ -2270,14 +2281,15 @@ const findTaskById = (taskId) => {
           {showProjectDetailPanel && projectToEdit && (
         <Suspense fallback={<div>Loading...</div>}>
           <ProjectDetailPanel
-        project={projectToEdit}
-        user={user}
-        db={db}
-        onClose={() => setShowProjectDetailPanel(false)}
-        onUpdate={(updatedData) => {
-          handleSaveProjectEdit(projectToEdit, updatedData)
-        }}
-      />
+    project={projectToEdit}
+    user={user}
+    db={db}
+    onClose={() => setShowProjectDetailPanel(false)}
+    onUpdate={(updatedData) => {
+      handleSaveProjectEdit(projectToEdit, updatedData)
+    }}
+    allGroups={projectData.map(g => g.name)}
+  />
         </Suspense>
       )}
       <NewProjectModal

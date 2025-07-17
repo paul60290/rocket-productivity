@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
 
-export default function ProjectDetailPanel({ project, user, db, onClose, onUpdate }) {
+export default function ProjectDetailPanel({ project, user, db, onClose, onUpdate, allGroups = [] }) {
   const [editedProject, setEditedProject] = useState({
     ...project,
     name: project?.name || '',
+    group: project?.group || 'Ungrouped',
   });
   const [tags, setTags] = useState([]);
   const [newTagName, setNewTagName] = useState('');
@@ -108,8 +109,9 @@ export default function ProjectDetailPanel({ project, user, db, onClose, onUpdat
 
   const handleSave = () => {
     const saveData = {
-      name: editedProject.name,
-    };
+  name: editedProject.name,
+  group: editedProject.group,
+};
     onUpdate(saveData);
   };
 
@@ -133,6 +135,20 @@ export default function ProjectDetailPanel({ project, user, db, onClose, onUpdat
               onBlur={handleSave}
             />
         </div>
+        <div className="form-group">
+        <label>Project Group</label>
+        <select
+          value={editedProject.group}
+          onChange={(e) => handleFieldChange('group', e.target.value)}
+          onBlur={handleSave}
+        >
+          {allGroups.map(groupName => (
+            <option key={groupName} value={groupName}>
+              {groupName}
+            </option>
+          ))}
+        </select>
+    </div>
 
         <div className="form-group">
             <label>Project Tags</label>
