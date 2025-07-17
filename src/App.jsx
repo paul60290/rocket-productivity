@@ -778,7 +778,17 @@ function App() {
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [viewMode, setViewMode] = useState('board'); // 'board' or 'list'
+  const [viewModes, setViewModes] = useState({});
+  const getViewMode = (viewKey) => {
+  return viewModes[viewKey] || 'board';
+};
+
+const setViewMode = (viewKey, mode) => {
+  setViewModes(prevModes => ({
+    ...prevModes,
+    [viewKey]: mode
+  }));
+};
   
   
   // State for Data - Initialized as empty. Will be filled from Firestore.
@@ -1736,20 +1746,20 @@ const findTaskById = (taskId) => {
         <h1>Today</h1>
         <div className="view-switcher">
           <button
-            className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`}
-            onClick={() => setViewMode('board')}
+            className={`view-mode-btn ${getViewMode('today') === 'board' ? 'active' : ''}`}
+            onClick={() => setViewMode('today', 'board')}
           >
             Board
           </button>
           <button
-            className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
-            onClick={() => setViewMode('list')}
+            className={`view-mode-btn ${getViewMode('today') === 'list' ? 'active' : ''}`}
+            onClick={() => setViewMode('today', 'list')}
           >
             List
           </button>
         </div>
       </div>
-      {viewMode === 'board' ? (
+      {getViewMode('today') === 'board' ? (
         <div className="today-columns">
           {Object.entries(tasksByProject).map(([projectName, tasks]) => (
             <Column
@@ -1805,11 +1815,11 @@ const findTaskById = (taskId) => {
       <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
         <h1>Tomorrow</h1>
         <div className="view-switcher">
-          <button className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`} onClick={() => setViewMode('board')}>Board</button>
-          <button className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>List</button>
+          <button className={`view-mode-btn ${getViewMode('tomorrow') === 'board' ? 'active' : ''}`} onClick={() => setViewMode('tomorrow', 'board')}>Board</button>
+          <button className={`view-mode-btn ${getViewMode('tomorrow') === 'list' ? 'active' : ''}`} onClick={() => setViewMode('tomorrow', 'list')}>List</button>
         </div>
       </div>
-      {viewMode === 'board' ? (
+      {getViewMode('tomorrow') === 'board' ? (
         <div className="today-columns">
           {Object.entries(tasksByProject).map(([projectName, tasks]) => (
             <Column
@@ -1873,11 +1883,11 @@ const findTaskById = (taskId) => {
       <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
         <h1>This Week</h1>
         <div className="view-switcher">
-          <button className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`} onClick={() => setViewMode('board')}>Board</button>
-          <button className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>List</button>
+          <button className={`view-mode-btn ${getViewMode('thisWeek') === 'board' ? 'active' : ''}`} onClick={() => setViewMode('thisWeek', 'board')}>Board</button>
+          <button className={`view-mode-btn ${getViewMode('thisWeek') === 'list' ? 'active' : ''}`} onClick={() => setViewMode('thisWeek', 'list')}>List</button>
         </div>
       </div>
-      {viewMode === 'board' ? (
+      {getViewMode('thisWeek') === 'board' ? (
         <div className="today-columns">
           {Object.entries(tasksByProject).map(([projectName, tasks]) => (
             <Column
@@ -1941,11 +1951,11 @@ const findTaskById = (taskId) => {
       <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
         <h1>Next Week</h1>
         <div className="view-switcher">
-          <button className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`} onClick={() => setViewMode('board')}>Board</button>
-          <button className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>List</button>
+          <button className={`view-mode-btn ${getViewMode('nextWeek') === 'board' ? 'active' : ''}`} onClick={() => setViewMode('nextWeek', 'board')}>Board</button>
+          <button className={`view-mode-btn ${getViewMode('nextWeek') === 'list' ? 'active' : ''}`} onClick={() => setViewMode('nextWeek', 'list')}>List</button>
         </div>
       </div>
-      {viewMode === 'board' ? (
+      {getViewMode('nextWeek') === 'board' ? (
         <div className="today-columns">
           {Object.entries(tasksByProject).map(([projectName, tasks]) => (
             <Column
@@ -2006,7 +2016,7 @@ const findTaskById = (taskId) => {
       );
     }
 
-   return viewMode === 'board' ? (
+   return getViewMode(currentProject) === 'board' ? (
   <DndContext
     onDragStart={event => setActiveId(event.active.id)}
     onDragEnd={event => { handleDrop(event); setActiveId(null); }}
@@ -2279,15 +2289,15 @@ const findTaskById = (taskId) => {
     {currentView === 'board' && currentProject && (
   <div className="view-switcher">
     <button
-      className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`}
-      onClick={() => setViewMode('board')}
+      className={`view-mode-btn ${getViewMode(currentProject) === 'board' ? 'active' : ''}`}
+      onClick={() => setViewMode(currentProject, 'board')}
       title="Board View"
     >
       Board
     </button>
     <button
-      className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
-      onClick={() => setViewMode('list')}
+      className={`view-mode-btn ${getViewMode(currentProject) === 'list' ? 'active' : ''}`}
+      onClick={() => setViewMode(currentProject, 'list')}
       title="List View"
     >
       List
