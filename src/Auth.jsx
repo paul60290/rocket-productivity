@@ -8,24 +8,31 @@ export default function Auth({ onSignUp, onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSignUp = async (e) => {
     e.preventDefault();
-    setError(''); // Clear previous errors
+    setError('');
+    setIsLoading(true); // Set loading to true
     try {
       await onSignUp(email, password);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsLoading(false); // Set loading to false when done
     }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError(''); // Clear previous errors
+    setError('');
+    setIsLoading(true); // Set loading to true
     try {
       await onLogin(email, password);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsLoading(false); // Set loading to false when done
     }
   };
 
@@ -54,9 +61,13 @@ export default function Auth({ onSignUp, onLogin }) {
             />
           </div>
           {error && <p className="auth-error">{error}</p>}
-          <div className="auth-buttons">
-    <button type="submit" onClick={handleLogin} className="btn btn-primary">Login</button>
-    <button type="button" onClick={handleSignUp} className="btn btn-secondary">Sign Up</button>
+         <div className="auth-buttons">
+    <button type="submit" onClick={handleLogin} className="btn btn-primary" disabled={isLoading}>
+      {isLoading ? 'Logging in...' : 'Login'}
+    </button>
+    <button type="button" onClick={handleSignUp} className="btn btn-secondary" disabled={isLoading}>
+      {isLoading ? 'Signing up...' : 'Sign Up'}
+    </button>
   </div>
         </form>
       </div>

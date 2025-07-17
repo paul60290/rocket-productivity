@@ -2301,7 +2301,7 @@
 }
 
 .project-card-actions button {
-  background: var(--bg-tertiary);
+  background: none;
   color: var(--text-primary);
   border: none;
   padding: 4px 8px;

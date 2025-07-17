@@ -83,41 +83,54 @@ export default function JournalEntryPage({ journalId }) {
   const todayDocId = entryDate.toISOString().split('T')[0];
 
   useEffect(() => {
-  const fetchContent = async () => {
-    if (!editor || !journalId || !auth.currentUser) return;
-    const entryRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries', todayDocId);
-    const entrySnap = await getDoc(entryRef);
+    const fetchContent = async () => {
+      if (!editor || !journalId || !auth.currentUser) {
+        // If there's no user or journal, clear the editor.
+        if (editor) editor.commands.setContent('');
+        return;
+      }
+      const entryRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries', todayDocId);
+      const entrySnap = await getDoc(entryRef);
 
-    if (entrySnap.exists()) {
-      editor.commands.setContent(entrySnap.data().content);
-      setIsEditing(false);
-    } else {
-      editor.commands.setContent('');
-      setIsEditing(true);
-    }
-  };
+      if (entrySnap.exists()) {
+        // Only set content if it's different to avoid resetting cursor
+        if (editor.getHTML() !== entrySnap.data().content) {
+            editor.commands.setContent(entrySnap.data().content);
+        }
+        setIsEditing(false);
+      } else {
+        editor.commands.setContent('');
+        setIsEditing(true);
+      }
+    };
 
-  fetchContent();
-}, [todayDocId, editor]); // Only re-run when the selected date changes
+    fetchContent();
+}, [todayDocId, editor, journalId, auth.currentUser]);
 
 useEffect(() => {
-  const fetchMetadata = async () => {
-    if (!journalId || !auth.currentUser) return;
-    // 1. Fetch journal name
-    const journalRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId);
-    const journalSnap = await getDoc(journalRef);
-    if (journalSnap.exists()) {
-      setJournalName(journalSnap.data().name);
-    }
-    // 2. Fetch all entry IDs for markers
-    const entriesCollectionRef = collection(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries');
-    const querySnapshot = await getDocs(entriesCollectionRef);
-    const entryDates = querySnapshot.docs.map(doc => doc.id);
-    setDaysWithEntries(entryDates);
-  };
+    const fetchMetadata = async () => {
+        if (!journalId || !auth.currentUser) {
+            setJournalName('');
+            setDaysWithEntries([]);
+            return;
+        }
+        // 1. Fetch journal name
+        const journalRef = doc(db, 'users', auth.currentUser.uid, 'journals', journalId);
+        const journalSnap = await getDoc(journalRef);
+        if (journalSnap.exists()) {
+            setJournalName(journalSnap.data().name);
+        } else {
+            setJournalName('Journal Not Found');
+        }
+        // 2. Fetch all entry IDs for markers
+        const entriesCollectionRef = collection(db, 'users', auth.currentUser.uid, 'journals', journalId, 'entries');
+        const querySnapshot = await getDocs(entriesCollectionRef);
+        const entryDates = querySnapshot.docs.map(doc => doc.id);
+        setDaysWithEntries(entryDates);
+    };
 
-  fetchMetadata();
-}, [journalId]); // Only re-run when the journal itself changes
+    fetchMetadata();
+}, [journalId, auth.currentUser]);
 
   // This effect syncs the editor's editable status with the component's state
   useEffect(() => {
