@@ -516,49 +516,80 @@ function SortableTask({ task, onComplete, onClick, availableLabels, projectTags 
     />
   );
 }
+// === SECTION: List View Components ===
+function TaskListItem({ task, onOpenTask, availableLabels, projectTags }) {
+  const priorityColors = { 1: '#ff4444', 2: '#ff8800', 3: '#ffdd00', 4: '#88cc88' };
 
-// === SECTION: Today View Component ===
-function TodayView({ projects, onUpdateTask, onOpenTask, availableLabels }) {
-  const today = new Date().toISOString().split('T')[0];
-  
-  // Group today's tasks by project
-  const todaysTasksByProject = {};
-
-  // Correctly loop over the array of groups and nested array of projects
-  projects.forEach(group => {
-    group.projects.forEach(project => {
-      Object.values(project.columns).flat().forEach(task => {
-        if (task.date === today) {
-          if (!todaysTasksByProject[project.name]) {
-            todaysTasksByProject[project.name] = [];
-          }
-          todaysTasksByProject[project.name].push({ ...task, projectId: project.id });
-        }
-      });
-    });
-  });
-
-Object.values(todaysTasksByProject).forEach(tasks =>
-  tasks.sort((a, b) => a.priority - b.priority)
-);
-
-
-if (Object.keys(todaysTasksByProject).length === 0) {
   return (
-    <div className="today-view">
-      <h1>Today's Schedule</h1>
-      <p style={{ fontSize: '1.2rem', color: '#888', marginTop: '2rem' }}>
-        💤 Nothing Scheduled Today
-      </p>
+    <tr className="list-view-row" onClick={() => onOpenTask(task)}>
+      <td className="task-list-item-title">
+        <span className="priority-dot" style={{ backgroundColor: priorityColors[task.priority] }}></span>
+        {task.text}
+      </td>
+      <td>{task.column}</td>
+      <td>{task.date}</td>
+    </tr>
+  );
+}
+
+function ListView({ tasksByProject, onOpenTask, availableLabels }) {
+  // If there are no tasks at all, show a message
+  if (Object.keys(tasksByProject).length === 0) {
+    return (
+      <div className="list-view-container">
+        <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No tasks for this period.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="list-view-container">
+      {Object.entries(tasksByProject).map(([projectName, tasks]) => (
+        <div key={projectName} className="list-view-group">
+          <h3 className="list-view-project-title">{projectName}</h3>
+          <table className="list-view-table">
+            <thead>
+              <tr>
+                <th>Task Name</th>
+                <th>Status / Column</th>
+                <th>Due Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tasks.map(task => (
+                <TaskListItem 
+                  key={task.id} 
+                  task={task} 
+                  onOpenTask={() => onOpenTask(task)}
+                  availableLabels={availableLabels}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
     </div>
   );
 }
 
+// === SECTION: Today View Component ===
+function TodayView({ title, tasksByProject, onUpdateTask, onOpenTask, availableLabels }) {
+  if (Object.keys(tasksByProject).length === 0) {
+    return (
+      <div className="today-view">
+        <h1>{title}</h1>
+        <p style={{ fontSize: '1.2rem', color: '#888', marginTop: '2rem' }}>
+          💤 Nothing Scheduled
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="today-view">
-      <h1>Today's Tasks</h1>
+      <h1>{title}</h1>
       <div className="today-columns">
-        {Object.entries(todaysTasksByProject).map(([projectName, tasks]) => (
+        {Object.entries(tasksByProject).map(([projectName, tasks]) => (
           <Column
             key={projectName}
             title={projectName}
@@ -579,213 +610,6 @@ if (Object.keys(todaysTasksByProject).length === 0) {
     </div>
   );
 }
-// === SECTION: Tomorrow View Component ===
-function TomorrowView({ projects, onUpdateTask, onOpenTask, availableLabels }) {
-  const today = new Date();
-  const tomorrowDate = new Date(today.setDate(today.getDate() + 1))
-    .toISOString()
-    .split('T')[0];
-
-  // Group tomorrow’s tasks by project
-  const tasksByProject = {};
-
-  // Correctly loop over the array of groups and nested array of projects
-  projects.forEach(group => {
-    group.projects.forEach(project => {
-      Object.values(project.columns).flat().forEach(task => {
-        if (task.date === tomorrowDate) {
-          if (!tasksByProject[project.name]) {
-            tasksByProject[project.name] = [];
-          }
-          tasksByProject[project.name].push({ ...task, projectId: project.id });
-        }
-      });
-    });
-  });
-
-  // Sort each project’s task list by priority
-  Object.values(tasksByProject).forEach(list =>
-    list.sort((a, b) => a.priority - b.priority)
-  );
-
-  if (Object.keys(tasksByProject).length === 0) {
-    return (
-      <div className="today-view">
-        <h1>Tomorrow’s Tasks</h1>
-        <p style={{ fontSize: '1.2rem', color: '#888', marginTop: '2rem' }}>
-          💤 Nothing Scheduled Tomorrow
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="today-view">
-      <h1>Tomorrow’s Tasks</h1>
-      <div className="today-columns">
-        {Object.entries(tasksByProject).map(([projectName, tasks]) => (
-          <Column
-            key={projectName}
-            title={projectName}
-            tasks={tasks}
-            onAddTask={() => {}}
-            onUpdateTask={(col, taskId, updatedTask) => {
-              const task = tasks.find(t => t.id === taskId);
-              if (task && task.projectId) {
-                onUpdateTask(task.projectId, taskId, updatedTask);
-              }
-            }}
-            onOpenTask={onOpenTask}
-            isEditable={false}
-            availableLabels={availableLabels}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-// === SECTION: This Week View Component ===
-function ThisWeekView({ projects, onUpdateTask, onOpenTask, availableLabels }) {
-  const now = new Date();
-  // Calculate Monday of current week
-  const day = now.getDay(); // Sunday = 0
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() + mondayOffset);
-  const weekStartStr = weekStart.toISOString().split('T')[0];
-  // Calculate Sunday of current week
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  const weekEndStr = weekEnd.toISOString().split('T')[0];
-
-  const tasksByProject = {};
-
-  // Correctly loop over the array of groups and nested array of projects
-  projects.forEach(group => {
-    group.projects.forEach(project => {
-      Object.values(project.columns).flat().forEach(task => {
-        if (task.date >= weekStartStr && task.date <= weekEndStr) {
-          if (!tasksByProject[project.name]) {
-            tasksByProject[project.name] = [];
-          }
-          tasksByProject[project.name].push({ ...task, projectId: project.id });
-        }
-      });
-    });
-  });
-
-  Object.values(tasksByProject).forEach(list =>
-    list.sort((a, b) => a.priority - b.priority)
-  );
-
-  if (Object.keys(tasksByProject).length === 0) {
-    return (
-      <div className="today-view">
-        <h1>This Week’s Tasks</h1>
-        <p style={{ fontSize: '1.2rem', color: '#888', marginTop: '2rem' }}>
-          🗓️ Nothing Scheduled This Week
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="today-view">
-      <h1>This Week’s Tasks</h1>
-      <div className="today-columns">
-        {Object.entries(tasksByProject).map(([proj, tasks]) => (
-          <Column
-            key={proj}
-            title={proj}
-            tasks={tasks}
-            onAddTask={() => {}}
-            onUpdateTask={(col, taskId, updatedTask) => {
-            const task = tasks.find(t => t.id === taskId);
-            if (task && task.projectId) {
-              onUpdateTask(task.projectId, taskId, updatedTask);
-            }
-          }}
-            onOpenTask={onOpenTask}
-            isEditable={false}
-            availableLabels={availableLabels}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// === SECTION: Next Week View Component ===
-function NextWeekView({ projects, onUpdateTask, onOpenTask, availableLabels }) {
-  const now = new Date();
-  // Calculate Monday of current week
-  const day = now.getDay();
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() + mondayOffset + 7); // next week Monday
-  const weekStartStr = weekStart.toISOString().split('T')[0];
-  // Next week Sunday
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  const weekEndStr = weekEnd.toISOString().split('T')[0];
-
-  const tasksByProject = {};
-  
-  // Correctly loop over the array of groups and nested array of projects
-  projects.forEach(group => {
-    group.projects.forEach(project => {
-      Object.values(project.columns).flat().forEach(task => {
-        if (task.date >= weekStartStr && task.date <= weekEndStr) {
-          if (!tasksByProject[project.name]) {
-            tasksByProject[project.name] = [];
-          }
-          tasksByProject[project.name].push({ ...task, projectId: project.id });
-        }
-      });
-    });
-  });
-
-  Object.values(tasksByProject).forEach(list =>
-    list.sort((a, b) => a.priority - b.priority)
-  );
-
-  if (Object.keys(tasksByProject).length === 0) {
-    return (
-      <div className="today-view">
-        <h1>Next Week’s Tasks</h1>
-        <p style={{ fontSize: '1.2rem', color: '#888', marginTop: '2rem' }}>
-          📅 Nothing Scheduled Next Week
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="today-view">
-      <h1>Next Week’s Tasks</h1>
-      <div className="today-columns">
-        {Object.entries(tasksByProject).map(([proj, tasks]) => (
-          <Column
-            key={proj}
-            title={proj}
-            tasks={tasks}
-            onAddTask={() => {}}
-            onUpdateTask={(col, taskId, updatedTask) => {
-            const task = tasks.find(t => t.id === taskId);
-            if (task && task.projectId) {
-              onUpdateTask(task.projectId, taskId, updatedTask);
-            }
-          }}
-            onOpenTask={onOpenTask}
-            isEditable={false}
-            availableLabels={availableLabels}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 
 // === SECTION: Timer Component ===
 function Timer() {
@@ -954,6 +778,7 @@ function App() {
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [viewMode, setViewMode] = useState('board'); // 'board' or 'list'
   
   
   // State for Data - Initialized as empty. Will be filled from Firestore.
@@ -1877,42 +1702,279 @@ const findTaskById = (taskId) => {
         <JournalEntryPage journalId={selectedJournalId} user={user} />
       </Suspense>
     );
-  case 'today':
-    return (
-      <TodayView 
-        projects={projectData}
-        onUpdateTask={updateTask}
-        onOpenTask={(task) => setModalTask(task)}
-        availableLabels={projectLabels}
-      />
-    );
-  case 'tomorrow':
-    return (
-      <TomorrowView
-        projects={projectData}
-        onUpdateTask={updateTask}
-        onOpenTask={(task) => setModalTask(task)}
-        availableLabels={projectLabels}
-      />
-    );
-  case 'thisWeek':
-    return (
-      <ThisWeekView
-        projects={projectData}
-        onUpdateTask={updateTask}
-        onOpenTask={(task) => setModalTask(task)}
-        availableLabels={projectLabels}
-      />
-    );
-  case 'nextWeek':
-    return (
-      <NextWeekView
-        projects={projectData}
-        onUpdateTask={updateTask}
-        onOpenTask={(task) => setModalTask(task)}
-        availableLabels={projectLabels}
-      />
-    );
+  case 'today': {
+  const today = new Date().toISOString().split('T')[0];
+  const tasksByProject = {};
+  let allTasksForListView = [];
+
+  projectData.forEach(group => {
+    group.projects.forEach(project => {
+      Object.values(project.columns).flat().forEach(task => {
+        if (task.date === today) {
+          const taskWithProjectId = { ...task, projectId: project.id };
+          // For Board View
+          if (!tasksByProject[project.name]) {
+            tasksByProject[project.name] = [];
+          }
+          tasksByProject[project.name].push(taskWithProjectId);
+          // For List View
+          allTasksForListView.push(task);
+        }
+      });
+    });
+  });
+
+  Object.values(tasksByProject).forEach(list =>
+    list.sort((a, b) => a.priority - b.priority)
+  );
+
+  allTasksForListView.sort((a, b) => a.priority - b.priority);
+
+  return (
+    <div className="today-view">
+      <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
+        <h1>Today</h1>
+        <div className="view-switcher">
+          <button
+            className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`}
+            onClick={() => setViewMode('board')}
+          >
+            Board
+          </button>
+          <button
+            className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
+            onClick={() => setViewMode('list')}
+          >
+            List
+          </button>
+        </div>
+      </div>
+      {viewMode === 'board' ? (
+        <div className="today-columns">
+          {Object.entries(tasksByProject).map(([projectName, tasks]) => (
+            <Column
+              key={projectName}
+              title={projectName}
+              tasks={tasks}
+              onAddTask={() => {}}
+              onUpdateTask={(col, taskId, updatedTask) => {
+                const task = tasks.find(t => t.id === taskId);
+                if (task && task.projectId) {
+                  onUpdateTask(task.projectId, taskId, updatedTask);
+                }
+              }}
+              onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
+              isEditable={false}
+              availableLabels={projectLabels}
+            />
+          ))}
+        </div>
+      ) : (
+        <ListView
+          tasksByProject={tasksByProject}
+          onOpenTask={(task) => setModalTask(task)}
+          availableLabels={projectLabels}
+        />
+      )}
+    </div>
+  );
+}
+  case 'tomorrow': {
+  const today = new Date();
+  const tomorrowDate = new Date(new Date().setDate(today.getDate() + 1)).toISOString().split('T')[0];
+  const tasksByProject = {};
+
+  projectData.forEach(group => {
+    group.projects.forEach(project => {
+      Object.values(project.columns).flat().forEach(task => {
+        if (task.date === tomorrowDate) {
+          const taskWithProjectId = { ...task, projectId: project.id };
+          if (!tasksByProject[project.name]) {
+            tasksByProject[project.name] = [];
+          }
+          tasksByProject[project.name].push(taskWithProjectId);
+        }
+      });
+    });
+  });
+
+  Object.values(tasksByProject).forEach(list => list.sort((a, b) => a.priority - b.priority));
+
+  return (
+    <div className="today-view">
+      <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
+        <h1>Tomorrow</h1>
+        <div className="view-switcher">
+          <button className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`} onClick={() => setViewMode('board')}>Board</button>
+          <button className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>List</button>
+        </div>
+      </div>
+      {viewMode === 'board' ? (
+        <div className="today-columns">
+          {Object.entries(tasksByProject).map(([projectName, tasks]) => (
+            <Column
+              key={projectName}
+              title={projectName}
+              tasks={tasks}
+              onAddTask={() => {}}
+              onUpdateTask={(col, taskId, updatedTask) => {
+                const task = tasks.find(t => t.id === taskId);
+                if (task && task.projectId) {
+                  onUpdateTask(task.projectId, taskId, updatedTask);
+                }
+              }}
+              onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
+              isEditable={false}
+              availableLabels={projectLabels}
+            />
+          ))}
+        </div>
+      ) : (
+        <ListView
+          tasksByProject={tasksByProject}
+          onOpenTask={(task) => setModalTask(task)}
+          availableLabels={projectLabels}
+        />
+      )}
+    </div>
+  );
+}
+  case 'thisWeek': {
+  const now = new Date();
+  const day = now.getDay(); // Sunday = 0
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() + mondayOffset);
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+  const tasksByProject = {};
+
+  projectData.forEach(group => {
+    group.projects.forEach(project => {
+      Object.values(project.columns).flat().forEach(task => {
+        if (task.date >= weekStartStr && task.date <= weekEndStr) {
+          const taskWithProjectId = { ...task, projectId: project.id };
+          if (!tasksByProject[project.name]) {
+            tasksByProject[project.name] = [];
+          }
+          tasksByProject[project.name].push(taskWithProjectId);
+        }
+      });
+    });
+  });
+
+  Object.values(tasksByProject).forEach(list => list.sort((a, b) => a.priority - b.priority));
+
+  return (
+    <div className="today-view">
+      <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
+        <h1>This Week</h1>
+        <div className="view-switcher">
+          <button className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`} onClick={() => setViewMode('board')}>Board</button>
+          <button className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>List</button>
+        </div>
+      </div>
+      {viewMode === 'board' ? (
+        <div className="today-columns">
+          {Object.entries(tasksByProject).map(([projectName, tasks]) => (
+            <Column
+              key={projectName}
+              title={projectName}
+              tasks={tasks}
+              onAddTask={() => {}}
+              onUpdateTask={(col, taskId, updatedTask) => {
+                const task = tasks.find(t => t.id === taskId);
+                if (task && task.projectId) {
+                  onUpdateTask(task.projectId, taskId, updatedTask);
+                }
+              }}
+              onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
+              isEditable={false}
+              availableLabels={projectLabels}
+            />
+          ))}
+        </div>
+      ) : (
+        <ListView
+          tasksByProject={tasksByProject}
+          onOpenTask={(task) => setModalTask(task)}
+          availableLabels={projectLabels}
+        />
+      )}
+    </div>
+  );
+}
+  case 'nextWeek': {
+  const now = new Date();
+  const day = now.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() + mondayOffset + 7); // next week Monday
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+  const tasksByProject = {};
+
+  projectData.forEach(group => {
+    group.projects.forEach(project => {
+      Object.values(project.columns).flat().forEach(task => {
+        if (task.date >= weekStartStr && task.date <= weekEndStr) {
+          const taskWithProjectId = { ...task, projectId: project.id };
+          if (!tasksByProject[project.name]) {
+            tasksByProject[project.name] = [];
+          }
+          tasksByProject[project.name].push(taskWithProjectId);
+        }
+      });
+    });
+  });
+
+  Object.values(tasksByProject).forEach(list => list.sort((a, b) => a.priority - b.priority));
+
+  return (
+    <div className="today-view">
+      <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
+        <h1>Next Week</h1>
+        <div className="view-switcher">
+          <button className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`} onClick={() => setViewMode('board')}>Board</button>
+          <button className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>List</button>
+        </div>
+      </div>
+      {viewMode === 'board' ? (
+        <div className="today-columns">
+          {Object.entries(tasksByProject).map(([projectName, tasks]) => (
+            <Column
+              key={projectName}
+              title={projectName}
+              tasks={tasks}
+              onAddTask={() => {}}
+              onUpdateTask={(col, taskId, updatedTask) => {
+                const task = tasks.find(t => t.id === taskId);
+                if (task && task.projectId) {
+                  onUpdateTask(task.projectId, taskId, updatedTask);
+                }
+              }}
+              onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
+              isEditable={false}
+              availableLabels={projectLabels}
+            />
+          ))}
+        </div>
+      ) : (
+        <ListView
+          tasksByProject={tasksByProject}
+          onOpenTask={(task) => setModalTask(task)}
+          availableLabels={projectLabels}
+        />
+      )}
+    </div>
+  );
+}
   case 'inbox':
     return (
       <div className="inbox-view">
@@ -1944,87 +2006,94 @@ const findTaskById = (taskId) => {
       );
     }
 
-    return (
-      <DndContext
-        onDragStart={event => setActiveId(event.active.id)}
-        onDragEnd={event => { handleDrop(event); setActiveId(null); }}
-        onDragCancel={() => setActiveId(null)}
+   return viewMode === 'board' ? (
+  <DndContext
+    onDragStart={event => setActiveId(event.active.id)}
+    onDragEnd={event => { handleDrop(event); setActiveId(null); }}
+    onDragCancel={() => setActiveId(null)}
+  >
+    <div className="board">
+      {currentProjectData.columnOrder.map((colName) => (
+        <Column
+          key={colName}
+          title={colName}
+          tasks={currentProjectData.columns[colName] || []}
+          onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
+          onUpdateTask={(column, taskId, updatedTask) => {
+            // Pass the project's Firestore ID, not its name or group
+            updateTask(currentProjectData.id, taskId, updatedTask);
+          }}
+          onOpenTask={(task) => {
+            console.log("Opening task from project board:", task);
+            setModalTask({ ...task, projectId: currentProjectData.id });
+          }}
+          onRenameColumn={(newName) => renameColumn(colName, newName)}
+          onDeleteColumn={deleteColumn}
+          availableLabels={projectLabels}
+          projectTags={currentProjectTags}
+        />
+      ))}
+
+      {/* ← Add‐Column placeholder at end */}
+      <button
+        className="add-column-btn add-column-placeholder"
+        onClick={async () => {
+          const name = prompt("Enter new column name:");
+          if (!name || !name.trim() || !user || !currentProjectData) return;
+
+          const colName = name.trim();
+          const projectId = currentProjectData.id;
+
+          if (currentProjectData.columnOrder.includes(colName)) {
+            alert("Column already exists.");
+            return;
+          }
+
+          const updatedColumnOrder = [...currentProjectData.columnOrder, colName];
+          const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+
+          try {
+            await updateDoc(projectRef, { columnOrder: updatedColumnOrder });
+            setProjectData(prevData => {
+              const newData = JSON.parse(JSON.stringify(prevData));
+              const project = newData
+                .find(g => g.name === currentGroup)?.projects
+                .find(p => p.id === projectId);
+              if (project) {
+                project.columnOrder = updatedColumnOrder;
+                project.columns[colName] = [];
+              }
+              return newData;
+            });
+          } catch (error) {
+            console.error("Error adding column:", error);
+            alert("Failed to add column.");
+          }
+        }}
       >
-        <div className="board">
-          {currentProjectData.columnOrder.map((colName) => (
-            <Column
-              key={colName}
-              title={colName}
-              tasks={currentProjectData.columns[colName] || []}
-              onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
-              onUpdateTask={(column, taskId, updatedTask) => {
-                // Pass the project's Firestore ID, not its name or group
-                updateTask(currentProjectData.id, taskId, updatedTask);
-              }}
-              onOpenTask={(task) => {
-                console.log("Opening task from project board:", task);
-                setModalTask({ ...task, projectId: currentProjectData.id });
-              }}
-              onRenameColumn={(newName) => renameColumn(colName, newName)}
-              onDeleteColumn={deleteColumn}
-              availableLabels={projectLabels}
-              projectTags={currentProjectTags}
-            />
-          ))}
-
-          {/* ← Add‐Column placeholder at end */}
-          <button
-            className="add-column-btn add-column-placeholder"
-            onClick={async () => {
-              const name = prompt("Enter new column name:");
-              if (!name || !name.trim() || !user || !currentProjectData) return;
-
-              const colName = name.trim();
-              const projectId = currentProjectData.id;
-
-              if (currentProjectData.columnOrder.includes(colName)) {
-                alert("Column already exists.");
-                return;
-              }
-
-              const updatedColumnOrder = [...currentProjectData.columnOrder, colName];
-              const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
-
-              try {
-                await updateDoc(projectRef, { columnOrder: updatedColumnOrder });
-                setProjectData(prevData => {
-                  const newData = JSON.parse(JSON.stringify(prevData));
-                  const project = newData
-                    .find(g => g.name === currentGroup)?.projects
-                    .find(p => p.id === projectId);
-                  if (project) {
-                    project.columnOrder = updatedColumnOrder;
-                    project.columns[colName] = [];
-                  }
-                  return newData;
-                });
-              } catch (error) {
-                console.error("Error adding column:", error);
-                alert("Failed to add column.");
-              }
-            }}
-          >
-            + Add Column
-          </button>
-        </div>
-        <DragOverlay>
-        {activeTask ? (
-          <TaskItem
-            task={activeTask}
-            availableLabels={projectLabels}
-          />
-        ) : null}
-      </DragOverlay>
-      </DndContext>
-    );
-}
+        + Add Column
+      </button>
+    </div>
+    <DragOverlay>
+    {activeTask ? (
+      <TaskItem
+        task={activeTask}
+        availableLabels={projectLabels}
+      />
+    ) : null}
+  </DragOverlay>
+  </DndContext>
+) : (
+  <ListView
+    tasksByProject={currentProjectData.columns}
+    onOpenTask={(task) => {
+      setModalTask({ ...task, projectId: currentProjectData.id });
+    }}
+    availableLabels={projectLabels}
+  />
+);
+   }
   };
-
   return (
     <div className={`app ${isSidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
       {modalTask && (
@@ -2207,6 +2276,24 @@ const findTaskById = (taskId) => {
         : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim()
       }
     </h1>
+    {currentView === 'board' && currentProject && (
+  <div className="view-switcher">
+    <button
+      className={`view-mode-btn ${viewMode === 'board' ? 'active' : ''}`}
+      onClick={() => setViewMode('board')}
+      title="Board View"
+    >
+      Board
+    </button>
+    <button
+      className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
+      onClick={() => setViewMode('list')}
+      title="List View"
+    >
+      List
+    </button>
+  </div>
+)}
 </div>
   <div className="header-actions">
     {/* Add New Task Button - only shows on board view */}
