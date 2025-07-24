@@ -2421,3 +2421,110 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* === SECTION: Header Actions & Responsive Dropdown === */
+
+/* Style for the container of all header actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* A small gap between buttons */
+}
+
+/* Hide the dropdown by default on larger screens */
+.header-dropdown {
+  display: none;
+}
+
+/* --- Mobile Styles --- */
+/* This applies only to screens smaller than 768px wide */
+@media (max-width: 768px) {
+  /* On mobile, HIDE the individual action buttons and the desktop switcher */
+  .header-actions .header-add-task-btn,
+  .header-actions .timer-toggle,
+  .header-actions .mini-timer,
+  .header-actions .header-view-switcher {
+    display: none;
+  }
+
+  /* On mobile, SHOW the dropdown menu */
+  .header-dropdown {
+    display: inline-block; /* Make it visible */
+    position: relative;
+  }
+}
+
+/* --- Dropdown Menu Styling (for when it's visible on mobile) --- */
+.dropdown-toggle-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease-in-out;
+  color: var(--text-primary);
+}
+
+.dropdown-toggle-btn:hover {
+  background-color: var(--background-hover);
+}
+
+.dropdown-toggle-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--background-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 180px;
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* These are the buttons INSIDE the dropdown */
+.dropdown-menu .dropdown-item {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 10px 16px;
+  width: 100%;
+  cursor: pointer;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.dropdown-menu .dropdown-item:hover {
+  background-color: var(--background-hover);
+}
+
+.dropdown-menu .dropdown-item img {
+  width: 16px;
+  height: 16px;
+  opacity: 0.8;
+}
+
+/* === FIX: Dropdown Background Transparency === */
+
+/* Sets a solid white background for the dropdown in light mode */
+.light-mode .dropdown-menu {
+  background-color: #ffffff;
+}
+
+/* Sets a solid dark background for the dropdown in dark mode */
+.dark-mode .dropdown-menu {
+  background-color: #2c2c2c;
+}

@@ -17,6 +17,7 @@ import Auth from './Auth';
 import NewProjectModal from './components/NewProjectModal';
 import ProjectDetailPanel from './components/ProjectDetailPanel';
 import SortableProjectItem from './components/SortableProjectItem';
+import HeaderDropdown from './components/HeaderDropdown';
 import logoUrl from './assets/logo.svg';
 import goalsIconUrl from './assets/goals-icon.svg';
 import todayIconUrl from './assets/today-icon.svg';
@@ -812,6 +813,9 @@ const setViewMode = (viewKey, mode) => {
   const [timerTime, setTimerTime] = useState(25 * 60);
   const [timerInputTime, setTimerInputTime] = useState(25);
   const [timerIsRunning, setTimerIsRunning] = useState(false);
+
+  const viewKey = currentView === 'board' ? currentProject : currentView;
+  const canBeToggled = ['board', 'today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView);
   // Memoized value for the currently selected project data
   // This avoids re-calculating on every render and provides a single source of truth
   const currentProjectData = useMemo(() => {
@@ -1713,6 +1717,10 @@ const findTaskById = (taskId) => {
       </Suspense>
     );
   case 'today': {
+    const getDayName = () => {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return days[new Date().getDay()];
+};
   const today = new Date().toISOString().split('T')[0];
   const tasksByProject = {};
   let allTasksForListView = [];
@@ -1742,23 +1750,9 @@ const findTaskById = (taskId) => {
 
   return (
     <div className="today-view">
-      <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
-        <h1>Today</h1>
-        <div className="view-switcher">
-          <button
-            className={`view-mode-btn ${getViewMode('today') === 'board' ? 'active' : ''}`}
-            onClick={() => setViewMode('today', 'board')}
-          >
-            Board
-          </button>
-          <button
-            className={`view-mode-btn ${getViewMode('today') === 'list' ? 'active' : ''}`}
-            onClick={() => setViewMode('today', 'list')}
-          >
-            List
-          </button>
-        </div>
-      </div>
+      <h1 style={{ padding: '0 20px', fontSize: '1.5rem', fontWeight: '500' }}>
+      Happy {getDayName()}, {user?.displayName || 'Friend'}!
+    </h1>
       {getViewMode('today') === 'board' ? (
         <div className="today-columns">
           {Object.entries(tasksByProject).map(([projectName, tasks]) => (
@@ -1812,13 +1806,6 @@ const findTaskById = (taskId) => {
 
   return (
     <div className="today-view">
-      <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
-        <h1>Tomorrow</h1>
-        <div className="view-switcher">
-          <button className={`view-mode-btn ${getViewMode('tomorrow') === 'board' ? 'active' : ''}`} onClick={() => setViewMode('tomorrow', 'board')}>Board</button>
-          <button className={`view-mode-btn ${getViewMode('tomorrow') === 'list' ? 'active' : ''}`} onClick={() => setViewMode('tomorrow', 'list')}>List</button>
-        </div>
-      </div>
       {getViewMode('tomorrow') === 'board' ? (
         <div className="today-columns">
           {Object.entries(tasksByProject).map(([projectName, tasks]) => (
@@ -1880,13 +1867,6 @@ const findTaskById = (taskId) => {
 
   return (
     <div className="today-view">
-      <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
-        <h1>This Week</h1>
-        <div className="view-switcher">
-          <button className={`view-mode-btn ${getViewMode('thisWeek') === 'board' ? 'active' : ''}`} onClick={() => setViewMode('thisWeek', 'board')}>Board</button>
-          <button className={`view-mode-btn ${getViewMode('thisWeek') === 'list' ? 'active' : ''}`} onClick={() => setViewMode('thisWeek', 'list')}>List</button>
-        </div>
-      </div>
       {getViewMode('thisWeek') === 'board' ? (
         <div className="today-columns">
           {Object.entries(tasksByProject).map(([projectName, tasks]) => (
@@ -1948,13 +1928,6 @@ const findTaskById = (taskId) => {
 
   return (
     <div className="today-view">
-      <div className="header-title-container" style={{ padding: '20px', borderBottom: '1px solid var(--border-primary)', marginBottom: '20px' }}>
-        <h1>Next Week</h1>
-        <div className="view-switcher">
-          <button className={`view-mode-btn ${getViewMode('nextWeek') === 'board' ? 'active' : ''}`} onClick={() => setViewMode('nextWeek', 'board')}>Board</button>
-          <button className={`view-mode-btn ${getViewMode('nextWeek') === 'list' ? 'active' : ''}`} onClick={() => setViewMode('nextWeek', 'list')}>List</button>
-        </div>
-      </div>
       {getViewMode('nextWeek') === 'board' ? (
         <div className="today-columns">
           {Object.entries(tasksByProject).map(([projectName, tasks]) => (
@@ -2286,65 +2259,102 @@ const findTaskById = (taskId) => {
         : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim()
       }
     </h1>
-    {currentView === 'board' && currentProject && (
-  <div className="view-switcher">
+    
+</div>
+  <div className="header-actions">
+  {/* --- DESKTOP BUTTONS --- */}
+  {/* These will be hidden on mobile by the new CSS */}
+  {/* Universal View Switcher */}
+{canBeToggled && (
+  <div className="view-switcher header-view-switcher">
     <button
-      className={`view-mode-btn ${getViewMode(currentProject) === 'board' ? 'active' : ''}`}
-      onClick={() => setViewMode(currentProject, 'board')}
+      className={`view-mode-btn ${getViewMode(viewKey) === 'board' ? 'active' : ''}`}
+      onClick={() => setViewMode(viewKey, 'board')}
       title="Board View"
     >
       Board
     </button>
     <button
-      className={`view-mode-btn ${getViewMode(currentProject) === 'list' ? 'active' : ''}`}
-      onClick={() => setViewMode(currentProject, 'list')}
+      className={`view-mode-btn ${getViewMode(viewKey) === 'list' ? 'active' : ''}`}
+      onClick={() => setViewMode(viewKey, 'list')}
       title="List View"
     >
       List
     </button>
   </div>
 )}
-</div>
-  <div className="header-actions">
-    {/* Add New Task Button - only shows on board view */}
+  {currentView === 'board' && (
+    <button className="header-add-task-btn" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
+      <img src={addIconUrl} alt="Add Task" />
+      <span>Add Task</span>
+    </button>
+  )}
+  {!timerIsRunning && timerTime === timerInputTime * 60 ? (
+    <button className="timer-toggle" onClick={() => setShowTimerModal(true)}>
+      <img src={timerIconUrl} alt="Timer" />
+      <span>Timer</span>
+    </button>
+  ) : (
+    <div className="mini-timer">
+      <span>{formatTime(timerTime)}</span>
+      <button className="mini-timer-btn" onClick={() => setShowTimerModal(true)}>
+        <img src={editIconUrl} alt="Edit Timer" />
+      </button>
+      <button className="mini-timer-btn" onClick={handleCancelTimer}>
+        <img src={deleteIconUrl} alt="Cancel Timer" />
+      </button>
+    </div>
+  )}
+
+  {/* --- CALENDAR BUTTON --- */}
+  {/* This is always visible */}
+  <button
+    className="calendar-toggle"
+    onClick={() => {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+          setShowCalendar(true);
+          setIsCalendarMaximized(true);
+      } else {
+          setShowCalendar(!showCalendar);
+      }
+    }}
+  >
+    <img src={calendarIconUrl} alt="Calendar" />
+    <span>Calendar</span>
+  </button>
+
+  {/* --- MOBILE DROPDOWN --- */}
+  {/* This will ONLY appear on mobile */}
+  <HeaderDropdown>
+    {/* Add Task Button (for dropdown) */}
     {currentView === 'board' && (
-      <button className="header-add-task-btn" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
-  <img src={addIconUrl} alt="Add Task" />
-  <span>Add Task</span>
-</button>
+      <button className="dropdown-item" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
+        <img src={addIconUrl} alt="Add Task" />
+        <span>Add Task</span>
+      </button>
     )}
-    {!timerIsRunning && timerTime === timerInputTime * 60 ? (
-      <button className="timer-toggle" onClick={() => setShowTimerModal(true)}>
-  <img src={timerIconUrl} alt="Timer" />
-  <span>Timer</span>
-</button>
-    ) : (
-      <div className="mini-timer">
-  <span>{formatTime(timerTime)}</span>
-  <button className="mini-timer-btn" onClick={() => setShowTimerModal(true)}>
-    <img src={editIconUrl} alt="Edit Timer" />
-  </button>
-  <button className="mini-timer-btn" onClick={handleCancelTimer}>
-    <img src={deleteIconUrl} alt="Cancel Timer" />
-  </button>
+    {/* Timer Button (for dropdown) */}
+    <button className="dropdown-item" onClick={() => setShowTimerModal(true)}>
+      <img src={timerIconUrl} alt="Timer" />
+      <span>{timerIsRunning ? `Timer: ${formatTime(timerTime)}` : "Timer"}</span>
+    </button>
+  {/* View Toggle Button (for dropdown) */}
+{canBeToggled && (
+  getViewMode(viewKey) === 'board'
+    ? ( // If current view is 'board', show 'List View' button
+      <button className="dropdown-item" onClick={() => setViewMode(viewKey, 'list')}>
+        <span>Switch to List View</span>
+      </button>
+    )
+    : ( // Otherwise, show 'Board View' button
+      <button className="dropdown-item" onClick={() => setViewMode(viewKey, 'board')}>
+        <span>Switch to Board View</span>
+      </button>
+    )
+)}
+  </HeaderDropdown>
 </div>
-    )}
-    <button
-  className="calendar-toggle"
-  onClick={() => {
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-        setShowCalendar(true);
-        setIsCalendarMaximized(true);
-    } else {
-        setShowCalendar(!showCalendar);
-    }
-  }}
->
-  <img src={calendarIconUrl} alt="Calendar" />
-  <span>Calendar</span>
-</button>
-  </div>
 </div>
             
             <div className={`content-wrapper ${showCalendar ? 'with-calendar' : ''}`}>
