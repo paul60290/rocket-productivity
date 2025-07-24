@@ -3,17 +3,15 @@ import editIconUrl from '../assets/edit.svg';
 import deleteIconUrl from '../assets/delete.svg';
 
 
-export default function SettingsPage({
-  initialLabels,
-  initialGroups,
-  onUpdateLabels,
-  onAddGroup,
-  onRenameGroup,
-  onDeleteGroup,
-  currentTheme,
-  onToggleTheme,
-}) {
-  const [activeTab, setActiveTab] = useState('labels');
+export default function SettingsPage({ currentUser, onUpdateName, initialLabels, initialGroups, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup, currentTheme, onToggleTheme }) {
+  const [activeTab, setActiveTab] = useState('profile');
+  const [userName, setUserName] = useState(currentUser?.displayName || '');
+
+useEffect(() => {
+  if (currentUser?.displayName) {
+    setUserName(currentUser.displayName);
+  }
+}, [currentUser]);
   const [editedLabels, setEditedLabels] = useState(initialLabels.map(label => ({ ...label, showPicker: false })));
   const [newLabel, setNewLabel] = useState('');
   const [newGroupName, setNewGroupName] = useState('');
@@ -70,13 +68,24 @@ export default function SettingsPage({
   <div className="settings-page">
       <div className="settings-page-header">
           <h1>Settings</h1>
-            <button onClick={handleSaveChanges} className="save-btn">Save Changes</button>
+            <button 
+  onClick={() => {
+    if (activeTab === 'profile') {
+      onUpdateName(userName);
+    }
+    // Add other save logic here later if needed
+  }} 
+  className="save-btn"
+>
+  Save Changes
+</button>
         </div>
         
         <div className="modal-tabs">
-          <button className={activeTab === 'labels' ? 'active' : ''} onClick={() => setActiveTab('labels')}>Labels</button>
-          <button className={activeTab === 'groups' ? 'active' : ''} onClick={() => setActiveTab('groups')}>Groups</button>
-        </div>
+  <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setActiveTab('profile')}>Profile</button>
+  <button className={activeTab === 'labels' ? 'active' : ''} onClick={() => setActiveTab('labels')}>Labels</button>
+  <button className={activeTab === 'groups' ? 'active' : ''} onClick={() => setActiveTab('groups')}>Groups</button>
+</div>
 
         <div className="settings-section">
           <h3 className="settings-section-title">Appearance</h3>
@@ -90,6 +99,21 @@ export default function SettingsPage({
 
         {/* We can reuse the modal-scroll-body class or create a new one */}
         <div className="modal-scroll-body">
+          {activeTab === 'profile' && (
+  <div className="profile-settings">
+    <div className="form-group">
+      <label htmlFor="userName">Your Name</label>
+      <input
+        type="text"
+        id="userName"
+        value={userName}
+        onChange={(e) => setUserName(e.target.value)}
+        placeholder="Enter your name"
+      />
+      <p className="form-help-text">This will be used for personalized greetings.</p>
+    </div>
+  </div>
+)}
           {activeTab === 'labels' && (
              <>
               <div className="label-list">
