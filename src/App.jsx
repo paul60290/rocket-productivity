@@ -1442,8 +1442,7 @@ const sensors = useSensors(useSensor(PointerSensor, {
     });
     // Optimistically update the local user state to reflect the change immediately
     setUser({ ...user, displayName: newName });
-    alert("Name updated successfully!");
-  } catch (error) {
+      } catch (error) {
     console.error("Error updating profile:", error);
     alert("Failed to update name.");
   }
