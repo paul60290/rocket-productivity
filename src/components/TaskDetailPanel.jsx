@@ -43,7 +43,7 @@ function SortableSubtask({ subtask, onToggle, onDelete }) {
     );
 }
 
-export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabels, user, db, projectColumns = [] }) {
+export default function TaskDetailPanel({ task, onClose, onUpdate, onMoveTask, availableLabels, user, db, projectColumns = [], allProjects = [] }) {
   const isCreateMode = task?.isNew;
 
   const [editedTask, setEditedTask] = useState({
@@ -122,6 +122,15 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
   };
 
  const handleSave = () => {
+    // First, check if the task is being moved to a new project.
+    // We compare the original task's projectId with the one in the editor.
+    if (editedTask.projectId && editedTask.projectId !== task.projectId) {
+        onMoveTask(task, editedTask);
+        onClose(); // Close the panel after moving
+        return; // Stop the function here to prevent a normal update
+    }
+
+    // If not moving, proceed with a normal update.
     const saveData = {
       text: editedTask.text,
       description: editedTask.description,
@@ -133,10 +142,10 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
       subtasks: editedTask.subtasks,
       column: editedTask.column,
     };
-    // Pass the projectId back along with the task data
+
     onUpdate(saveData, editedTask.projectId);
     onClose();
-  };
+};
 
   return (
     <div className={`task-detail-panel ${task ? 'open' : ''}`}>
@@ -209,6 +218,30 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, availableLabe
                 ))}
             </select>
         </div>
+        {/* === Move Task Section === */}
+<div className="form-group">
+    <label>Move to Project</label>
+    <select
+        // We will add functionality here in the next steps
+        onChange={(e) => {
+    // Just update the local state with the new project ID
+    handleFieldChange('projectId', e.target.value);
+}}
+        // Disable if it's a new task that hasn't been saved yet
+        disabled={isCreateMode}
+    >
+        <option value="">Select a project...</option>
+        {allProjects.map(group => (
+    <optgroup label={group.name} key={group.name}>
+        {group.projects.map(project => (
+            <option key={project.id} value={project.id}>
+                {project.name}
+            </option>
+        ))}
+    </optgroup>
+))}
+    </select>
+</div>
          <div className="form-group">
             <label>Comments</label>
             <div className="comments-list">

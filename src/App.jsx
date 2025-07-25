@@ -318,7 +318,7 @@ const sortedTasks = Array.isArray(tasks)
       subtasks: []
     };
     
-    onAddTask(taskData); // Pass the single, complete task object
+    onAddTask(taskData);
     setNewTask('');
     setAdding(false);
   };
@@ -796,7 +796,12 @@ const setViewMode = (viewKey, mode) => {
   // State for Data - Initialized as empty. Will be filled from Firestore.
   const [projectData, setProjectData] = useState([]);
   const [projectLabels, setProjectLabels] = useState([]);
-  const [inboxTasks, setInboxTasks] = useState([]);
+  const [inboxTasks, setInboxTasks] = useState({
+  columnOrder: ['Inbox'],
+  columns: {
+    'Inbox': []
+  }
+});
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [currentProjectTags, setCurrentProjectTags] = useState([]);
   
@@ -964,7 +969,7 @@ const sensors = useSensors(useSensor(PointerSensor, {
         const fetchedCalendarEvents = calendarEventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setCalendarEvents(fetchedCalendarEvents);
         
-        setInboxTasks(appData.inboxTasks || []);
+        setInboxTasks(appData.inboxTasks || { columnOrder: ['Inbox'], columns: { 'Inbox': [] } });
         setProjectLabels(appData.projectLabels || [
           { name: 'Work', emoji: '', color: '#228be6' },
           { name: 'Personal', emoji: '', color: '#40c057' }
@@ -1549,30 +1554,288 @@ const sensors = useSensors(useSensor(PointerSensor, {
   };
 
   const handleTaskUpdate = async (updatedTaskData, projectId) => {
-    const taskToUpdate = modalTask;
-    if (!taskToUpdate) return;
-  
-    // If it is a new task, call the addTask function
-    if (taskToUpdate.isNew) {
-      // The updatedTaskData object from the panel is already complete.
-      await addTask(updatedTaskData, projectId);
-    }
-    // If it's an existing task, call the updateTask function
-    else if (taskToUpdate.projectId && taskToUpdate.id) {
-      await updateTask(taskToUpdate.projectId, taskToUpdate.id, updatedTaskData);
-    } else {
-      // It's an inbox task
-      const newInboxTasks = inboxTasks.map(t =>
-        t.id === taskToUpdate.id ? { ...t, ...updatedTaskData } : t
-      );
-      setInboxTasks(newInboxTasks);
-      if (user) {
-        const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-        await setDoc(appDataRef, { inboxTasks: newInboxTasks }, { merge: true });
+  const taskToUpdate = modalTask;
+  if (!taskToUpdate) return;
+
+  // Case 1: This is a brand new task being created in a project.
+  if (taskToUpdate.isNew) {
+    await addTask(updatedTaskData, projectId);
+    setModalTask(null);
+    return;
+  }
+
+  // Case 2: This is an existing task within a project.
+  if (taskToUpdate.projectId && taskToUpdate.id) {
+    await updateTask(taskToUpdate.projectId, taskToUpdate.id, updatedTaskData);
+    setModalTask(null);
+    return;
+  }
+
+  // Case 3: This is an inbox task.
+  if (taskToUpdate.isInbox) {
+    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    let taskUpdated = false;
+
+    for (const colName in newInboxState.columns) {
+      const taskIndex = newInboxState.columns[colName].findIndex(t => t.id === taskToUpdate.id);
+      if (taskIndex > -1) {
+        // Update the task with all its new details
+        newInboxState.columns[colName][taskIndex] = { 
+          ...newInboxState.columns[colName][taskIndex], 
+          ...updatedTaskData 
+        };
+        taskUpdated = true;
+        break;
       }
     }
+
+    if (taskUpdated) {
+      setInboxTasks(newInboxState);
+      const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+      await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
+    }
     setModalTask(null);
-  };
+    return;
+  }
+};
+
+  const addInboxTask = async (taskData) => {
+    if (!user) {
+        alert("You must be logged in to add tasks.");
+        return;
+    }
+
+    const newTask = {
+        id: generateUniqueId(),
+        text: taskData.text || 'Untitled Task',
+        description: taskData.description || '',
+        date: taskData.date || '',
+        priority: taskData.priority || 4,
+        label: taskData.label || '',
+        tag: '',
+        comments: [],
+        subtasks: [],
+        completed: false,
+        column: taskData.column,
+    };
+
+    try {
+        // Create a deep copy of the current inbox state to avoid mutation issues
+        const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+
+        // Add the new task to the 'Inbox' column's array
+        newInboxState.columns[taskData.column].push(newTask);
+
+        setInboxTasks(newInboxState); // Optimistically update the UI
+
+        // Save the entire updated inbox object to Firestore
+        const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+        await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
+
+    } catch (error) {
+        console.error("Error saving inbox task:", error);
+        alert("Failed to save task to inbox.");
+        // If the save fails, we can revert to the previous state.
+        // For simplicity, we'll log the error, but a production app might revert.
+    }
+};
+
+const addInboxColumn = async (colName) => {
+    if (!user || !colName.trim()) return;
+
+    const newColumnName = colName.trim();
+    if (inboxTasks.columnOrder.includes(newColumnName)) {
+        alert("A column with this name already exists in the inbox.");
+        return;
+    }
+
+    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    newInboxState.columnOrder.push(newColumnName);
+    newInboxState.columns[newColumnName] = [];
+
+    setInboxTasks(newInboxState);
+
+    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+    await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
+};
+
+const renameInboxColumn = async (oldName, newName) => {
+    if (!user || !newName.trim() || oldName === newName) return;
+
+    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    const { columns, columnOrder } = newInboxState;
+
+    // Update column order
+    const orderIndex = columnOrder.indexOf(oldName);
+    if (orderIndex > -1) {
+        columnOrder[orderIndex] = newName;
+    }
+
+    // Move tasks and update their column property
+    const tasks = columns[oldName];
+    delete columns[oldName];
+    columns[newName] = tasks.map(task => ({ ...task, column: newName }));
+
+    setInboxTasks(newInboxState);
+
+    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+    await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
+};
+
+const deleteInboxColumn = async (colNameToDelete) => {
+    if (!user || inboxTasks.columnOrder.length <= 1) {
+        alert("You must have at least one column in the inbox.");
+        return;
+    }
+    if (!window.confirm(`Delete column "${colNameToDelete}" and all its tasks? This cannot be undone.`)) return;
+
+    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+
+    // Remove from columnOrder
+    newInboxState.columnOrder = newInboxState.columnOrder.filter(name => name !== colNameToDelete);
+    // Delete the column and its tasks
+    delete newInboxState.columns[colNameToDelete];
+
+    setInboxTasks(newInboxState);
+
+    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+    await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
+};
+
+const handleInboxDragEnd = async (event) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || !user) return;
+
+    const activeId = active.id;
+    const overId = over.id;
+
+    if (activeId === overId) return;
+
+    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    const { columns } = newInboxState;
+
+    // Find the source column of the dragged task
+    const sourceColumn = Object.keys(columns).find(colName =>
+        columns[colName].some(task => task.id === activeId)
+    );
+
+    // Determine the destination column
+    const destColumn = Object.keys(columns).find(colName =>
+        columns[colName].some(task => task.id === overId)
+    ) || (columns[overId] ? overId : null);
+
+    if (!sourceColumn || !destColumn) return;
+
+    // Find the task and its original index
+    const sourceTaskIndex = columns[sourceColumn].findIndex(task => task.id === activeId);
+    const [movedTask] = columns[sourceColumn].splice(sourceTaskIndex, 1);
+    movedTask.column = destColumn;
+
+    // Find the destination index
+    const destTaskIndex = columns[destColumn].findIndex(task => task.id === overId);
+
+    // Add the task to the destination column
+    if (destTaskIndex >= 0) {
+        columns[destColumn].splice(destTaskIndex, 0, movedTask);
+    } else {
+        // If dropping on a column, not a task, add to the end
+        columns[destColumn].push(movedTask);
+    }
+
+    setInboxTasks(newInboxState); // Optimistically update state
+
+    // Save the new state to Firestore
+    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+    await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
+};
+
+const moveTask = async (originalTask, editedTask) => {
+    // 1. Get all necessary IDs from the correct, explicit sources
+    const sourceProjectId = originalTask.projectId;
+    const taskIdToDelete = originalTask.id;
+    const destinationProjectId = editedTask.projectId;
+
+    if (!user || !destinationProjectId || !taskIdToDelete) {
+        console.error("Move failed: Missing critical data for the operation.");
+        return;
+    }
+
+    const newTaskId = generateUniqueId(); // Generate a new ID for the task in its new home
+
+    try {
+        // --- STEP 1: Delete the original task document from Firestore ---
+        // This step is for moves from a project. Inbox moves are handled later.
+        if (sourceProjectId) {
+            const sourceTaskRef = doc(db, 'users', user.uid, 'projects', sourceProjectId, 'tasks', taskIdToDelete);
+            await deleteDoc(sourceTaskRef);
+        }
+
+        // --- STEP 2: Create the new task document in the destination project ---
+        const destinationProject = projectData.flatMap(g => g.projects).find(p => p.id === destinationProjectId);
+        if (!destinationProject) throw new Error("Destination project not found!");
+
+        const destinationColumn = destinationProject.columnOrder[0] || 'Backlog';
+        const destTaskRef = doc(db, 'users', user.uid, 'projects', destinationProjectId, 'tasks', newTaskId);
+
+        // Merge data from the original task and any edits, then set new properties
+        const movedTaskData = {
+            ...originalTask,
+            ...editedTask,
+            id: newTaskId, // The task now officially has its new ID
+            projectId: destinationProjectId,
+            column: destinationColumn,
+            isInbox: false,
+        };
+        delete movedTaskData.isNew;
+
+        await setDoc(destTaskRef, movedTaskData);
+
+        // --- STEP 3: Update the local UI state ---
+
+        // Update Project Data state
+        setProjectData(prevData => {
+            const newData = JSON.parse(JSON.stringify(prevData));
+
+            // Remove from old project's state
+            if (sourceProjectId) {
+                const oldProject = newData.flatMap(g => g.projects).find(p => p.id === sourceProjectId);
+                if (oldProject) {
+                    for (const colName in oldProject.columns) {
+                        oldProject.columns[colName] = oldProject.columns[colName].filter(t => t.id !== taskIdToDelete);
+                    }
+                }
+            }
+
+            // Add to new project's state
+            const newProject = newData.flatMap(g => g.projects).find(p => p.id === destinationProjectId);
+            if (newProject) {
+                if (!newProject.columns[destinationColumn]) {
+                    newProject.columns[destinationColumn] = [];
+                }
+                newProject.columns[destinationColumn].push(movedTaskData); // Push the final object
+            }
+            return newData;
+        });
+
+        // Update Inbox Data state (if the move was from the inbox)
+        const wasInboxTask = !sourceProjectId;
+        if (wasInboxTask) {
+            const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+            for (const colName in newInboxState.columns) {
+                newInboxState.columns[colName] = newInboxState.columns[colName].filter(t => t.id !== taskIdToDelete);
+            }
+            setInboxTasks(newInboxState);
+            const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+            await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
+        }
+
+    } catch (error) {
+        console.error("A critical error occurred while moving the task:", error);
+        alert("An error occurred while moving the task. The operation may be incomplete. Please refresh.");
+    }
+};
 
   const findColumnOfTask = (taskId) => {
     if (!currentProjectData) return null;
@@ -1658,19 +1921,24 @@ const deleteColumn = async (colName) => {
 const findTaskById = (taskId) => {
     // Search within projects
     for (const group of projectData) {
-      for (const project of group.projects) {
-        for (const column of Object.values(project.columns)) {
-          const found = column.find(task => task.id === taskId);
-          if (found) return found;
+        for (const project of group.projects) {
+            for (const column of Object.values(project.columns)) {
+                const found = column.find(task => task.id === taskId);
+                if (found) return found;
+            }
         }
-      }
     }
-    // Search within inbox
-    const foundInInbox = inboxTasks.find(task => task.id === taskId);
-    if (foundInInbox) return foundInInbox;
+
+    // Search within the new inbox structure
+    if (inboxTasks && inboxTasks.columns) {
+        for (const column of Object.values(inboxTasks.columns)) {
+            const found = column.find(task => task.id === taskId);
+            if (found) return found;
+        }
+    }
 
     return null;
-  };
+};
 
   const renderContent = () => {
     if (isLoading) {
@@ -1973,22 +2241,73 @@ const findTaskById = (taskId) => {
   );
 }
   case 'inbox':
+    // The inbox now functions like a mini-project board.
     return (
-      <div className="inbox-view">
-        <h1>Capture Your Tasks</h1>
-        <Column
-          title="Quick Capture"
-          tasks={inboxTasks}
-          onAddTask={addTask}
-          onUpdateTask={() => {}}
-          onOpenTask={(task) => {
-            console.log("Opening task from inbox:", task);
-            setModalTask({ ...task });
-          }}
-          onRenameColumn={() => {}} // Inbox column name is not editable
-          availableLabels={projectLabels}
-        />
-      </div>
+      <DndContext
+        onDragStart={event => setActiveId(event.active.id)}
+        onDragEnd={handleInboxDragEnd}
+        onDragCancel={() => setActiveId(null)}
+      >
+        <div className="board">
+          {inboxTasks.columnOrder.map((colName) => (
+            <Column
+              key={colName}
+              title={colName}
+              tasks={inboxTasks.columns[colName] || []}
+              onAddTask={(taskData) => addInboxTask(taskData)}
+           onUpdateTask={(col, taskId, updatedTask) => {
+    // For the inbox, clicking the radio button (updatedTask === null) will delete the task.
+    if (updatedTask === null) {
+        if (!window.confirm("Are you sure you want to complete and remove this task?")) {
+            return;
+        }
+
+        const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+        let taskRemoved = false;
+        for (const colName in newInboxState.columns) {
+            const initialLength = newInboxState.columns[colName].length;
+            newInboxState.columns[colName] = newInboxState.columns[colName].filter(t => t.id !== taskId);
+            if (newInboxState.columns[colName].length < initialLength) {
+                taskRemoved = true;
+                break;
+            }
+        }
+
+        if (taskRemoved) {
+            setInboxTasks(newInboxState);
+            const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+            setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
+        }
+    }
+}}
+              onOpenTask={(task) => {
+                setModalTask({ ...task, isInbox: true }); // Mark as an inbox task
+              }}
+              onRenameColumn={(newName) => renameInboxColumn(colName, newName)}
+              onDeleteColumn={() => deleteInboxColumn(colName)}
+              availableLabels={projectLabels}
+              projectTags={[]} // No project-specific tags in the inbox
+            />
+          ))}
+          <button
+            className="add-column-btn"
+            onClick={() => {
+              const name = prompt("Enter new column name:");
+              if (name) addInboxColumn(name);
+            }}
+          >
+            + Add Column
+          </button>
+        </div>
+        <DragOverlay>
+          {activeId && findTaskById(activeId) ? (
+            <TaskItem
+              task={findTaskById(activeId)}
+              availableLabels={projectLabels}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     );
   default:
     const activeTask = activeId ? findTaskById(activeId) : null;
@@ -2095,15 +2414,17 @@ const findTaskById = (taskId) => {
     <div className={`app ${isSidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
       {modalTask && (
   <Suspense fallback={<div>Loading...</div>}>
-    <TaskDetailPanel
+   <TaskDetailPanel
   task={modalTask}
   onClose={() => setModalTask(null)}
   // Pass both args through so handleTaskUpdate(updatedData, projectId) gets the real ID
   onUpdate={handleTaskUpdate}
+  onMoveTask={moveTask}
   availableLabels={projectLabels}
   user={user}
   db={db}
   projectColumns={currentProjectData?.columnOrder || []}
+  allProjects={projectData}
 />
 
   </Suspense>
