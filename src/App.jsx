@@ -2338,7 +2338,7 @@ const findTaskById = (taskId) => {
     onDragCancel={() => setActiveId(null)}
   >
     <div className="board">
-      {currentProjectData.columnOrder.map((colName) => (
+      {currentProjectData?.columnOrder?.map((colName) => (
         <Column
           key={colName}
           title={colName}
@@ -2410,12 +2410,12 @@ const findTaskById = (taskId) => {
   </DndContext>
 ) : (
   <ListView
-    tasksByProject={currentProjectData.columns}
-    onOpenTask={(task) => {
-      setModalTask({ ...task, projectId: currentProjectData.id });
-    }}
-    availableLabels={projectLabels}
-  />
+  tasksByProject={currentProjectData?.columns || {}}
+  onOpenTask={(task) => {
+    setModalTask({ ...task, projectId: currentProjectData?.id });
+  }}
+  availableLabels={projectLabels}
+/>
 );
    }
   };
