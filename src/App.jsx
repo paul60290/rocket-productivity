@@ -1038,16 +1038,21 @@ const sensors = useSensors(useSensor(PointerSensor, {
       };
 
       fetchUserData();
-    } else {
-  // Clear all data on logout
+   } else {
+  // Clear all data and reset view state on logout
   setProjectData([]); 
   setProjectLabels([]);
-  // Reset inboxTasks to its default object structure
   setInboxTasks({
     columnOrder: ['Inbox'],
     columns: { 'Inbox': [] }
   }); 
   setCalendarEvents([]);
+
+  // Add these lines to reset the navigation state
+  setCurrentView('today'); 
+  setCurrentGroup(null);
+  setCurrentProject(null);
+
   setIsLoading(false);
 }
   }, [user]);
