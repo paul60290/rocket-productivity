@@ -1039,13 +1039,17 @@ const sensors = useSensors(useSensor(PointerSensor, {
 
       fetchUserData();
     } else {
-      // Clear all data on logout
-      setProjectData([]); // Use new state setter
-      setProjectLabels([]);
-      setInboxTasks([]);
-      setCalendarEvents([]);
-      setIsLoading(false);
-    }
+  // Clear all data on logout
+  setProjectData([]); 
+  setProjectLabels([]);
+  // Reset inboxTasks to its default object structure
+  setInboxTasks({
+    columnOrder: ['Inbox'],
+    columns: { 'Inbox': [] }
+  }); 
+  setCalendarEvents([]);
+  setIsLoading(false);
+}
   }, [user]);
 
   // This effect syncs local calendar events state with Firestore
