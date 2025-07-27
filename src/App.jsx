@@ -1614,6 +1614,11 @@ const sensors = useSensors(useSensor(PointerSensor, {
         return;
     }
 
+    // Ensure inboxTasks has the proper structure
+    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
+        ? inboxTasks
+        : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
+
     const newTask = {
         id: generateUniqueId(),
         text: taskData.text || 'Untitled Task',
@@ -1630,7 +1635,7 @@ const sensors = useSensors(useSensor(PointerSensor, {
 
     try {
         // Create a deep copy of the current inbox state to avoid mutation issues
-        const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+        const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
 
         // Add the new task to the 'Inbox' column's array
         newInboxState.columns[taskData.column].push(newTask);
@@ -1652,13 +1657,18 @@ const sensors = useSensors(useSensor(PointerSensor, {
 const addInboxColumn = async (colName) => {
     if (!user || !colName.trim()) return;
 
+    // Ensure inboxTasks has the proper structure
+    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
+        ? inboxTasks
+        : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
+
     const newColumnName = colName.trim();
-    if (inboxTasks.columnOrder.includes(newColumnName)) {
+    if (currentInboxTasks.columnOrder.includes(newColumnName)) {
         alert("A column with this name already exists in the inbox.");
         return;
     }
 
-    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
     newInboxState.columnOrder.push(newColumnName);
     newInboxState.columns[newColumnName] = [];
 
@@ -1671,7 +1681,12 @@ const addInboxColumn = async (colName) => {
 const renameInboxColumn = async (oldName, newName) => {
     if (!user || !newName.trim() || oldName === newName) return;
 
-    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    // Ensure inboxTasks has the proper structure
+    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
+        ? inboxTasks
+        : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
+
+    const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
     const { columns, columnOrder } = newInboxState;
 
     // Update column order
@@ -1692,13 +1707,20 @@ const renameInboxColumn = async (oldName, newName) => {
 };
 
 const deleteInboxColumn = async (colNameToDelete) => {
-    if (!user || inboxTasks.columnOrder.length <= 1) {
+    if (!user) return;
+
+    // Ensure inboxTasks has the proper structure
+    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
+        ? inboxTasks
+        : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
+
+    if (currentInboxTasks.columnOrder.length <= 1) {
         alert("You must have at least one column in the inbox.");
         return;
     }
     if (!window.confirm(`Delete column "${colNameToDelete}" and all its tasks? This cannot be undone.`)) return;
 
-    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
 
     // Remove from columnOrder
     newInboxState.columnOrder = newInboxState.columnOrder.filter(name => name !== colNameToDelete);
@@ -1717,12 +1739,17 @@ const handleInboxDragEnd = async (event) => {
 
     if (!over || !user) return;
 
+    // Ensure inboxTasks has the proper structure
+    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
+        ? inboxTasks
+        : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
+
     const activeId = active.id;
     const overId = over.id;
 
     if (activeId === overId) return;
 
-    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
     const { columns } = newInboxState;
 
     // Find the source column of the dragged task
@@ -2251,6 +2278,14 @@ const findTaskById = (taskId) => {
 }
   case 'inbox':
     // The inbox now functions like a mini-project board.
+    // Add defensive checks to ensure inboxTasks has the required structure
+    const safeInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
+      ? inboxTasks
+      : {
+          columnOrder: ['Inbox'],
+          columns: { 'Inbox': [] }
+        };
+
     return (
       <DndContext
         onDragStart={event => setActiveId(event.active.id)}
@@ -2258,11 +2293,11 @@ const findTaskById = (taskId) => {
         onDragCancel={() => setActiveId(null)}
       >
         <div className="board">
-          {inboxTasks.columnOrder.map((colName) => (
+          {safeInboxTasks.columnOrder.map((colName) => (
             <Column
               key={colName}
               title={colName}
-              tasks={inboxTasks.columns[colName] || []}
+              tasks={safeInboxTasks.columns[colName] || []}
               onAddTask={(taskData) => addInboxTask(taskData)}
            onUpdateTask={(col, taskId, updatedTask) => {
     // For the inbox, clicking the radio button (updatedTask === null) will delete the task.
@@ -2271,7 +2306,7 @@ const findTaskById = (taskId) => {
             return;
         }
 
-        const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+        const newInboxState = JSON.parse(JSON.stringify(safeInboxTasks));
         let taskRemoved = false;
         for (const colName in newInboxState.columns) {
             const initialLength = newInboxState.columns[colName].length;
