@@ -573,6 +573,10 @@
   animation: fadeOut 0.5s ease-out forwards;
 }
 
+.task-card.completed .task-text {
+  text-decoration: line-through;
+}
+
 .task-content {
   flex: 1;
 }
@@ -792,12 +796,6 @@
   cursor: pointer;
 }
 
-@keyframes fadeOut {
-  to {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-}
  
 .project-entry {
   display: flex;
@@ -2527,4 +2525,94 @@
 /* Sets a solid dark background for the dropdown in dark mode */
 .dark-mode .dropdown-menu {
   background-color: #2c2c2c;
+}
+
+/* === Settings Page Sections === */
+.settings-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-primary);
+}
+
+.settings-section-title {
+  font-size: 1.2rem;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+}
+
+.settings-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.theme-toggle-btn {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--text-primary);
+}
+
+/* === TOGGLE SWITCH STYLES === */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bg-tertiary);
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: var(--btn-bg);
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px var(--btn-bg);
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
 }

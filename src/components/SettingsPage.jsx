@@ -3,7 +3,7 @@ import editIconUrl from '../assets/edit.svg';
 import deleteIconUrl from '../assets/delete.svg';
 
 
-export default function SettingsPage({ currentUser, onUpdateName, initialLabels, initialGroups, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup, currentTheme, onToggleTheme }) {
+export default function SettingsPage({ currentUser, onUpdateName, initialLabels, initialGroups, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup, currentTheme, onToggleTheme, showCompletedTasks, onToggleShowCompletedTasks }) {
   const [activeTab, setActiveTab] = useState('profile');
   const [userName, setUserName] = useState(currentUser?.displayName || '');
 
@@ -96,6 +96,17 @@ useEffect(() => {
             </button>
           </div>
         </div>
+        <div className="settings-item">
+  <span>Show Completed Tasks</span>
+  <label className="switch">
+    <input
+      type="checkbox"
+      checked={showCompletedTasks}
+      onChange={(e) => onToggleShowCompletedTasks(e.target.checked)}
+    />
+    <span className="slider round"></span>
+  </label>
+</div>
 
         {/* We can reuse the modal-scroll-body class or create a new one */}
         <div className="modal-scroll-body">

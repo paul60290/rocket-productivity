@@ -297,7 +297,12 @@ function Column({ title, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRena
   const inputRef = useRef(null);
 // === SORT TASKS BY PRIORITY (1 = highest) ===
 const sortedTasks = Array.isArray(tasks)
-  ? [...tasks].sort((a, b) => a.priority - b.priority)
+  ? [...tasks].sort((a, b) => {
+      if (a.completed !== b.completed) {
+        return a.completed ? 1 : -1;
+      }
+      return a.priority - b.priority;
+    })
   : [];
 
   const { setNodeRef } = useDroppable({ id: title });
@@ -369,7 +374,7 @@ const sortedTasks = Array.isArray(tasks)
             <SortableTask
               key={task.id}
               task={task}
-              onComplete={() => onUpdateTask(title, task.id, null)}
+              onComplete={() => onUpdateTask(title, task.id, { completed: !task.completed })}
               onClick={() => onOpenTask(task)}
               availableLabels={availableLabels}
               projectTags={projectTags}
@@ -595,7 +600,7 @@ function TodayView({ title, tasksByProject, onUpdateTask, onOpenTask, availableL
           <Column
             key={projectName}
             title={projectName}
-            tasks={tasks}
+            tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
             onAddTask={() => {}}
             onUpdateTask={(col, taskId, updatedTask) => {
               const task = tasks.find(t => t.id === taskId);
@@ -780,6 +785,7 @@ function App() {
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showCompletedTasks, setShowCompletedTasks] = useState(true);
   const [viewModes, setViewModes] = useState({});
   const getViewMode = (viewKey) => {
   return viewModes[viewKey] || 'board';
@@ -2008,6 +2014,8 @@ const findTaskById = (taskId) => {
           onDeleteGroup={handleDeleteGroup}
           currentTheme={theme}
           onToggleTheme={toggleTheme}
+          showCompletedTasks={showCompletedTasks}
+          onToggleShowCompletedTasks={setShowCompletedTasks}
         />
       </Suspense>
     );
@@ -2077,7 +2085,7 @@ const findTaskById = (taskId) => {
             <Column
               key={projectName}
               title={projectName}
-              tasks={tasks}
+              tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
               onAddTask={() => {}}
               onUpdateTask={(col, taskId, updatedTask) => {
                 const task = tasks.find(t => t.id === taskId);
@@ -2130,7 +2138,7 @@ const findTaskById = (taskId) => {
             <Column
               key={projectName}
               title={projectName}
-              tasks={tasks}
+              tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
               onAddTask={() => {}}
               onUpdateTask={(col, taskId, updatedTask) => {
                 const task = tasks.find(t => t.id === taskId);
@@ -2191,7 +2199,7 @@ const findTaskById = (taskId) => {
             <Column
               key={projectName}
               title={projectName}
-              tasks={tasks}
+              tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
               onAddTask={() => {}}
               onUpdateTask={(col, taskId, updatedTask) => {
                 const task = tasks.find(t => t.id === taskId);
@@ -2252,7 +2260,7 @@ const findTaskById = (taskId) => {
             <Column
               key={projectName}
               title={projectName}
-              tasks={tasks}
+              tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
               onAddTask={() => {}}
               onUpdateTask={(col, taskId, updatedTask) => {
                 const task = tasks.find(t => t.id === taskId);
@@ -2297,31 +2305,28 @@ const findTaskById = (taskId) => {
             <Column
               key={colName}
               title={colName}
-              tasks={safeInboxTasks.columns[colName] || []}
+              tasks={(safeInboxTasks.columns[colName] || []).filter(task => showCompletedTasks || !task.completed)}
               onAddTask={(taskData) => addInboxTask(taskData)}
-           onUpdateTask={(col, taskId, updatedTask) => {
-    // For the inbox, clicking the radio button (updatedTask === null) will delete the task.
-    if (updatedTask === null) {
-        if (!window.confirm("Are you sure you want to complete and remove this task?")) {
-            return;
+           onUpdateTask={async (col, taskId, updatedTask) => {
+    // For inbox tasks, we just update the state and save it to Firestore.
+    const newInboxState = JSON.parse(JSON.stringify(safeInboxTasks));
+    let taskUpdated = false;
+    for (const colName in newInboxState.columns) {
+        const taskIndex = newInboxState.columns[colName].findIndex(t => t.id === taskId);
+        if (taskIndex > -1) {
+            newInboxState.columns[colName][taskIndex] = {
+                ...newInboxState.columns[colName][taskIndex],
+                ...updatedTask
+            };
+            taskUpdated = true;
+            break;
         }
+    }
 
-        const newInboxState = JSON.parse(JSON.stringify(safeInboxTasks));
-        let taskRemoved = false;
-        for (const colName in newInboxState.columns) {
-            const initialLength = newInboxState.columns[colName].length;
-            newInboxState.columns[colName] = newInboxState.columns[colName].filter(t => t.id !== taskId);
-            if (newInboxState.columns[colName].length < initialLength) {
-                taskRemoved = true;
-                break;
-            }
-        }
-
-        if (taskRemoved) {
-            setInboxTasks(newInboxState);
-            const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-            setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
-        }
+    if (taskUpdated) {
+        setInboxTasks(newInboxState);
+        const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+        await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
     }
 }}
               onOpenTask={(task) => {
@@ -2377,7 +2382,7 @@ const findTaskById = (taskId) => {
         <Column
           key={colName}
           title={colName}
-          tasks={currentProjectData.columns[colName] || []}
+          tasks={(currentProjectData.columns[colName] || []).filter(task => showCompletedTasks || !task.completed)}
           onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
           onUpdateTask={(column, taskId, updatedTask) => {
             // Pass the project's Firestore ID, not its name or group
