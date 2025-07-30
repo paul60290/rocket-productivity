@@ -579,44 +579,7 @@ function ListView({ tasksByProject, onOpenTask, availableLabels }) {
   );
 }
 
-// === SECTION: Today View Component ===
-function TodayView({ title, tasksByProject, onUpdateTask, onOpenTask, availableLabels }) {
-  if (Object.keys(tasksByProject).length === 0) {
-    return (
-      <div className="today-view">
-        <h1>{title}</h1>
-        <p style={{ fontSize: '1.2rem', color: '#888', marginTop: '2rem' }}>
-          💤 Nothing Scheduled
-        </p>
-      </div>
-    );
-  }
 
-  return (
-    <div className="today-view">
-      <h1>{title}</h1>
-      <div className="today-columns">
-        {Object.entries(tasksByProject).map(([projectName, tasks]) => (
-          <Column
-            key={projectName}
-            title={projectName}
-            tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
-            onAddTask={() => {}}
-            onUpdateTask={(col, taskId, updatedTask) => {
-              const task = tasks.find(t => t.id === taskId);
-              if (task && task.projectId) {
-                onUpdateTask(task.projectId, taskId, updatedTask);
-              }
-            }}
-            onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
-            isEditable={false}
-            availableLabels={availableLabels}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // === SECTION: Timer Component ===
 function Timer() {
@@ -2053,7 +2016,7 @@ const findTaskById = (taskId) => {
 
   projectData.forEach(group => {
     group.projects.forEach(project => {
-      Object.values(project.columns).flat().forEach(task => {
+      Object.values(project.columns).flat().filter(task => !task.completed).forEach(task => {
         if (task.date === today) {
           const taskWithProjectId = { ...task, projectId: project.id };
           // For Board View
@@ -2085,14 +2048,14 @@ const findTaskById = (taskId) => {
             <Column
               key={projectName}
               title={projectName}
-              tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
+              tasks={tasks}
               onAddTask={() => {}}
               onUpdateTask={(col, taskId, updatedTask) => {
-                const task = tasks.find(t => t.id === taskId);
-                if (task && task.projectId) {
-                  onUpdateTask(task.projectId, taskId, updatedTask);
-                }
-              }}
+  const task = tasks.find(t => t.id === taskId);
+  if (task && task.projectId) {
+    updateTask(task.projectId, taskId, updatedTask);
+  }
+}}
               onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
               isEditable={false}
               availableLabels={projectLabels}
@@ -2116,7 +2079,7 @@ const findTaskById = (taskId) => {
 
   projectData.forEach(group => {
     group.projects.forEach(project => {
-      Object.values(project.columns).flat().forEach(task => {
+      Object.values(project.columns).flat().filter(task => !task.completed).forEach(task => {
         if (task.date === tomorrowDate) {
           const taskWithProjectId = { ...task, projectId: project.id };
           if (!tasksByProject[project.name]) {
@@ -2138,14 +2101,14 @@ const findTaskById = (taskId) => {
             <Column
               key={projectName}
               title={projectName}
-              tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
+              tasks={tasks}
               onAddTask={() => {}}
               onUpdateTask={(col, taskId, updatedTask) => {
-                const task = tasks.find(t => t.id === taskId);
-                if (task && task.projectId) {
-                  onUpdateTask(task.projectId, taskId, updatedTask);
-                }
-              }}
+  const task = tasks.find(t => t.id === taskId);
+  if (task && task.projectId) {
+    updateTask(task.projectId, taskId, updatedTask);
+  }
+}}
               onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
               isEditable={false}
               availableLabels={projectLabels}
@@ -2177,7 +2140,7 @@ const findTaskById = (taskId) => {
 
   projectData.forEach(group => {
     group.projects.forEach(project => {
-      Object.values(project.columns).flat().forEach(task => {
+      Object.values(project.columns).flat().filter(task => !task.completed).forEach(task => {
         if (task.date >= weekStartStr && task.date <= weekEndStr) {
           const taskWithProjectId = { ...task, projectId: project.id };
           if (!tasksByProject[project.name]) {
@@ -2199,14 +2162,14 @@ const findTaskById = (taskId) => {
             <Column
               key={projectName}
               title={projectName}
-              tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
+              tasks={tasks}
               onAddTask={() => {}}
               onUpdateTask={(col, taskId, updatedTask) => {
-                const task = tasks.find(t => t.id === taskId);
-                if (task && task.projectId) {
-                  onUpdateTask(task.projectId, taskId, updatedTask);
-                }
-              }}
+  const task = tasks.find(t => t.id === taskId);
+  if (task && task.projectId) {
+    updateTask(task.projectId, taskId, updatedTask);
+  }
+}}
               onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
               isEditable={false}
               availableLabels={projectLabels}
@@ -2238,7 +2201,7 @@ const findTaskById = (taskId) => {
 
   projectData.forEach(group => {
     group.projects.forEach(project => {
-      Object.values(project.columns).flat().forEach(task => {
+      Object.values(project.columns).flat().filter(task => !task.completed).forEach(task => {
         if (task.date >= weekStartStr && task.date <= weekEndStr) {
           const taskWithProjectId = { ...task, projectId: project.id };
           if (!tasksByProject[project.name]) {
@@ -2260,14 +2223,14 @@ const findTaskById = (taskId) => {
             <Column
               key={projectName}
               title={projectName}
-              tasks={tasks.filter(task => showCompletedTasks || !task.completed)}
+              tasks={tasks}
               onAddTask={() => {}}
               onUpdateTask={(col, taskId, updatedTask) => {
-                const task = tasks.find(t => t.id === taskId);
-                if (task && task.projectId) {
-                  onUpdateTask(task.projectId, taskId, updatedTask);
-                }
-              }}
+  const task = tasks.find(t => t.id === taskId);
+  if (task && task.projectId) {
+    updateTask(task.projectId, taskId, updatedTask);
+  }
+}}
               onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
               isEditable={false}
               availableLabels={projectLabels}
