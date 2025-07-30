@@ -2369,6 +2369,9 @@
 .list-view-table td {
   padding: 12px 15px;
   text-align: left;
+}
+
+.list-view-table tbody tr {
   border-bottom: 1px solid var(--border-primary);
 }
 
@@ -2379,7 +2382,7 @@
   border-bottom: 1px solid var(--border-primary);
 }
 
-.list-view-table tbody tr:last-child td {
+.list-view-table tbody tr:last-child {
   border-bottom: none;
 }
 
@@ -2615,4 +2618,9 @@ input:checked + .slider:before {
 
 .slider.round:before {
   border-radius: 50%;
+}
+
+.list-view-row.completed td {
+  text-decoration: line-through;
+  color: var(--text-muted);
 }

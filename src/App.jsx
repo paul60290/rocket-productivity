@@ -523,12 +523,26 @@ function SortableTask({ task, onComplete, onClick, availableLabels, projectTags 
     />
   );
 }
+
 // === SECTION: List View Components ===
-function TaskListItem({ task, onOpenTask, availableLabels, projectTags }) {
+function TaskListItem({ task, onOpenTask, onToggleComplete, availableLabels, projectTags }) {
   const priorityColors = { 1: '#ff4444', 2: '#ff8800', 3: '#ffdd00', 4: '#88cc88' };
 
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation(); // Prevents the row's onClick from firing
+    if(onToggleComplete) onToggleComplete(task);
+  };
+
   return (
-    <tr className="list-view-row" onClick={() => onOpenTask(task)}>
+    <tr className={`list-view-row ${task.completed ? 'completed' : ''}`} onClick={() => onOpenTask(task)}>
+      <td style={{ width: '40px', textAlign: 'center' }}>
+        <input
+          type="radio"
+          checked={!!task.completed}
+          onChange={handleCheckboxClick}
+          className="complete-btn"
+        />
+      </td>
       <td className="task-list-item-title">
         <span className="priority-dot" style={{ backgroundColor: priorityColors[task.priority] }}></span>
         {task.text}
@@ -539,7 +553,7 @@ function TaskListItem({ task, onOpenTask, availableLabels, projectTags }) {
   );
 }
 
-function ListView({ tasksByProject, onOpenTask, availableLabels }) {
+function ListView({ tasksByProject, onOpenTask, onToggleComplete, availableLabels }) {
   // If there are no tasks at all, show a message
   if (Object.keys(tasksByProject).length === 0) {
     return (
@@ -557,6 +571,7 @@ function ListView({ tasksByProject, onOpenTask, availableLabels }) {
           <table className="list-view-table">
             <thead>
               <tr>
+                <th style={{ width: '40px' }}></th> {/* Header for checkbox */}
                 <th>Task Name</th>
                 <th>Status / Column</th>
                 <th>Due Date</th>
@@ -568,6 +583,7 @@ function ListView({ tasksByProject, onOpenTask, availableLabels }) {
                   key={task.id} 
                   task={task} 
                   onOpenTask={() => onOpenTask(task)}
+                  onToggleComplete={onToggleComplete} // Pass the handler down
                   availableLabels={availableLabels}
                 />
               ))}
@@ -578,7 +594,6 @@ function ListView({ tasksByProject, onOpenTask, availableLabels }) {
     </div>
   );
 }
-
 
 
 // === SECTION: Timer Component ===
@@ -2081,10 +2096,15 @@ const findTaskById = (taskId) => {
         </div>
       ) : (
         <ListView
-          tasksByProject={tasksByProject}
-          onOpenTask={(task) => setModalTask(task)}
-          availableLabels={projectLabels}
-        />
+  tasksByProject={tasksByProject}
+  onOpenTask={(task) => setModalTask(task)}
+  availableLabels={projectLabels}
+  onToggleComplete={(task) => {
+    if (task && task.projectId) {
+      updateTask(task.projectId, task.id, { completed: !task.completed });
+    }
+  }}
+/>
       )}
     </div>
   );
@@ -2134,10 +2154,15 @@ const findTaskById = (taskId) => {
         </div>
       ) : (
         <ListView
-          tasksByProject={tasksByProject}
-          onOpenTask={(task) => setModalTask(task)}
-          availableLabels={projectLabels}
-        />
+  tasksByProject={tasksByProject}
+  onOpenTask={(task) => setModalTask(task)}
+  availableLabels={projectLabels}
+  onToggleComplete={(task) => {
+    if (task && task.projectId) {
+      updateTask(task.projectId, task.id, { completed: !task.completed });
+    }
+  }}
+/>
       )}
     </div>
   );
@@ -2195,10 +2220,15 @@ const findTaskById = (taskId) => {
         </div>
       ) : (
         <ListView
-          tasksByProject={tasksByProject}
-          onOpenTask={(task) => setModalTask(task)}
-          availableLabels={projectLabels}
-        />
+  tasksByProject={tasksByProject}
+  onOpenTask={(task) => setModalTask(task)}
+  availableLabels={projectLabels}
+  onToggleComplete={(task) => {
+    if (task && task.projectId) {
+      updateTask(task.projectId, task.id, { completed: !task.completed });
+    }
+  }}
+/>
       )}
     </div>
   );
@@ -2256,10 +2286,15 @@ const findTaskById = (taskId) => {
         </div>
       ) : (
         <ListView
-          tasksByProject={tasksByProject}
-          onOpenTask={(task) => setModalTask(task)}
-          availableLabels={projectLabels}
-        />
+  tasksByProject={tasksByProject}
+  onOpenTask={(task) => setModalTask(task)}
+  availableLabels={projectLabels}
+  onToggleComplete={(task) => {
+    if (task && task.projectId) {
+      updateTask(task.projectId, task.id, { completed: !task.completed });
+    }
+  }}
+/>
       )}
     </div>
   );
@@ -2351,7 +2386,7 @@ const findTaskById = (taskId) => {
       );
     }
 
-   return getViewMode(currentProject) === 'board' ? (
+return getViewMode(currentProject) === 'board' ? (
   <DndContext
     onDragStart={event => setActiveId(event.active.id)}
     onDragEnd={event => { handleDrop(event); setActiveId(null); }}
@@ -2365,7 +2400,6 @@ const findTaskById = (taskId) => {
           tasks={(currentProjectData.columns[colName] || []).filter(task => showCompletedTasks || !task.completed)}
           onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
           onUpdateTask={(column, taskId, updatedTask) => {
-            // Pass the project's Firestore ID, not its name or group
             updateTask(currentProjectData.id, taskId, updatedTask);
           }}
           onOpenTask={(task) => {
@@ -2378,25 +2412,19 @@ const findTaskById = (taskId) => {
           projectTags={currentProjectTags}
         />
       ))}
-
-      {/* ← Add‐Column placeholder at end */}
       <button
         className="add-column-btn add-column-placeholder"
         onClick={async () => {
           const name = prompt("Enter new column name:");
           if (!name || !name.trim() || !user || !currentProjectData) return;
-
           const colName = name.trim();
           const projectId = currentProjectData.id;
-
           if (currentProjectData.columnOrder.includes(colName)) {
             alert("Column already exists.");
             return;
           }
-
           const updatedColumnOrder = [...currentProjectData.columnOrder, colName];
           const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
-
           try {
             await updateDoc(projectRef, { columnOrder: updatedColumnOrder });
             setProjectData(prevData => {
@@ -2428,15 +2456,35 @@ const findTaskById = (taskId) => {
     ) : null}
   </DragOverlay>
   </DndContext>
-) : (
-  <ListView
-  tasksByProject={currentProjectData?.columns || {}}
-  onOpenTask={(task) => {
-    setModalTask({ ...task, projectId: currentProjectData?.id });
-  }}
-  availableLabels={projectLabels}
-/>
-);
+
+    ) : (() => {
+    // Flatten all tasks and then sort them
+    const allTasks = Object.values(currentProjectData.columns || {}).flat()
+      .sort((a, b) => {
+        if (a.completed !== b.completed) {
+          return a.completed ? 1 : -1; // Moves completed tasks to the bottom
+        }
+        return a.priority - b.priority; // Then sort by priority
+      });
+    
+    // Create the data structure that ListView expects
+    const tasksForListView = { [currentProject]: allTasks };
+
+    return (
+      <ListView
+        tasksByProject={tasksForListView}
+        onOpenTask={(task) => {
+          setModalTask({ ...task, projectId: currentProjectData?.id });
+        }}
+        availableLabels={projectLabels}
+        onToggleComplete={(task) => {
+          if (task && currentProjectData?.id) {
+            updateTask(currentProjectData.id, task.id, { completed: !task.completed });
+          }
+        }}
+      />
+    );
+  })();
    }
   };
   return (
