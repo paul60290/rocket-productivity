@@ -917,8 +917,21 @@ const sensors = useSensors(useSensor(PointerSensor, {
     document.body.classList.add(`${theme}-mode`);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  const toggleTheme = async () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    if (user) {
+      const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+      await setDoc(appDataRef, { theme: newTheme }, { merge: true });
+    }
+  };
+
+  const handleToggleShowCompletedTasks = async (isChecked) => {
+    setShowCompletedTasks(isChecked);
+    if (user) {
+      const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+      await setDoc(appDataRef, { showCompletedTasks: isChecked }, { merge: true });
+    }
   };
 
   // Fetch all user data when user logs in
@@ -944,6 +957,10 @@ const sensors = useSensors(useSensor(PointerSensor, {
           { name: 'Personal', emoji: '', color: '#40c057' }
         ]);
         const groupOrder = appData.groupOrder || []; // Get the saved group order
+
+        // Load theme and task visibility settings, with defaults
+        setTheme(appData.theme || 'light');
+        setShowCompletedTasks(appData.showCompletedTasks !== undefined ? appData.showCompletedTasks : true);
 
         // 2. Fetch all projects and their associated tasks
         const projectsCollectionRef = collection(db, 'users', user.uid, 'projects');
@@ -1978,7 +1995,7 @@ const findTaskById = (taskId) => {
           currentTheme={theme}
           onToggleTheme={toggleTheme}
           showCompletedTasks={showCompletedTasks}
-          onToggleShowCompletedTasks={setShowCompletedTasks}
+          onToggleShowCompletedTasks={handleToggleShowCompletedTasks}
         />
       </Suspense>
     );

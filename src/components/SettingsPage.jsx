@@ -90,11 +90,16 @@ useEffect(() => {
         <div className="settings-section">
           <h3 className="settings-section-title">Appearance</h3>
           <div className="settings-item">
-            <span>Theme</span>
-            <button onClick={onToggleTheme} className="theme-toggle-btn">
-              Switch to {currentTheme === 'light' ? 'Dark' : 'Light'} Mode
-            </button>
-          </div>
+  <span>Dark Mode</span>
+  <label className="switch">
+    <input
+      type="checkbox"
+      checked={currentTheme === 'dark'}
+      onChange={onToggleTheme}
+    />
+    <span className="slider round"></span>
+  </label>
+</div>
         </div>
         <div className="settings-item">
   <span>Show Completed Tasks</span>
