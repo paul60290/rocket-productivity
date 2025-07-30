@@ -14,7 +14,7 @@
   /* Borders */
   --border-primary: #dee2e6;
   --border-secondary: #ced4da;
-  
+
   /* Buttons */
   --btn-bg: #6c757d;
   --btn-bg-hover: #5a6268;
@@ -34,7 +34,7 @@
   --text-secondary: #adb5bd;
   --text-muted: #6c757d;
   --text-inverted: #212529;
-  
+
   /* Borders */
   --border-primary: #495057;
   --border-secondary: #6c757d;
@@ -274,7 +274,8 @@
   opacity: 1;
   background: var(--bg-tertiary);
 }
-  .nav-buttons {
+
+.nav-buttons {
   display: flex;
   gap: 5px;
 }
@@ -362,7 +363,7 @@
 
 .modal-content .label-color-control,
 .modal-scroll-body .label-color-control {
-    overflow: visible;
+  overflow: visible;
 }
 
 .label-list {
@@ -502,7 +503,7 @@
 }
 
 
- .content-wrapper {
+.content-wrapper {
   flex: 1;
   display: flex;
   overflow: hidden;
@@ -523,7 +524,7 @@
   height: calc(100vh - 70px);
   -webkit-overflow-scrolling: touch;
 }
-  
+
 .column {
   flex: 0 0 280px;
   background: var(--bg-primary);
@@ -556,7 +557,7 @@
   color: var(--text-primary);
   border-radius: 6px;
   padding: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   cursor: grab;
   display: flex;
   align-items: flex-start;
@@ -565,7 +566,7 @@
 }
 
 .task-card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .task-card.completed {
@@ -724,6 +725,7 @@
   background: var(--btn-bg);
   color: var(--text-inverted);
 }
+
 .save-btn:hover {
   background: var(--btn-bg-hover);
 }
@@ -796,7 +798,7 @@
   cursor: pointer;
 }
 
- 
+
 .project-entry {
   display: flex;
   justify-content: space-between;
@@ -819,7 +821,7 @@
   border-radius: 3px;
 }
 
-  .modal-tabs {
+.modal-tabs {
   display: flex;
   justify-content: center;
   margin: 10px 0;
@@ -989,11 +991,11 @@
 .delete-subtask-btn,
 .delete-group-btn,
 .edit-goal-btn {
-    background: none;
-    border: none;
-    padding: 2px;
-    cursor: pointer;
-    opacity: 0.6;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  opacity: 0.6;
 }
 
 .delete-milestone-btn:hover,
@@ -1001,7 +1003,7 @@
 .delete-subtask-btn:hover,
 .delete-group-btn:hover,
 .edit-goal-btn:hover {
-    opacity: 1;
+  opacity: 1;
 }
 
 
@@ -1048,10 +1050,11 @@
   border: 1px solid var(--border-primary);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.goals-table th, .goals-table td {
+.goals-table th,
+.goals-table td {
   padding: 12px 15px;
   text-align: left;
   border-bottom: 1px solid var(--border-primary);
@@ -1200,7 +1203,7 @@
 }
 
 .task-card {
-  display: flex; 
+  display: flex;
   align-items: center;
 }
 
@@ -1285,6 +1288,7 @@
   border: 1px solid var(--border-primary);
   flex: 1 1 60px;
 }
+
 .timer-modal .timer-quick-select button:not(:disabled):hover {
   background-color: var(--border-primary);
 }
@@ -1304,7 +1308,7 @@
 }
 
 .timer-modal .timer-controls input {
-   text-align: center;
+  text-align: center;
 }
 
 .timer-modal .timer-buttons {
@@ -1314,19 +1318,21 @@
 }
 
 .timer-modal button.btn-primary {
-    background-color: var(--btn-bg);
-    color: var(--text-inverted);
+  background-color: var(--btn-bg);
+  color: var(--text-inverted);
 }
+
 .timer-modal button.btn-primary:hover {
-    background-color: var(--btn-bg-hover);
+  background-color: var(--btn-bg-hover);
 }
 
 .timer-modal button.btn-secondary {
-    background-color: var(--btn-bg);
-    color: var(--text-inverted);
+  background-color: var(--btn-bg);
+  color: var(--text-inverted);
 }
+
 .timer-modal button.btn-secondary:hover {
-    background-color: var(--btn-bg-hover);
+  background-color: var(--btn-bg-hover);
 }
 
 .timer-complete-modal .modal-body {
@@ -1359,7 +1365,7 @@
   padding: 40px;
   background: var(--bg-primary);
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 400px;
   text-align: center;
@@ -1412,6 +1418,7 @@
 .auth-buttons button[type="submit"] {
   background-color: var(--btn-bg);
 }
+
 .auth-buttons button[type="submit"]:hover {
   background-color: var(--btn-bg-hover);
 }
@@ -1419,6 +1426,7 @@
 .auth-buttons button[type="button"] {
   background-color: var(--btn-bg);
 }
+
 .auth-buttons button[type="button"]:hover {
   background-color: var(--btn-bg-hover);
 }
@@ -1432,14 +1440,14 @@
   display: block;
   width: auto;
   padding: 6px;
-  margin-bottom: 10px; 
+  margin-bottom: 10px;
   background: none;
   border: none;
   text-align: left;
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s;
-  font-size: 0.9rem; 
+  font-size: 0.9rem;
   color: var(--text-muted);
 }
 
@@ -1452,6 +1460,7 @@
   background: var(--btn-bg);
   color: var(--text-inverted);
 }
+
 .logout-section {
   margin-top: auto;
   padding-top: 20px;
@@ -1497,10 +1506,11 @@
 }
 
 .task-detail-panel .modal-body {
-    flex-grow: 1;
-    overflow-y: auto;
-    padding: 20px;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 20px;
 }
+
 .project-button {
   display: block;
   width: 100%;
@@ -1576,9 +1586,11 @@
 .sidebar-toggle-btn:hover {
   background-color: var(--bg-tertiary);
 }
+
 .sidebar.collapsed {
   width: 80px;
 }
+
 .main-content.collapsed {
   margin-left: 80px;
   width: calc(100% - 80px);
@@ -1600,6 +1612,7 @@
 .sidebar.collapsed .project-entry {
   font-size: 0;
 }
+
 .sidebar.collapsed .project-entry .edit-project-btn {
   font-size: 0.9rem;
 }
@@ -1653,14 +1666,14 @@
   border-radius: 8px;
   padding: 20px;
   font-weight: 500;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   transition: all 0.2s ease-in-out;
 }
 
 .project-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border-color: var(--accent-primary);
 }
 
@@ -1689,12 +1702,13 @@
 
 
 .project-nav-header.active .manage-btn {
-    color: var(--text-inverted);
-    opacity: 0.8;
+  color: var(--text-inverted);
+  opacity: 0.8;
 }
- .project-nav-header.active .manage-btn:hover {
-    opacity: 1;
-    background-color: rgba(255,255,255,0.2);
+
+.project-nav-header.active .manage-btn:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 .nav-header-title {
@@ -1741,6 +1755,7 @@
 }
 
 @media (max-width: 767px) {
+
   .header-add-task-btn span,
   .timer-toggle span,
   .calendar-toggle span {
@@ -1766,7 +1781,7 @@
   .sidebar.mobile-open {
     transform: translateX(0);
   }
-  
+
   .main-content,
   .main-content.collapsed {
     margin-left: 0;
@@ -1795,7 +1810,7 @@
 }
 
 @media (max-width: 767px) {
-  .sidebar.mobile-open ~ .main-content .mobile-menu-overlay {
+  .sidebar.mobile-open~.main-content .mobile-menu-overlay {
     display: block;
   }
 }
@@ -1888,39 +1903,41 @@
 }
 
 .calendar-maximized .fc {
-    height: 100%;
+  height: 100%;
 }
 
 .fc .fc-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .calendar-container:not(.calendar-maximized) .fc-toolbar {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
+
 .calendar-container:not(.calendar-maximized) .fc-toolbar-chunk {
-    display: flex;
-    justify-content: center;
-    gap: 5px;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
 }
 
 @media (max-width: 767px) {
-    .fc .fc-toolbar {
-        flex-direction: column;
-        align-items: center;
-    }
-    .fc .fc-toolbar-chunk {
-        justify-content: center;
-    }
+  .fc .fc-toolbar {
+    flex-direction: column;
+    align-items: center;
+  }
 
-    .modal-content .form-row {
-        flex-direction: column;
-    }
+  .fc .fc-toolbar-chunk {
+    justify-content: center;
+  }
+
+  .modal-content .form-row {
+    flex-direction: column;
+  }
 }
 
 .calendar-fab {
@@ -1936,7 +1953,7 @@
   font-size: 24px;
   line-height: 56px;
   text-align: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   cursor: pointer;
   z-index: 400;
   transition: transform 0.2s ease-in-out;
@@ -1950,6 +1967,7 @@
   margin-right: auto;
   background-color: var(--btn-danger-bg);
 }
+
 .modal-footer .remove-btn:hover {
   background-color: var(--btn-danger-bg-hover);
 }
@@ -1970,7 +1988,7 @@
 }
 
 .header-add-task-btn:hover {
-    background: var(--bg-tertiary);
+  background: var(--bg-tertiary);
 }
 
 .header-title-container h1 {
@@ -2023,7 +2041,8 @@
 .menubar.icon-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px; /* Space between groups */
+  gap: 10px;
+  /* Space between groups */
   padding: 8px;
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
@@ -2035,13 +2054,15 @@
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 2px; /* Tighter space for buttons within a group */
+  gap: 2px;
+  /* Tighter space for buttons within a group */
 }
 
 .menubar.icon-toolbar button {
   display: flex;
   align-items: center;
-  gap: 4px; /* Space between icon and text (for H1/H2) */
+  gap: 4px;
+  /* Space between icon and text (for H1/H2) */
   background: none;
   border: none;
   color: var(--text-primary);
@@ -2072,7 +2093,8 @@
   min-height: 400px;
   padding: 15px;
   border: 1px solid var(--border-primary);
-  border-top: none; /* The toolbar now provides the top border */
+  border-top: none;
+  /* The toolbar now provides the top border */
   border-bottom-left-radius: 6px;
   border-bottom-right-radius: 6px;
   background-color: var(--bg-secondary);
@@ -2083,15 +2105,15 @@
 
 /* Style for when the editor is not editable (view mode) */
 .ProseMirror:not(.ProseMirror-focused) {
-    border-color: transparent;
-    padding-left: 0;
+  border-color: transparent;
+  padding-left: 0;
 }
 
 .ProseMirror:focus {
   outline: none;
 }
 
-.ProseMirror > * + * {
+.ProseMirror>*+* {
   margin-top: 0.75em;
 }
 
@@ -2121,15 +2143,15 @@
 
 /* Style for when the editor is not editable (view mode) */
 .ProseMirror:not(.ProseMirror-focused) {
-    border-color: transparent;
-    padding-left: 0;
+  border-color: transparent;
+  padding-left: 0;
 }
 
 .ProseMirror-focused {
   outline: 2px solid var(--btn-bg);
 }
 
-.ProseMirror > * + * {
+.ProseMirror>*+* {
   margin-top: 0.75em;
 }
 
@@ -2158,7 +2180,8 @@
 /* === Journal Entry Page Layout === */
 .journal-entry-container {
   display: flex;
-  flex-direction: column-reverse; /* Stack calendar on top on mobile */
+  flex-direction: column-reverse;
+  /* Stack calendar on top on mobile */
   gap: 30px;
   margin-top: 1.5rem;
 }
@@ -2184,10 +2207,12 @@
     flex-direction: row;
     align-items: flex-start;
   }
+
   .journal-sidebar {
     width: 300px;
     position: sticky;
-    top: 20px; /* Adjust as needed */
+    top: 20px;
+    /* Adjust as needed */
   }
 }
 
@@ -2264,12 +2289,12 @@
 }
 
 .calendar-day.selected span {
-    background-color: transparent !important;
-    color: inherit !important;
+  background-color: transparent !important;
+  color: inherit !important;
 }
 
 .dark-mode .calendar-day.today span {
-    color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .calendar-day.has-entry span::after {
@@ -2335,7 +2360,7 @@
 .view-mode-btn.active {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* === LIST VIEW === */
@@ -2362,7 +2387,8 @@
 .list-view-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed; /* This is the key change */
+  table-layout: fixed;
+  /* This is the key change */
 }
 
 .list-view-table th,
@@ -2376,7 +2402,8 @@
 }
 
 .list-view-table thead th {
-  background-color: var(--bg-primary); /* Changed for better grouping */
+  background-color: var(--bg-primary);
+  /* Changed for better grouping */
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-primary);
@@ -2388,17 +2415,20 @@
 
 .list-view-table th:nth-child(1),
 .list-view-table td:nth-child(1) {
-  width: 60%; /* Task Name column */
+  width: 60%;
+  /* Task Name column */
 }
 
 .list-view-table th:nth-child(2),
 .list-view-table td:nth-child(2) {
-  width: 25%; /* Status / Column */
+  width: 25%;
+  /* Status / Column */
 }
 
 .list-view-table th:nth-child(3),
 .list-view-table td:nth-child(3) {
-  width: 15%; /* Due Date column */
+  width: 15%;
+  /* Due Date column */
 }
 
 .list-view-row {
@@ -2429,7 +2459,8 @@
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px; /* A small gap between buttons */
+  gap: 8px;
+  /* A small gap between buttons */
 }
 
 /* Hide the dropdown by default on larger screens */
@@ -2440,6 +2471,7 @@
 /* --- Mobile Styles --- */
 /* This applies only to screens smaller than 768px wide */
 @media (max-width: 768px) {
+
   /* On mobile, HIDE the individual action buttons and the desktop switcher */
   .header-actions .header-add-task-btn,
   .header-actions .timer-toggle,
@@ -2450,7 +2482,8 @@
 
   /* On mobile, SHOW the dropdown menu */
   .header-dropdown {
-    display: inline-block; /* Make it visible */
+    display: inline-block;
+    /* Make it visible */
     position: relative;
   }
 }
@@ -2600,15 +2633,15 @@
   transition: .4s;
 }
 
-input:checked + .slider {
+input:checked+.slider {
   background-color: var(--btn-bg);
 }
 
-input:focus + .slider {
+input:focus+.slider {
   box-shadow: 0 0 1px var(--btn-bg);
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
   transform: translateX(22px);
 }
 
