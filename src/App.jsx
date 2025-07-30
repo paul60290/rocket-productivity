@@ -528,9 +528,10 @@ function SortableTask({ task, onComplete, onClick, availableLabels, projectTags 
 function TaskListItem({ task, onOpenTask, onToggleComplete, availableLabels, projectTags }) {
   const priorityColors = { 1: '#ff4444', 2: '#ff8800', 3: '#ffdd00', 4: '#88cc88' };
 
-  const handleCheckboxClick = (e) => {
-    e.stopPropagation(); // Prevents the row's onClick from firing
-    if(onToggleComplete) onToggleComplete(task);
+  const handleRadioClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onToggleComplete) onToggleComplete(task);
   };
 
   return (
@@ -539,7 +540,9 @@ function TaskListItem({ task, onOpenTask, onToggleComplete, availableLabels, pro
         <input
           type="radio"
           checked={!!task.completed}
-          onChange={handleCheckboxClick}
+          onMouseDown={handleRadioClick}
+          onChange={() => {}} // Empty handler to satisfy React for controlled components
+          onClick={(e) => e.stopPropagation()} // Extra precaution
           className="complete-btn"
         />
       </td>
