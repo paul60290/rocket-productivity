@@ -5,10 +5,13 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import MiniCalendar from './MiniCalendar';
 import {
-  FaBold, FaItalic, FaStrikethrough, FaCode, FaHeading,
-  FaListUl, FaListOl, FaQuoteLeft, FaUndo, FaRedo
-} from 'react-icons/fa';
-import { MdHorizontalRule } from 'react-icons/md';
+  Bold, Italic, Strikethrough, Code, Heading1, Heading2,
+  List, ListOrdered, Quote, Minus, Undo, Redo
+} from 'lucide-react';
+import { Toggle } from '@/components/ui/toggle';
+import { Separator } from '@/components/ui/separator';
+import { Button } from "@/components/ui/button";
+
 
 // This is our new, more robust toolbar component
 const MenuBar = ({ editor }) => {
@@ -17,51 +20,52 @@ const MenuBar = ({ editor }) => {
   }
 
   return (
-    <div className="menubar icon-toolbar">
-      <div className="toolbar-group">
-        <button type="button" onClick={() => editor.chain().focus().toggleBold().run()} disabled={!editor.can().chain().focus().toggleBold().run()} className={editor.isActive('bold') ? 'is-active' : ''} title="Bold">
-          <FaBold />
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleItalic().run()} disabled={!editor.can().chain().focus().toggleItalic().run()} className={editor.isActive('italic') ? 'is-active' : ''} title="Italic">
-          <FaItalic />
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleStrike().run()} disabled={!editor.can().chain().focus().toggleStrike().run()} className={editor.isActive('strike') ? 'is-active' : ''} title="Strikethrough">
-          <FaStrikethrough />
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleCode().run()} disabled={!editor.can().chain().focus().toggleCode().run()} className={editor.isActive('code') ? 'is-active' : ''} title="Code">
-          <FaCode />
-        </button>
-      </div>
-      <div className="toolbar-group">
-        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={editor.isActive('heading', { level: 1 }) ? 'is-active' : ''} title="Heading 1">
-          <FaHeading /> H1
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={editor.isActive('heading', { level: 2 }) ? 'is-active' : ''} title="Heading 2">
-          <FaHeading /> H2
-        </button>
-      </div>
-      <div className="toolbar-group">
-        <button type="button" onClick={() => editor.chain().focus().toggleBulletList().run()} className={editor.isActive('bulletList') ? 'is-active' : ''} title="Bullet List">
-          <FaListUl />
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleOrderedList().run()} className={editor.isActive('orderedList') ? 'is-active' : ''} title="Numbered List">
-          <FaListOl />
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().toggleBlockquote().run()} className={editor.isActive('blockquote') ? 'is-active' : ''} title="Blockquote">
-          <FaQuoteLeft />
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">
-          <MdHorizontalRule />
-        </button>
-      </div>
-      <div className="toolbar-group">
-        <button type="button" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().chain().focus().undo().run()} title="Undo">
-          <FaUndo />
-        </button>
-        <button type="button" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().chain().focus().redo().run()} title="Redo">
-          <FaRedo />
-        </button>
-      </div>
+    <div className="border rounded-md p-1 flex items-center flex-wrap gap-1 mb-4">
+      <Toggle size="sm" pressed={editor.isActive('bold')} onPressedChange={() => editor.chain().focus().toggleBold().run()} title="Bold">
+        <Bold className="h-4 w-4" />
+      </Toggle>
+      <Toggle size="sm" pressed={editor.isActive('italic')} onPressedChange={() => editor.chain().focus().toggleItalic().run()} title="Italic">
+        <Italic className="h-4 w-4" />
+      </Toggle>
+      <Toggle size="sm" pressed={editor.isActive('strike')} onPressedChange={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough">
+        <Strikethrough className="h-4 w-4" />
+      </Toggle>
+      <Toggle size="sm" pressed={editor.isActive('code')} onPressedChange={() => editor.chain().focus().toggleCode().run()} title="Code">
+        <Code className="h-4 w-4" />
+      </Toggle>
+      
+      <Separator orientation="vertical" className="h-6 mx-1" />
+
+      <Toggle size="sm" pressed={editor.isActive('heading', { level: 1 })} onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} title="Heading 1">
+        <Heading1 className="h-4 w-4" />
+      </Toggle>
+      <Toggle size="sm" pressed={editor.isActive('heading', { level: 2 })} onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} title="Heading 2">
+        <Heading2 className="h-4 w-4" />
+      </Toggle>
+
+      <Separator orientation="vertical" className="h-6 mx-1" />
+
+      <Toggle size="sm" pressed={editor.isActive('bulletList')} onPressedChange={() => editor.chain().focus().toggleBulletList().run()} title="Bullet List">
+        <List className="h-4 w-4" />
+      </Toggle>
+      <Toggle size="sm" pressed={editor.isActive('orderedList')} onPressedChange={() => editor.chain().focus().toggleOrderedList().run()} title="Numbered List">
+        <ListOrdered className="h-4 w-4" />
+      </Toggle>
+      <Toggle size="sm" pressed={editor.isActive('blockquote')} onPressedChange={() => editor.chain().focus().toggleBlockquote().run()} title="Blockquote">
+        <Quote className="h-4 w-4" />
+      </Toggle>
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">
+        <Minus className="h-4 w-4" />
+      </Button>
+
+      <Separator orientation="vertical" className="h-6 mx-1" />
+
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().chain().focus().undo().run()} title="Undo">
+        <Undo className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().chain().focus().redo().run()} title="Redo">
+        <Redo className="h-4 w-4" />
+      </Button>
     </div>
   );
 };
@@ -74,10 +78,15 @@ export default function JournalEntryPage({ journalId, user }) {
   const [daysWithEntries, setDaysWithEntries] = useState([]);
 
   const editor = useEditor({
-    extensions: [StarterKit],
-    content: '', // Start with empty content
-    editable: isEditing,
-  });
+  extensions: [StarterKit],
+  content: '', // Start with empty content
+  editable: isEditing,
+  editorProps: {
+    attributes: {
+      class: 'min-h-[600px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+    },
+  },
+});
 
   // Get today's date in YYYY-MM-DD format for document ID
   const todayDocId = entryDate.toISOString().split('T')[0];
@@ -93,7 +102,7 @@ export default function JournalEntryPage({ journalId, user }) {
 
       if (entrySnap.exists()) {
         if (editor.getHTML() !== entrySnap.data().content) {
-            editor.commands.setContent(entrySnap.data().content);
+          editor.commands.setContent(entrySnap.data().content);
         }
         setIsEditing(false);
       } else {
@@ -103,32 +112,32 @@ export default function JournalEntryPage({ journalId, user }) {
     };
 
     fetchContent();
-}, [todayDocId, editor, journalId, user]); // Use user from props in dependency array
+  }, [todayDocId, editor, journalId, user]); // Use user from props in dependency array
 
-useEffect(() => {
+  useEffect(() => {
     const fetchMetadata = async () => {
-        if (!journalId || !user) { // Use user from props
-            setJournalName('');
-            setDaysWithEntries([]);
-            return;
-        }
-        // 1. Fetch journal name
-        const journalRef = doc(db, 'users', user.uid, 'journals', journalId); // Use user from props
-        const journalSnap = await getDoc(journalRef);
-        if (journalSnap.exists()) {
-            setJournalName(journalSnap.data().name);
-        } else {
-            setJournalName('Journal Not Found');
-        }
-        // 2. Fetch all entry IDs for markers
-        const entriesCollectionRef = collection(db, 'users', user.uid, 'journals', journalId, 'entries'); // Use user from props
-        const querySnapshot = await getDocs(entriesCollectionRef);
-        const entryDates = querySnapshot.docs.map(doc => doc.id);
-        setDaysWithEntries(entryDates);
+      if (!journalId || !user) { // Use user from props
+        setJournalName('');
+        setDaysWithEntries([]);
+        return;
+      }
+      // 1. Fetch journal name
+      const journalRef = doc(db, 'users', user.uid, 'journals', journalId); // Use user from props
+      const journalSnap = await getDoc(journalRef);
+      if (journalSnap.exists()) {
+        setJournalName(journalSnap.data().name);
+      } else {
+        setJournalName('Journal Not Found');
+      }
+      // 2. Fetch all entry IDs for markers
+      const entriesCollectionRef = collection(db, 'users', user.uid, 'journals', journalId, 'entries'); // Use user from props
+      const querySnapshot = await getDocs(entriesCollectionRef);
+      const entryDates = querySnapshot.docs.map(doc => doc.id);
+      setDaysWithEntries(entryDates);
     };
 
     fetchMetadata();
-}, [journalId, user]); // Use user from props in dependency array
+  }, [journalId, user]); // Use user from props in dependency array
 
   // This effect syncs the editor's editable status with the component's state
   useEffect(() => {
@@ -136,14 +145,14 @@ useEffect(() => {
     editor.setEditable(isEditing);
   }, [isEditing, editor]);
 
- const handleSave = async () => {
+  const handleSave = async () => {
     if (!journalId || !auth.currentUser || !editor) return;
 
     const htmlContent = editor.getHTML();
 
     // Prevent saving an empty entry unless it's to clear an existing one
     if (editor.isEmpty && !daysWithEntries.includes(todayDocId)) {
-        return;
+      return;
     }
 
     try {
@@ -167,27 +176,27 @@ useEffect(() => {
   };
 
   return (
-    <div className="settings-page" style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <div className="settings-page-header">
-        <h1>{journalName}</h1>
+    <div className="p-6 space-y-6 h-full flex flex-col">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">{journalName}</h1>
         {isEditing ? (
-          <button onClick={handleSave} className="save-btn">Save</button>
+          <Button onClick={handleSave}>Save Entry</Button>
         ) : (
-          <button onClick={() => setIsEditing(true)} className="edit-btn">Edit</button>
+          <Button variant="outline" onClick={() => setIsEditing(true)}>Edit</Button>
         )}
       </div>
 
-      <div className="journal-entry-container">
-        <div className="journal-editor-main">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1">
+        <div className="lg:col-span-3 flex flex-col">
           {isEditing && <MenuBar editor={editor} />}
           <EditorContent editor={editor} />
         </div>
-        <div className="journal-sidebar">
-    <MiniCalendar
-    selectedDate={entryDate}
-    onDateChange={setEntryDate}
-    entries={daysWithEntries}
-/>
+        <div className="lg:col-span-1">
+          <MiniCalendar
+            selectedDate={entryDate}
+            onDateChange={setEntryDate}
+            entries={daysWithEntries}
+          />
         </div>
       </div>
     </div>

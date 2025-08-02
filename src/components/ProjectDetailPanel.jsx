@@ -2,6 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Trash2, X } from "lucide-react";
 
 export default function ProjectDetailPanel({ project, user, db, onClose, onUpdate, allGroups = [] }) {
   const [editedProject, setEditedProject] = useState({
@@ -26,7 +32,7 @@ export default function ProjectDetailPanel({ project, user, db, onClose, onUpdat
       const tagsCollectionRef = collection(db, 'users', user.uid, 'projects', project.id, 'tags');
       const newTagData = {
         name: name,
-        color: '#888888' 
+        color: '#888888'
       };
       const docRef = await addDoc(tagsCollectionRef, newTagData);
       setTags(prevTags => [...prevTags, { id: docRef.id, ...newTagData }]);
@@ -54,15 +60,15 @@ export default function ProjectDetailPanel({ project, user, db, onClose, onUpdat
 
   const handleUpdateTagColor = async (tagId, newColor) => {
     if (!project || !user) return;
-  
+
     const tagRef = doc(db, 'users', user.uid, 'projects', project.id, 'tags', tagId);
-  
+
     try {
       await updateDoc(tagRef, { color: newColor });
-  
+
       // Optimistically update the local state
-      setTags(prevTags => 
-        prevTags.map(tag => 
+      setTags(prevTags =>
+        prevTags.map(tag =>
           tag.id === tagId ? { ...tag, color: newColor } : tag
         )
       );
@@ -109,9 +115,9 @@ export default function ProjectDetailPanel({ project, user, db, onClose, onUpdat
 
   const handleSave = () => {
     const saveData = {
-  name: editedProject.name,
-  group: editedProject.group,
-};
+      name: editedProject.name,
+      group: editedProject.group,
+    };
     onUpdate(saveData);
   };
 
@@ -120,90 +126,90 @@ export default function ProjectDetailPanel({ project, user, db, onClose, onUpdat
   }
 
   return (
-    <div className={`task-detail-panel ${project ? 'open' : ''}`}>
-      <div className="modal-header">
-        <h3>Project Settings</h3>
-        <button className="close-btn" onClick={onClose}>×</button>
-      </div>
-      <div className="modal-body">
-        <div className="form-group">
-            <label>Project Name</label>
-            <input
+    <Sheet open={!!project} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <SheetContent className="sm:max-w-[550px] sm:w-full w-[90vw] flex flex-col">
+        <SheetHeader>
+          <SheetTitle>Project Settings</SheetTitle>
+          <SheetDescription>
+            Edit your project details and manage tags. Click "Done" when you're finished.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="project-name">Project Name</Label>
+            <Input
+              id="project-name"
               type="text"
               value={editedProject.name}
               onChange={(e) => handleFieldChange('name', e.target.value)}
               onBlur={handleSave}
             />
-        </div>
-        <div className="form-group">
-        <label>Project Group</label>
-        <select
-          value={editedProject.group}
-          onChange={(e) => handleFieldChange('group', e.target.value)}
-          onBlur={handleSave}
-        >
-          {allGroups.map(groupName => (
-            <option key={groupName} value={groupName}>
-              {groupName}
-            </option>
-          ))}
-        </select>
-    </div>
-
-        <div className="form-group">
-            <label>Project Tags</label>
-            <div className="label-list" style={{maxHeight: '200px', overflowY: 'auto', paddingRight: '10px'}}>
-                {tags.map((tag) => (
-                    <div key={tag.id} className="label-item">
-                        <div className="label-color-control">
-                            <div
-                                className="color-display"
-                                style={{ backgroundColor: tag.color }}
-                                onClick={() => setEditingTagId(editingTagId === tag.id ? null : tag.id)}
-                            ></div>
-                            {editingTagId === tag.id && (
-                            <div className="color-list">
-                                {colorOptions.map((option) => (
-                                <div
-                                    key={option.value}
-                                    className="color-option-row"
-                                    onClick={() => {
-                                        handleUpdateTagColor(tag.id, option.value);
-                                        setEditingTagId(null);
-                                    }}
-                                >
-                                    <span className="color-circle" style={{ backgroundColor: option.value }}>
-                                    {tag.color === option.value && <span className="checkmark">✓</span>}
-                                    </span>
-                                    <span className="color-name">{option.name}</span>
-                                </div>
-                                ))}
-                            </div>
-                            )}
-                        </div>
-                        <span>{tag.name}</span>
-                        <button className="remove-btn" onClick={() => handleDeleteTag(tag.id)}>×</button>
-                    </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="project-group">Project Group</Label>
+            <Select
+              value={editedProject.group}
+              onValueChange={(value) => {
+                handleFieldChange('group', value);
+                // We need a slight delay to allow state to update before saving
+                setTimeout(handleSave, 100);
+              }}
+            >
+              <SelectTrigger id="project-group">
+                <SelectValue placeholder="Select a group" />
+              </SelectTrigger>
+              <SelectContent>
+                {allGroups.map(groupName => (
+                  <SelectItem key={groupName} value={groupName}>
+                    {groupName}
+                  </SelectItem>
                 ))}
-                {tags.length === 0 && (
-                    <div style={{color: '#888', textAlign: 'center', padding: '10px 0'}}>No tags for this project yet.</div>
-                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Project Tags</Label>
+            <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2">
+              {tags.map((tag) => (
+                <div key={tag.id} className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    value={tag.color}
+                    onChange={(e) => handleUpdateTagColor(tag.id, e.target.value)}
+                    className="w-12 h-10 p-1"
+                  />
+                  <Input
+                    value={tag.name}
+                    className="flex-1"
+                    readOnly
+                  />
+                  <Button variant="ghost" size="icon" onClick={() => handleDeleteTag(tag.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              {tags.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-2">No tags for this project yet.</p>
+              )}
             </div>
-            <div className="add-label">
-                <input
-                    type="text"
-                    value={newTagName}
-                    onChange={(e) => setNewTagName(e.target.value)}
-                    onKeyDown={(e) => {if(e.key === 'Enter') handleAddTag()}}
-                    placeholder="Add new tag..."
-                />
-                <button onClick={handleAddTag}>Add</button>
+            <div className="flex w-full items-center gap-2 pt-2 border-t">
+              <Input
+                placeholder="Add new tag..."
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddTag() }}
+              />
+              <Button onClick={handleAddTag}>Add</Button>
             </div>
+          </div>
         </div>
-      </div>
-      <div className="modal-footer">
-        <button onClick={onClose} className="save-btn">Done</button>
-      </div>
-    </div>
+
+        <SheetFooter>
+          <Button onClick={onClose}>Done</Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

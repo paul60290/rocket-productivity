@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
 
 export default function MiniCalendar({ selectedDate, onDateChange, entries = [] }) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -11,11 +15,11 @@ export default function MiniCalendar({ selectedDate, onDateChange, entries = [] 
 
   const days = [];
   for (let i = 0; i < startDay; i++) {
-    days.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+    days.push(<div key={`empty-${i}`} />);
   }
   for (let i = 1; i <= daysInMonth; i++) {
     const dayDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), i);
-    const dayDateString = dayDate.toISOString().split('T')[0]; // Format as 'YYYY-MM-DD'
+    const dayDateString = dayDate.toISOString().split('T')[0];
 
     const isToday = new Date().toDateString() === dayDate.toDateString();
     const isSelected = selectedDate.toDateString() === dayDate.toDateString();
@@ -24,35 +28,44 @@ export default function MiniCalendar({ selectedDate, onDateChange, entries = [] 
     days.push(
       <div
         key={i}
-        className={`calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${hasEntry ? 'has-entry' : ''}`}
+        className={cn(
+          "flex items-center justify-center h-8 w-8 rounded-full cursor-pointer transition-colors relative text-sm",
+          "hover:bg-accent hover:text-accent-foreground",
+          { "bg-primary text-primary-foreground hover:bg-primary/90": isSelected },
+          { "bg-accent text-accent-foreground": isToday && !isSelected },
+        )}
         onClick={() => onDateChange(dayDate)}
       >
         <span>{i}</span>
+        {hasEntry && !isSelected && <div className="absolute bottom-1.5 h-1 w-1 rounded-full bg-primary" />}
+        {hasEntry && isSelected && <div className="absolute bottom-1.5 h-1 w-1 rounded-full bg-primary-foreground" />}
       </div>
     );
   }
 
-  const changeMonth = (offset) => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
-  };
-
   return (
-    <div className="mini-calendar">
-      <div className="calendar-header">
-        <button onClick={() => changeMonth(-1)} title="Previous Month"><FaChevronLeft /></button>
-        <h2>{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
-        <button onClick={() => changeMonth(1)} title="Next Month"><FaChevronRight /></button>
+    <Card className="p-3">
+      <div className="flex items-center justify-between mb-2">
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => changeMonth(-1)} title="Previous Month">
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h2 className="text-sm font-semibold">
+          {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+        </h2>
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => changeMonth(1)} title="Next Month">
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
-      <div className="calendar-grid">
-        <div className="day-name">S</div>
-        <div className="day-name">M</div>
-        <div className="day-name">T</div>
-        <div className="day-name">W</div>
-        <div className="day-name">T</div>
-        <div className="day-name">F</div>
-        <div className="day-name">S</div>
+      <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
+        <div className="font-medium text-muted-foreground">S</div>
+        <div className="font-medium text-muted-foreground">M</div>
+        <div className="font-medium text-muted-foreground">T</div>
+        <div className="font-medium text-muted-foreground">W</div>
+        <div className="font-medium text-muted-foreground">T</div>
+        <div className="font-medium text-muted-foreground">F</div>
+        <div className="font-medium text-muted-foreground">S</div>
         {days}
       </div>
-    </div>
+    </Card>
   );
 }

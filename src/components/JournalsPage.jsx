@@ -3,13 +3,17 @@ import { db, auth } from '../firebase';
 import editIconUrl from '../assets/edit.svg';
 import deleteIconUrl from '../assets/delete.svg';
 import { collection, addDoc, getDocs, query, where, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 export default function JournalsPage({ onSelectJournal }) {
-    const [journals, setJournals] = useState([]);
-    const [newJournalName, setNewJournalName] = useState('');
-    const [editingJournalId, setEditingJournalId] = useState(null);
-const [editingJournalName, setEditingJournalName] = useState('');
-    const handleCreateJournal = async () => {
+  const [journals, setJournals] = useState([]);
+  const [newJournalName, setNewJournalName] = useState('');
+  const [editingJournalId, setEditingJournalId] = useState(null);
+  const [editingJournalName, setEditingJournalName] = useState('');
+  const handleCreateJournal = async () => {
     if (!newJournalName.trim() || !auth.currentUser) return;
     try {
       const journalsCollectionRef = collection(db, 'users', auth.currentUser.uid, 'journals');
@@ -51,8 +55,8 @@ const [editingJournalName, setEditingJournalName] = useState('');
 
     const originalJournal = journals.find(j => j.id === journalId);
     if (originalJournal && originalJournal.name === trimmedName) {
-        setEditingJournalId(null); // Exit if name hasn't changed
-        return;
+      setEditingJournalId(null); // Exit if name hasn't changed
+      return;
     }
 
 
@@ -68,7 +72,7 @@ const [editingJournalName, setEditingJournalName] = useState('');
       console.error("Error renaming journal: ", error);
       alert("Failed to rename journal.");
     } finally {
-        setEditingJournalId(null); // Always exit editing mode
+      setEditingJournalId(null); // Always exit editing mode
     }
   };
   useEffect(() => {
@@ -85,81 +89,84 @@ const [editingJournalName, setEditingJournalName] = useState('');
     fetchJournals();
   }, []); // The empty array ensures this runs only once on mount
   return (
-    <div className="projects-page-container">
-      <h1>My Journals</h1>
-      <div className="add-label" style={{ marginBottom: '2rem' }}>
-        <input
-          type="text"
-          value={newJournalName}
-          onChange={(e) => setNewJournalName(e.target.value)}
-          placeholder="New journal name..."
-          onKeyDown={(e) => e.key === 'Enter' && handleCreateJournal()}
-        />
-        <button onClick={handleCreateJournal}>Create Journal</button>
+    <div className="p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">My Journals</h1>
+          <p className="text-muted-foreground">
+            Capture your thoughts, notes, and daily progress.
+          </p>
+        </div>
+        <div className="flex w-full sm:w-auto gap-2">
+          <Input
+            type="text"
+            placeholder="New journal name..."
+            value={newJournalName}
+            onChange={(e) => setNewJournalName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateJournal()}
+            className="flex-1 sm:flex-auto"
+          />
+          <Button onClick={handleCreateJournal}>
+            <Plus className="mr-2 h-4 w-4" /> Create
+          </Button>
+        </div>
       </div>
-      <div className="project-grid">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
   {journals.map((journal) => (
-    <div
-      key={journal.id}
-      className="project-card"
-      onClick={() => {
-        if (editingJournalId !== journal.id) {
-          onSelectJournal(journal.id);
-        }
-      }}
-    >
-      {editingJournalId === journal.id ? (
-        <input
-          type="text"
-          value={editingJournalName}
-          onChange={(e) => setEditingJournalName(e.target.value)}
-          onBlur={() => handleRenameJournal(journal.id, editingJournalName)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleRenameJournal(journal.id, editingJournalName);
-            }
-            if (e.key === 'Escape') {
-              setEditingJournalId(null);
-            }
-          }}
-          onClick={(e) => e.stopPropagation()}
-          autoFocus
-        />
-      ) : (
-        <>
-          <span onDoubleClick={(e) => {
+    <Card key={journal.id} className="flex flex-col">
+      <div
+        className="p-4 flex-1 cursor-pointer hover:bg-accent"
+        onClick={() => {
+          if (editingJournalId !== journal.id) {
+            onSelectJournal(journal.id);
+          }
+        }}
+      >
+        {editingJournalId === journal.id ? (
+          <Input
+            type="text"
+            value={editingJournalName}
+            onChange={(e) => setEditingJournalName(e.target.value)}
+            onBlur={() => handleRenameJournal(journal.id, editingJournalName)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRenameJournal(journal.id, editingJournalName);
+              if (e.key === 'Escape') setEditingJournalId(null);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            autoFocus
+          />
+        ) : (
+          <span className="font-semibold text-card-foreground">{journal.name}</span>
+        )}
+      </div>
+      <div className="p-2 border-t flex justify-end gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          title="Rename Journal"
+          onClick={(e) => {
             e.stopPropagation();
             setEditingJournalId(journal.id);
             setEditingJournalName(journal.name);
-          }}>
-            {journal.name}
-          </span>
-          <div className="project-card-actions">
-  <button
-    className="edit-project-btn"
-    title="Edit Journal"
-    onClick={(e) => {
-      e.stopPropagation();
-      setEditingJournalId(journal.id);
-      setEditingJournalName(journal.name);
-    }}
-  >
-    <img src={editIconUrl} alt="Edit Journal" />
-  </button>
-  <button
-    className="delete-group-btn"
-    title="Delete Journal"
-    onClick={(e) => {
-      e.stopPropagation();
-      handleDeleteJournal(journal.id);
-    }}
-  >
-    <img src={deleteIconUrl} alt="Delete Journal" />
-  </button>
-</div>
-        </>
-      )}
-    </div>
+          }}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-destructive hover:text-destructive"
+          title="Delete Journal"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDeleteJournal(journal.id);
+          }}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </Card>
   ))}
 </div>
     </div>

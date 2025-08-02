@@ -6,41 +6,65 @@ import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import deleteIconUrl from '../assets/delete.svg';
 import { collection, getDocs } from "firebase/firestore";
+import { GripVertical, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const generateUniqueId = () => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
 function SortableSubtask({ subtask, onToggle, onDelete }) {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: subtask.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: subtask.id });
 
-    // The styles from dnd-kit for dragging
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-    };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
-    // We stop the drag from starting if the user clicks the checkbox or the delete button
-    const stopPropagation = (e) => e.stopPropagation();
+  // We stop the drag from starting if the user clicks the checkbox or the delete button
+  const stopPropagation = (e) => e.stopPropagation();
 
-    return (
-        <li ref={setNodeRef} style={style} {...attributes} {...listeners} className={`subtask-item ${subtask.completed ? 'completed' : ''}`}>
-            <input
-                type="checkbox"
-                checked={subtask.completed}
-                onChange={() => onToggle(subtask.id)}
-                onPointerDown={stopPropagation}
-            />
-            <span className="subtask-text">{subtask.text}</span>
-            <button
-    className="delete-subtask-btn"
-    onClick={() => onDelete(subtask.id)}
-    onPointerDown={stopPropagation}
->
-  <img src={deleteIconUrl} alt="Delete subtask" />
-</button>
-        </li>
-    );
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className="flex items-center gap-2 rounded-md -ml-2 p-2 hover:bg-muted"
+    >
+      <div {...listeners} className="cursor-grab touch-none p-1">
+        <GripVertical className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <Checkbox
+        id={`subtask-${subtask.id}`}
+        checked={subtask.completed}
+        onCheckedChange={() => onToggle(subtask.id)}
+        onPointerDown={stopPropagation}
+      />
+      <label
+        htmlFor={`subtask-${subtask.id}`}
+        className={`flex-1 text-sm ${subtask.completed ? 'text-muted-foreground line-through' : ''}`}
+      >
+        {subtask.text}
+      </label>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6"
+        onClick={() => onDelete(subtask.id)}
+        onPointerDown={stopPropagation}
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </li>
+  );
 }
 
 export default function TaskDetailPanel({ task, onClose, onUpdate, onMoveTask, availableLabels, user, db, projectColumns = [], allProjects = [] }) {
@@ -78,7 +102,7 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, onMoveTask, a
     }
   }, [task, user, db]);
 
-  const priorityColors = { 1: '#ff4444', 2: '#ff8800', 3: '#ffdd00', 4: '#88cc88' };
+  
 
   const handleFieldChange = (field, value) => {
     setEditedTask(prev => ({ ...prev, [field]: value }));
@@ -148,115 +172,167 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, onMoveTask, a
 };
 
   return (
-    <div className={`task-detail-panel ${task ? 'open' : ''}`}>
-      <div className="modal-header">
-        <h3>{isCreateMode ? 'Create New Task' : 'Edit Task'}</h3>
-        <button className="close-btn" onClick={onClose}>×</button>
-      </div>
-      <div className="modal-body">
-        <div className="form-group">
-            <label>Task Title</label>
-            <input type="text" value={editedTask.text} onChange={(e) => handleFieldChange('text', e.target.value)} />
-        </div>
-        <div className="form-group">
-            <label>Task Description</label>
-            <textarea value={editedTask.description} onChange={(e) => handleFieldChange('description', e.target.value)} rows="3" />
-        </div>
-        <div className="form-group">
-            <label>Subtasks</label>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSubtaskDragEnd}>
-                <SortableContext items={editedTask.subtasks.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                    <ul className="subtask-list">
-                        {editedTask.subtasks.slice().sort((a, b) => a.completed - b.completed).map(subtask => (
-                            <SortableSubtask key={subtask.id} subtask={subtask} onToggle={handleToggleSubtask} onDelete={handleDeleteSubtask} />
-                        ))}
-                    </ul>
-                </SortableContext>
-            </DndContext>
-            <input type="text" placeholder="New subtask…" value={newSubtaskText} onChange={e => setNewSubtaskText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddSubtask()} />
-            <button onClick={handleAddSubtask}>Add Subtask</button>
-        </div>
-        <div className="form-row">
-            <div className="form-group">
-                <label>Date</label>
-                <input type="date" value={editedTask.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
-            </div>
-            <div className="form-group">
-                <label>Priority</label>
-                <select value={editedTask.priority} onChange={(e) => handleFieldChange('priority', parseInt(e.target.value))} style={{backgroundColor: priorityColors[editedTask.priority]}}>
-                    <option value={1}>1 - Urgent</option>
-                    <option value={2}>2 - High</option>
-                    <option value={3}>3 - Medium</option>
-                    <option value={4}>4 - Low</option>
-                </select>
-            </div>
-        </div>
+  <Sheet open={!!task} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <SheetContent className="sm:max-w-[550px] sm:w-full w-[90vw] flex flex-col">
+      <SheetHeader>
+        <SheetTitle>{isCreateMode ? 'Create New Task' : 'Edit Task'}</SheetTitle>
+        <SheetDescription>
+          {isCreateMode ? "Fill in the details for your new task." : "Make changes to your task here. Click save when you're done."}
+        </SheetDescription>
+      </SheetHeader>
 
-        {/* Column Selector - Only in Create Mode */}
-        {isCreateMode && (
-          <div className="form-group">
-            <label>Column</label>
-            <select value={editedTask.column} onChange={(e) => handleFieldChange('column', e.target.value)}>
-              {projectColumns.map(col => <option key={col} value={col}>{col}</option>)}
-            </select>
-          </div>
-        )}
-
-        <div className="form-group">
-            <label>Add Label</label>
-            <select value={editedTask.label} onChange={(e) => handleFieldChange('label', e.target.value)}>
-                <option value="">Select Label</option>
-                {availableLabels.map(({ name, emoji }) => (<option key={name} value={name}>{emoji ? `${emoji} ` : ''}{name}</option>))}
-            </select>
-        </div>
-        <div className="form-group">
-            <label>Add Tag</label>
-            <select value={editedTask.tag || ''} onChange={(e) => handleFieldChange('tag', e.target.value)}>
-                <option value="">Select Tag</option>
-                {projectTags.map((tag) => (
-                    <option key={tag.id} value={tag.name}>{tag.name}</option>
-                ))}
-            </select>
-        </div>
-        {/* === Move Task Section === */}
-<div className="form-group">
-    <label>Move to Project</label>
-    <select
-        // We will add functionality here in the next steps
-        onChange={(e) => {
-    // Just update the local state with the new project ID
-    handleFieldChange('projectId', e.target.value);
-}}
-        // Disable if it's a new task that hasn't been saved yet
-        disabled={isCreateMode}
-    >
-        <option value="">Select a project...</option>
-        {allProjects.map(group => (
-    <optgroup label={group.name} key={group.name}>
-        {group.projects.map(project => (
-            <option key={project.id} value={project.id}>
-                {project.name}
-            </option>
-        ))}
-    </optgroup>
-))}
-    </select>
+      {/* The form fields below are still the old style. We will refactor them next. */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className="space-y-2">
+  <Label htmlFor="task-title">Task Title</Label>
+  <Input id="task-title" value={editedTask.text} onChange={(e) => handleFieldChange('text', e.target.value)} />
 </div>
-         <div className="form-group">
-            <label>Comments</label>
-            <div className="comments-list">
-                {editedTask.comments?.map(c => (
-                <div key={c.id} className="comment-item"><p className="comment-text">{c.text}</p><p className="comment-meta">{c.author} • {new Date(c.timestamp).toLocaleString()}</p></div>
-                ))}
-            </div>
-            <textarea rows="2" placeholder="Add a comment…" value={newComment} onChange={e => setNewComment(e.target.value)} />
-            <button onClick={handleAddComment}>Add Comment</button>
-        </div>
-      </div>
-      <div className="modal-footer">
-    <button onClick={onClose} className="btn btn-tertiary">Cancel</button>
-    <button onClick={handleSave} className="btn btn-primary">Save</button>
+        <div className="space-y-2">
+  <Label htmlFor="task-description">Task Description</Label>
+  <Textarea
+    id="task-description"
+    value={editedTask.description}
+    onChange={(e) => handleFieldChange('description', e.target.value)}
+    rows="3"
+  />
+</div>
+        <div className="space-y-2">
+  <Label>Subtasks</Label>
+  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSubtaskDragEnd}>
+    <SortableContext items={editedTask.subtasks.map(s => s.id)} strategy={verticalListSortingStrategy}>
+      <ul className="subtask-list">
+        {editedTask.subtasks.slice().sort((a, b) => a.completed - b.completed).map(subtask => (
+          <SortableSubtask key={subtask.id} subtask={subtask} onToggle={handleToggleSubtask} onDelete={handleDeleteSubtask} />
+        ))}
+      </ul>
+    </SortableContext>
+  </DndContext>
+  <div className="flex gap-2">
+    <Input
+      type="text"
+      placeholder="Add a new subtask..."
+      value={newSubtaskText}
+      onChange={e => setNewSubtaskText(e.target.value)}
+      onKeyDown={e => e.key === 'Enter' && handleAddSubtask()}
+    />
+    <Button onClick={handleAddSubtask} variant="outline">Add Subtask</Button>
   </div>
-    </div>
-  );
+</div>
+        <div className="grid grid-cols-2 gap-4">
+  <div className="space-y-2">
+    <Label htmlFor="task-date">Date</Label>
+    <Input id="task-date" type="date" value={editedTask.date} onChange={(e) => handleFieldChange('date', e.target.value)} />
+  </div>
+  <div className="space-y-2">
+    <Label htmlFor="task-priority">Priority</Label>
+    <Select value={String(editedTask.priority)} onValueChange={(value) => handleFieldChange('priority', parseInt(value))}>
+      <SelectTrigger id="task-priority">
+        <SelectValue placeholder="Select priority" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="1">1 - Urgent</SelectItem>
+        <SelectItem value="2">2 - High</SelectItem>
+        <SelectItem value="3">3 - Medium</SelectItem>
+        <SelectItem value="4">4 - Low</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+</div>
+
+        {isCreateMode && (
+  <div className="space-y-2">
+    <Label htmlFor="task-column">Column</Label>
+    <Select value={editedTask.column} onValueChange={(value) => handleFieldChange('column', value)}>
+      <SelectTrigger id="task-column">
+        <SelectValue placeholder="Select column" />
+      </SelectTrigger>
+      <SelectContent>
+        {projectColumns.map(col => (
+          <SelectItem key={col} value={col}>{col}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+)}
+
+        <div className="space-y-2">
+  <Label htmlFor="task-label">Add Label</Label>
+  <Select value={editedTask.label} onValueChange={(value) => handleFieldChange('label', value === 'none' ? '' : value)}>
+    <SelectTrigger id="task-label">
+      <SelectValue placeholder="Select a label" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="none">No Label</SelectItem>
+      {availableLabels.map(({ name, emoji }) => (
+        <SelectItem key={name} value={name}>{emoji ? `${emoji} ` : ''}{name}</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+<div className="space-y-2">
+  <Label htmlFor="task-tag">Add Tag</Label>
+  <Select value={editedTask.tag || ''} onValueChange={(value) => handleFieldChange('tag', value === 'none' ? '' : value)}>
+    <SelectTrigger id="task-tag">
+      <SelectValue placeholder="Select a tag" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="none">No Tag</SelectItem>
+      {projectTags.map((tag) => (
+        <SelectItem key={tag.id} value={tag.name}>{tag.name}</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+<div className="space-y-2">
+  <Label htmlFor="move-project">Move to Project</Label>
+  <Select
+    onValueChange={(value) => handleFieldChange('projectId', value)}
+    disabled={isCreateMode}
+  >
+    <SelectTrigger id="move-project">
+      <SelectValue placeholder="Select a project..." />
+    </SelectTrigger>
+    <SelectContent>
+      {allProjects.map(group => (
+        <SelectGroup key={group.name}>
+          <SelectLabel>{group.name}</SelectLabel>
+          {group.projects.map(project => (
+            <SelectItem key={project.id} value={project.id}>
+              {project.name}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
+        <div className="space-y-2">
+  <Label>Comments</Label>
+  <div className="space-y-4">
+    {editedTask.comments?.map(c => (
+      <div key={c.id}>
+        <p className="text-sm">{c.text}</p>
+        <p className="text-xs text-muted-foreground">{c.author} • {new Date(c.timestamp).toLocaleString()}</p>
+      </div>
+    ))}
+  </div>
+  <div className="flex gap-2">
+    <Textarea
+      placeholder="Add a comment..."
+      value={newComment}
+      onChange={e => setNewComment(e.target.value)}
+      rows={2}
+    />
+    <Button onClick={handleAddComment} variant="outline">Add Comment</Button>
+  </div>
+</div>
+      </div>
+
+      <SheetFooter>
+        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSave}>Save</Button>
+      </SheetFooter>
+    </SheetContent>
+  </Sheet>
+);
 }

@@ -17,36 +17,38 @@ import Auth from './Auth';
 import NewProjectModal from './components/NewProjectModal';
 import ProjectDetailPanel from './components/ProjectDetailPanel';
 import SortableProjectItem from './components/SortableProjectItem';
-import HeaderDropdown from './components/HeaderDropdown';
 import logoUrl from './assets/logo.svg';
-import goalsIconUrl from './assets/goals-icon.svg';
-import todayIconUrl from './assets/today-icon.svg';
-import inboxIconUrl from './assets/inbox-icon.svg';
-import journalIconUrl from './assets/journal.svg';
-import tomorrowIconUrl from './assets/tomorrow-icon.svg';
-import thisWeekIconUrl from './assets/this-week-icon.svg';
-import nextWeekIconUrl from './assets/next-week-icon.svg';
-import projectsIconUrl from './assets/projects-icon.svg';
-import settingsIconUrl from './assets/settings-icon.svg';
-import logoutIconUrl from './assets/logout-icon.svg';
-import editIconUrl from './assets/edit.svg';
-import deleteIconUrl from './assets/delete.svg';
-import timerIconUrl from './assets/timer.svg';
-import calendarIconUrl from './assets/calendar.svg';
-import addIconUrl from './assets/add.svg';
 import { auth, db } from './firebase';
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  MoreVertical, GripVertical, MessageSquare, Plus, X,
+  Target, BookText, Calendar, Inbox, Sunrise, CalendarDays,
+  CalendarPlus, FolderKanban, Settings, LogOut, Clock, Pencil, Trash2,
+  Pause, Play
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import timerChime from './assets/mixkit-tick-tock-clock-timer-1045.wav';
 
 const viewIcons = {
-  goals: goalsIconUrl,
-  journal: journalIconUrl,
-  today: todayIconUrl,
-  inbox: inboxIconUrl,
-  tomorrow: tomorrowIconUrl,
-  thisWeek: thisWeekIconUrl,
-  nextWeek: nextWeekIconUrl,
-  projects: projectsIconUrl,
-  settings: settingsIconUrl,
+  goals: Target,
+  journal: BookText,
+  today: Calendar,
+  inbox: Inbox,
+  tomorrow: Sunrise,
+  thisWeek: CalendarDays,
+  nextWeek: CalendarPlus,
+  projects: FolderKanban,
+  settings: Settings,
 };
 
 import {
@@ -81,160 +83,6 @@ const generateUniqueId = () => {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
-// === SECTION: Label & Group Management Modal ===
-function ManagerModal({ groups, labels, onClose, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup }) {
-  const [activeTab, setActiveTab] = useState('labels');
-  const [editedLabels, setEditedLabels] = useState(labels.map(label => ({ ...label, showPicker: false })));
-  const [newLabel, setNewLabel] = useState('');
-  const [newGroupName, setNewGroupName] = useState('');
-  const [editingGroup, setEditingGroup] = useState({ name: null, newName: '' });
-
-  const colorOptions = [
-    { name: 'Scarlet Red', value: '#c92a2a' }, { name: 'Crimson', value: '#801515' },
-    { name: 'Sky Blue', value: '#228be6' }, { name: 'Navy', value: '#0b3d91' },
-    { name: 'Tangerine', value: '#f76707' }, { name: 'Burnt Orange', value: '#b34700' },
-    { name: 'Goldenrod', value: '#f59f00' }, { name: 'Mustard', value: '#a87900' },
-    { name: 'Emerald', value: '#40c057' }, { name: 'Forest Green', value: '#1e7d32' },
-    { name: 'Lavender', value: '#9c36b5' }, { name: 'Royal Purple', value: '#5e2b97' },
-    { name: 'Rose', value: '#f06595' }, { name: 'Mulberry', value: '#b03060' }
-  ];
-  const addLabel = () => {
-    const cleaned = newLabel.trim();
-    if (cleaned && !editedLabels.some(l => l.name === cleaned)) {
-      setEditedLabels([...editedLabels, { name: cleaned, emoji: '', color: '#007bff', showPicker: false }]);
-      setNewLabel('');
-    }
-  };
-  const removeLabel = (labelToRemove) => {
-    setEditedLabels(editedLabels.filter(label => label.name !== labelToRemove.name));
-  };
-
-  const handleStartEditGroup = (groupName) => {
-    setEditingGroup({ name: groupName, newName: groupName });
-  };
-
-  const handleSaveGroupRename = () => {
-    if (editingGroup.name && editingGroup.newName.trim()) {
-      onRenameGroup(editingGroup.name, editingGroup.newName.trim());
-    }
-    setEditingGroup({ name: null, newName: '' });
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Manage</h3>
-          <button className="close-btn" onClick={onClose}>×</button>
-        </div>
-        <div className="modal-tabs">
-          <button className={activeTab === 'labels' ? 'active' : ''} onClick={() => setActiveTab('labels')}>Labels</button>
-          <button className={activeTab === 'groups' ? 'active' : ''} onClick={() => setActiveTab('groups')}>Groups</button>
-        </div>
-        <div className="modal-scroll-body">
-          {activeTab === 'labels' && (
-            <>
-              <div className="label-list">
-                {editedLabels.map((label, index) => (
-                  <div key={index} className="label-item">
-                    <input type="text" placeholder="Label name" value={label.name} onChange={(e) => {
-                      const updated = [...editedLabels];
-                      updated[index] = { ...label, name: e.target.value };
-                      setEditedLabels(updated);
-                    }} />
-                    <div className="label-color-control">
-                      <div className="color-display" style={{ backgroundColor: label.color }} onClick={(e) => {
-                        // Close all other pickers first
-                        const updated = editedLabels.map((l, i) => ({
-                          ...l,
-                          showPicker: i === index ? !l.showPicker : false
-                        }));
-                        setEditedLabels(updated);
-
-                        // Manage CSS classes for z-index stacking
-                        const labelItems = document.querySelectorAll('.label-item');
-                        labelItems.forEach(item => item.classList.remove('picker-open'));
-
-                        if (!updated[index].showPicker) {
-                          e.target.closest('.label-item').classList.add('picker-open');
-                        }
-                      }}></div>
-                      {label.showPicker && (
-                        <div className="color-list">
-                          {colorOptions.map((option) => (
-                            <div key={option.value} className="color-option-row" onClick={() => {
-                              const updated = [...editedLabels];
-                              updated[index] = { ...updated[index], color: option.value, showPicker: false };
-                              setEditedLabels(updated);
-                            }}>
-                              <span className="color-circle" style={{ backgroundColor: option.value }}>
-                                {label.color === option.value && <span className="checkmark">✓</span>}
-                              </span>
-                              <span className="color-name">{option.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button onClick={() => removeLabel(label)} className="remove-btn">×</button>
-                  </div>
-                ))}
-              </div>
-              <div className="add-label">
-                <input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addLabel()} placeholder="Add new label..." />
-                <button onClick={addLabel}>Add</button>
-              </div>
-            </>
-          )}
-          {activeTab === 'groups' && (
-            <>
-              <div className="label-list">
-                {groups.map((groupName) => (
-                  <div key={groupName} className="label-item">
-                    {editingGroup.name === groupName ? (
-                      <input type="text" value={editingGroup.newName}
-                        onChange={(e) => setEditingGroup({ ...editingGroup, newName: e.target.value })}
-                        onBlur={handleSaveGroupRename}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSaveGroupRename()}
-                        autoFocus
-                      />
-                    ) : (
-                      <span onDoubleClick={() => handleStartEditGroup(groupName)} title="Double-click to rename">{groupName}</span>
-                    )}
-                    <div>
-                      {groupName !== 'Ungrouped' && (
-                        <>
-                          <button onClick={() => handleStartEditGroup(groupName)} className="edit-project-btn" title="Rename Group">
-                            <img src={editIconUrl} alt="Rename Group" />
-                          </button>
-                          <button onClick={() => onDeleteGroup(groupName)} className="remove-btn" title="Delete Group">×</button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="add-label">
-                <input type="text" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Create new group..."
-                  onKeyDown={(e) => { if (e.key === 'Enter') { onAddGroup(newGroupName.trim()); setNewGroupName(''); } }}
-                />
-                <button onClick={() => { onAddGroup(newGroupName.trim()); setNewGroupName(''); }}>Add Group</button>
-              </div>
-            </>
-          )}
-        </div>
-        <div className="modal-footer">
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={() => { onUpdateLabels(editedLabels); onClose(); }} className="save-btn">Save Changes</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-
 // === SECTION: Editable Title Component ===
 function EditableTitle({ title, onUpdate, className = "" }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -268,21 +116,21 @@ function EditableTitle({ title, onUpdate, className = "" }) {
 
   if (isEditing) {
     return (
-      <input
+      <Input
         ref={inputRef}
         type="text"
         value={editValue}
         onChange={(e) => setEditValue(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleSave}
-        className={`editable-input ${className}`}
+        className={cn("h-8 p-1", className)}
       />
     );
   }
 
   return (
     <span
-      className={`editable-title ${className}`}
+      className={cn("cursor-pointer rounded-md px-2 -mx-2", className)}
       onDoubleClick={() => setIsEditing(true)}
       title="Double-click to edit"
     >
@@ -290,12 +138,11 @@ function EditableTitle({ title, onUpdate, className = "" }) {
     </span>
   );
 }
-function Column({ title, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels, projectTags = [] }) {
-
+function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels, projectTags = [] }) {
   const [adding, setAdding] = useState(false);
   const [newTask, setNewTask] = useState('');
   const inputRef = useRef(null);
-  // === SORT TASKS BY PRIORITY (1 = highest) ===
+
   const sortedTasks = Array.isArray(tasks)
     ? [...tasks].sort((a, b) => {
       if (a.completed !== b.completed) {
@@ -305,24 +152,16 @@ function Column({ title, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRena
     })
     : [];
 
-  const { setNodeRef } = useDroppable({ id: title });
+  const { setNodeRef } = useDroppable({ id: column.id });
 
   const handleAddTask = () => {
     if (!newTask.trim()) return;
-
     const taskData = {
       text: newTask.trim(),
-      column: title, // This is the key change: add the column name to the object
+      column: column.id, // Use the column's unique ID
       completed: false,
-      date: '',
       priority: 4,
-      label: '',
-      tag: '',
-      description: '',
-      comments: [],
-      subtasks: []
     };
-
     onAddTask(taskData);
     setNewTask('');
     setAdding(false);
@@ -332,76 +171,70 @@ function Column({ title, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRena
     if (adding && inputRef.current) {
       inputRef.current.focus();
     }
-
-    const closeInput = (e) => {
-      const taskInputContainer = inputRef.current?.parentElement;
-      if (taskInputContainer && !taskInputContainer.contains(e.target)) {
-        setAdding(false);
-        setNewTask('');
-      }
-    };
-
-    if (adding) {
-      document.addEventListener('mousedown', closeInput);
-    }
-
-    return () => document.removeEventListener('mousedown', closeInput);
   }, [adding]);
 
   return (
-    <div className="column" ref={setNodeRef}>
-      <div className="column-header">
+    <div className="flex flex-col w-72 md:w-80 shrink-0 bg-card rounded-lg h-full max-h-full" ref={setNodeRef}>
+      <div className="flex items-center justify-between p-3 border-b">
         <EditableTitle
-          title={title}
-          onUpdate={onRenameColumn}
-          className="column-title"
+          title={column.name} // Display the column's name
+          onUpdate={(newName) => onRenameColumn(column.id, newName)} // Pass the ID and new name on update
+          className="font-semibold"
         />
         {isEditable && (
-          <button
-            className="delete-column-btn"
-            onClick={() => onDeleteColumn(title)}
-          >
-            <img src={deleteIconUrl} alt="Delete column" />
-          </button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDeleteColumn(column.id)}>
+            <X className="h-4 w-4" />
+            <span className="sr-only">Delete column</span>
+          </Button>
         )}
       </div>
-      <div className="task-list">
-        <SortableContext
-          items={sortedTasks.map(task => task.id)}
-          strategy={verticalListSortingStrategy}
-        >
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        <SortableContext items={sortedTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
           {sortedTasks.map((task) => (
             <SortableTask
               key={task.id}
               task={task}
-              onComplete={() => onUpdateTask(title, task.id, { completed: !task.completed })}
+              onComplete={() => onUpdateTask(column.id, task.id, { completed: !task.completed })}
               onClick={() => onOpenTask(task)}
               availableLabels={availableLabels}
               projectTags={projectTags}
             />
           ))}
         </SortableContext>
-
-        {/* --- The "Add Task" section is now INSIDE the scrollable list --- */}
         {isEditable && (
           adding ? (
-            <div className="task-input">
-              <input
-                ref={inputRef}
-                type="text"
-                value={newTask}
-                onChange={(e) => setNewTask(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
-                placeholder="Type your task..."
-              />
-              <button onClick={handleAddTask}>Add</button>
+            <div className="p-1 space-y-2">
+              <Card>
+                <CardContent className="p-2">
+                  <Textarea
+                    ref={inputRef}
+                    value={newTask}
+                    onChange={(e) => setNewTask(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleAddTask();
+                      }
+                    }}
+                    placeholder="Task title..."
+                    className="w-full border-none focus-visible:ring-0 resize-none text-sm shadow-none p-1"
+                    autoFocus
+                  />
+                </CardContent>
+              </Card>
+              <div className="flex items-center gap-2">
+                <Button onClick={handleAddTask} className="w-full">Add Task</Button>
+                <Button variant="ghost" size="icon" onClick={() => setAdding(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           ) : (
             <button
-              className="add-task-btn"
+              className="flex items-center justify-center w-full p-2 text-sm text-muted-foreground rounded-md hover:bg-accent"
               onClick={() => setAdding(true)}
             >
-              <img src={addIconUrl} alt="Add Task" />
+              <Plus className="h-4 w-4 mr-2" />
               <span>Add Task</span>
             </button>
           )
@@ -410,81 +243,78 @@ function Column({ title, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRena
     </div>
   );
 }
-
 // === SECTION: Task Item Components ===
 
 // 1. Presentational Component (The Visuals)
 const TaskItem = React.forwardRef(({ task, availableLabels, projectTags, onComplete, onClick, listeners, ...props }, ref) => {
-  const priorityColors = { 1: '#ff4444', 2: '#ff8800', 3: '#ffdd00', 4: '#88cc88' };
-
-  const handleRadioClick = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (onComplete) onComplete();
+  const priorityBorderClasses = {
+    1: 'border-l-red-500',
+    2: 'border-l-orange-400',
+    3: 'border-l-yellow-400',
+    4: 'border-l-green-500',
   };
-
-  const handleTextClick = (e) => {
-    e.stopPropagation();
-    if (onClick) onClick();
-  }
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
-    // By adding 'T00:00:00', we specify that the date string is in the local timezone,
-    // which prevents the off-by-one day error.
-    return new Date(`${dateStr}T00:00:00`).toLocaleDateString();
+    return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+    });
   };
 
   return (
-    // We now apply a single onClick handler to the entire card.
-    <div ref={ref} {...props} onClick={onClick} className={`task-card ${task.completed ? 'completed' : ''}`}>
-      {/* This is the new drag handle. The listeners are applied ONLY here. */}
-      <div className="drag-handle" {...listeners}>
-        <svg viewBox="0 0 20 20" width="12"><path d="M7 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 2zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 7 14zm6-8a2 2 0 1 0-.001-4.001A2 2 0 0 0 13 6zm0 2a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 8zm0 6a2 2 0 1 0 .001 4.001A2 2 0 0 0 13 14z" fill="currentColor"></path></svg>
+    <Card
+      ref={ref}
+      {...props}
+      data-completed={task.completed}
+      className={cn(
+        "p-3 data-[completed=true]:opacity-60 border-l-4 data-[completed=true]:border-l-border",
+        priorityBorderClasses[task.priority] || 'border-l-transparent',
+        props.className
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div {...listeners} className="py-1 cursor-grab touch-none text-muted-foreground hover:text-foreground">
+          <GripVertical className="h-5 w-5" />
+        </div>
+        <Checkbox
+          checked={task.completed}
+          onCheckedChange={onComplete}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1"
+        />
+        <div className="flex-1" onClick={onClick}>
+          <p className={`text-sm font-medium leading-tight ${task.completed ? 'line-through' : ''}`}>{task.text}</p>
+          {(task.date || task.label || task.tag || task.comments?.length > 0) && (
+            <div className="mt-2 flex items-center flex-wrap gap-2">
+              {task.date && <Badge variant="secondary">{formatDate(task.date)}</Badge>}
+              {task.label && (() => {
+                const labelInfo = availableLabels?.find(l => l.name === task.label);
+                return labelInfo ? (
+                  <Badge style={{ backgroundColor: labelInfo.color, color: '#fff' }}>
+                    {labelInfo.name}
+                  </Badge>
+                ) : null;
+              })()}
+              {task.tag && (() => {
+                const tagInfo = projectTags?.find(t => t.name === task.tag);
+                return tagInfo ? (
+                  <Badge style={{ backgroundColor: tagInfo.color, color: '#fff' }}>
+                    {tagInfo.name}
+                  </Badge>
+                ) : null;
+              })()}
+              {task.comments?.length > 0 && (
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="text-xs">{task.comments.length}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
-      <input
-        type="radio"
-        className="complete-btn"
-        checked={task.completed}
-        onMouseDown={handleRadioClick}
-        onChange={() => { }}
-        onClick={(e) => e.stopPropagation()}
-      />
-      <div className="task-content" onClick={handleTextClick}>
-        <span className="task-text">
-          {task.text}
-        </span>
-        {(task.date || task.label || task.tag || task.comments?.length > 0) && (
-          <div className="task-meta">
-            {task.date && <span className="task-date">{formatDate(task.date)}</span>}
-
-            {/* Renders the Global Label */}
-            {task.label && (() => {
-              const labelInfo = availableLabels?.find(l => l.name === task.label);
-              return labelInfo ? (
-                <span className="task-label" style={{ backgroundColor: labelInfo.color || '#007bff' }}>
-                  {labelInfo.emoji ? `${labelInfo.emoji} ` : ''}{labelInfo.name}
-                </span>
-              ) : null;
-            })()}
-
-            {/* Renders the Project Tag */}
-            {task.tag && (() => {
-              const tagInfo = projectTags?.find(t => t.name === task.tag);
-              return tagInfo ? (
-                <span className="task-label" style={{ backgroundColor: tagInfo.color || '#888888' }}>
-                  {tagInfo.name}
-                </span>
-              ) : null;
-            })()}
-
-            {task.comments?.length > 0 && (
-              <span className="task-comment-count">💬 {task.comments.length}</span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    </Card>
   );
 });
 
@@ -500,98 +330,101 @@ function SortableTask({ task, onComplete, onClick, availableLabels, projectTags 
     isDragging
   } = useSortable({ id: task.id });
 
-  const priorityColors = { 1: '#ff4444', 2: '#ff8800', 3: '#ffdd00', 4: '#88cc88' };
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.4 : 1,
-    borderLeft: `4px solid ${priorityColors[task.priority] || '#88cc88'}`
   };
 
   return (
     <TaskItem
       ref={setNodeRef}
       style={style}
+      className={isDragging ? 'opacity-40' : ''}
       task={task}
       availableLabels={availableLabels}
       projectTags={projectTags}
       onComplete={onComplete}
       onClick={onClick}
-      listeners={listeners} // Pass listeners as a separate prop
+      listeners={listeners}
       {...attributes}
     />
   );
 }
 
 // === SECTION: List View Components ===
-function TaskListItem({ task, onOpenTask, onToggleComplete, availableLabels, projectTags }) {
-  const priorityColors = { 1: '#ff4444', 2: '#ff8800', 3: '#ffdd00', 4: '#88cc88' };
-
-  const handleRadioClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (onToggleComplete) onToggleComplete(task);
+function TaskListItem({ task, onOpenTask, onToggleComplete }) {
+  const priorityBorderClasses = {
+    1: 'border-l-red-500',
+    2: 'border-l-orange-400',
+    3: 'border-l-yellow-400',
+    4: 'border-l-green-500',
   };
 
   return (
-    <tr className={`list-view-row ${task.completed ? 'completed' : ''}`} onClick={() => onOpenTask(task)}>
-      <td style={{ width: '40px', textAlign: 'center' }}>
-        <input
-          type="radio"
+    <TableRow
+      key={task.id}
+      data-completed={task.completed}
+      className={cn(
+        "cursor-pointer data-[completed=true]:text-muted-foreground data-[completed=true]:opacity-60 border-l-4 data-[completed=true]:border-l-border",
+        priorityBorderClasses[task.priority] || 'border-l-transparent'
+      )}
+      onClick={() => onOpenTask(task)}
+    >
+      <TableCell>
+        <Checkbox
           checked={!!task.completed}
-          onMouseDown={handleRadioClick}
-          onChange={() => { }} // Empty handler to satisfy React for controlled components
-          onClick={(e) => e.stopPropagation()} // Extra precaution
-          className="complete-btn"
+          onCheckedChange={() => onToggleComplete(task)}
+          onClick={(e) => e.stopPropagation()}
         />
-      </td>
-      <td className="task-list-item-title">
-        <span className="priority-dot" style={{ backgroundColor: priorityColors[task.priority] }}></span>
-        {task.text}
-      </td>
-      <td>{task.column}</td>
-      <td>{task.date}</td>
-    </tr>
+      </TableCell>
+      <TableCell className="font-medium">
+        <div className={`flex items-center ${task.completed ? 'line-through' : ''}`}>
+          <span>{task.text}</span>
+        </div>
+      </TableCell>
+      <TableCell className={task.completed ? 'line-through' : ''}>{task.column}</TableCell>
+      <TableCell className={task.completed ? 'line-through' : ''}>{task.date}</TableCell>
+    </TableRow>
   );
 }
 
 function ListView({ tasksByProject, onOpenTask, onToggleComplete, availableLabels }) {
-  // If there are no tasks at all, show a message
   if (Object.keys(tasksByProject).length === 0) {
     return (
-      <div className="list-view-container">
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No tasks for this period.</p>
+      <div className="p-4">
+        <p className="text-center text-muted-foreground">No tasks for this period.</p>
       </div>
     );
   }
 
   return (
-    <div className="list-view-container">
+    <div className="p-4 space-y-8">
       {Object.entries(tasksByProject).map(([projectName, tasks]) => (
-        <div key={projectName} className="list-view-group">
-          <h3 className="list-view-project-title">{projectName}</h3>
-          <table className="list-view-table">
-            <thead>
-              <tr>
-                <th style={{ width: '40px' }}></th> {/* Header for checkbox */}
-                <th>Task Name</th>
-                <th>Status / Column</th>
-                <th>Due Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.map(task => (
-                <TaskListItem
-                  key={task.id}
-                  task={task}
-                  onOpenTask={() => onOpenTask(task)}
-                  onToggleComplete={onToggleComplete} // Pass the handler down
-                  availableLabels={availableLabels}
-                />
-              ))}
-            </tbody>
-          </table>
+        <div key={projectName}>
+          <h3 className="text-lg font-semibold mb-2">{projectName}</h3>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[50px]"></TableHead> {/* Checkbox column */}
+                  <TableHead>Task Name</TableHead>
+                  <TableHead>Status / Column</TableHead>
+                  <TableHead>Due Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tasks.map(task => (
+                  <TaskListItem
+                    key={task.id}
+                    task={task}
+                    onOpenTask={() => onOpenTask(task)}
+                    onToggleComplete={onToggleComplete}
+                    availableLabels={availableLabels}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
         </div>
       ))}
     </div>
@@ -668,41 +501,56 @@ function TimerModal({
   onReset,
   formatTime
 }) {
-  const quickDurations = [5, 10, 15, 20, 25, 30, 45, 60];
+  const quickDurations = [5, 10, 15, 25, 30, 60];
 
   const selectQuickDuration = (minutes) => {
-    if (!isRunning) {
-      setInputTime(minutes);
-      setTime(minutes * 60);
+    if (!isRunning && minutes) {
+      const newTime = parseInt(minutes, 10);
+      setInputTime(newTime);
+      setTime(newTime * 60);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content timer-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Timer</h3>
-        <div className="timer-display">{formatTime(time)}</div>
-
-        <div className="timer-quick-select">
-          {quickDurations.map(duration => (
-            <button
-              key={duration}
-              onClick={() => selectQuickDuration(duration)}
-              className={inputTime === duration ? 'active' : ''}
-              disabled={isRunning}
-            >
-              {duration}m
-            </button>
-          ))}
+    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Focus Timer</DialogTitle>
+          <DialogDescription>
+            Select a duration or enter a custom time to begin a focus session.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col items-center justify-center py-8">
+          <p className="text-6xl font-bold font-mono tracking-tighter">
+            {formatTime(time)}
+          </p>
         </div>
-
-        <div className="timer-controls">
-          <label>Custom duration (minutes):</label>
-          <input
+        <div className="space-y-4">
+          <Label>Quick Select (minutes)</Label>
+          <ToggleGroup
+            type="single"
+            value={String(inputTime)}
+            onValueChange={selectQuickDuration}
+            className="grid grid-cols-6"
+            disabled={isRunning}
+          >
+            {quickDurations.map(duration => (
+              <ToggleGroupItem key={duration} value={String(duration)}>
+                {duration}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+        <div className="flex items-center gap-2 pt-4">
+          <Label htmlFor="custom-time" className="whitespace-nowrap">
+            Custom:
+          </Label>
+          <Input
+            id="custom-time"
             type="number"
             value={inputTime}
             onChange={(e) => {
-              const val = parseInt(e.target.value);
+              const val = parseInt(e.target.value, 10);
               if (val > 0) {
                 setInputTime(val);
                 if (!isRunning) setTime(val * 60);
@@ -713,40 +561,41 @@ function TimerModal({
             min="1"
             max="120"
             disabled={isRunning}
+            className="w-24"
           />
+          <span className="text-sm text-muted-foreground">min</span>
         </div>
-
-        <div className="timer-buttons">
+        <div className="grid grid-cols-2 gap-4 pt-4">
           {isRunning ? (
-            <button onClick={onPause} className="btn-secondary">Pause</button>
+            <Button onClick={onPause} variant="secondary" size="lg">Pause</Button>
           ) : (
-            <button onClick={time > 0 && time < inputTime * 60 ? onResume : onStart} className="btn-primary">
+            <Button onClick={time > 0 && time < inputTime * 60 ? onResume : onStart} size="lg">
               {time > 0 && time < inputTime * 60 ? 'Resume' : 'Launch'}
-            </button>
+            </Button>
           )}
-          <button onClick={onReset} className="btn-secondary">Reset</button>
+          <Button onClick={onReset} variant="outline" size="lg">Reset</Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 // === SECTION: Timer Completion Modal ===
 function TimerCompleteModal({ onClose }) {
-
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content timer-complete-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-body">
-          <h2>Time's Up!</h2>
-          <p>Great focus session. Keep up the momentum!</p>
-          <button onClick={onClose} className="save-btn">
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
+    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Time's Up!</DialogTitle>
+          <DialogDescription className="pt-2">
+            Great focus session. Keep up the momentum!
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button onClick={onClose} className="w-full">Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -799,6 +648,8 @@ function App() {
   const [activeId, setActiveId] = useState(null); // For drag-and-drop
   const [isCalendarMaximized, setIsCalendarMaximized] = useState(false);
   const [showTimerCompleteModal, setShowTimerCompleteModal] = useState(false);
+  const [isAddingColumn, setIsAddingColumn] = useState({ inbox: false, board: false });
+  const [newColumnName, setNewColumnName] = useState('');
 
 
   // State for Timer
@@ -806,6 +657,15 @@ function App() {
   const [timerTime, setTimerTime] = useState(25 * 60);
   const [timerInputTime, setTimerInputTime] = useState(25);
   const [timerIsRunning, setTimerIsRunning] = useState(false);
+  const mainNavItems = [
+    { view: 'goals', title: 'Goals', icon: Target },
+    { view: 'journal', title: 'Journal', icon: BookText },
+    { view: 'today', title: 'Today', icon: Calendar },
+    { view: 'inbox', title: 'Inbox', icon: Inbox },
+    { view: 'tomorrow', title: 'Tomorrow', icon: Sunrise },
+    { view: 'thisWeek', title: 'This Week', icon: CalendarDays },
+    { view: 'nextWeek', title: 'Next Week', icon: CalendarPlus },
+  ];
 
   const viewKey = currentView === 'board' ? currentProject : currentView;
   const canBeToggled = ['board', 'today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView);
@@ -929,10 +789,13 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Effect to apply the theme class to the body
+  // Effect to apply the theme class to the root element for Tailwind
   useEffect(() => {
-    document.body.className = ''; // Clear existing classes
-    document.body.classList.add(`${theme}-mode`);
+    const root = window.document.documentElement; // This is the <html> tag
+    root.classList.remove('light', 'dark');
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    }
   }, [theme]);
 
   const toggleTheme = async () => {
@@ -958,29 +821,35 @@ function App() {
       const fetchUserData = async () => {
         setIsLoading(true);
 
-        // 1. Fetch app-wide data first, including the order of groups
         const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
         const appDataSnap = await getDoc(appDataRef);
         const appData = appDataSnap.exists() ? appDataSnap.data() : {};
 
-        // 1.5. Fetch Calendar Events
+        // --- INBOX MIGRATION LOGIC ---
+        let inboxData = appData.inboxTasks || { columnOrder: [], columns: {} };
+        if (inboxData.columnOrder && inboxData.columnOrder.length > 0 && typeof inboxData.columnOrder[0] === 'string') {
+          const oldColumnNames = [...inboxData.columnOrder];
+          inboxData.columnOrder = oldColumnNames.map(name => ({ id: name, name: name }));
+          const newColumns = {};
+          inboxData.columnOrder.forEach(col => {
+            newColumns[col.id] = (inboxData.columns[col.name] || []).map(task => ({ ...task, column: col.id }));
+          });
+          inboxData.columns = newColumns;
+        }
+        setInboxTasks(inboxData);
+        // --- END INBOX MIGRATION ---
+
         const calendarEventsRef = collection(db, 'users', user.uid, 'calendarEvents');
         const calendarEventsSnap = await getDocs(calendarEventsRef);
         const fetchedCalendarEvents = calendarEventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setCalendarEvents(fetchedCalendarEvents);
 
-        setInboxTasks(appData.inboxTasks || { columnOrder: ['Inbox'], columns: { 'Inbox': [] } });
-        setProjectLabels(appData.projectLabels || [
-          { name: 'Work', emoji: '', color: '#228be6' },
-          { name: 'Personal', emoji: '', color: '#40c057' }
-        ]);
-        const groupOrder = appData.groupOrder || []; // Get the saved group order
+        setProjectLabels(appData.projectLabels || []);
+        const groupOrder = appData.groupOrder || [];
 
-        // Load theme and task visibility settings, with defaults
         setTheme(appData.theme || 'light');
         setShowCompletedTasks(appData.showCompletedTasks !== undefined ? appData.showCompletedTasks : true);
 
-        // 2. Fetch all projects and their associated tasks
         const projectsCollectionRef = collection(db, 'users', user.uid, 'projects');
         const projectsSnapshot = await getDocs(projectsCollectionRef);
         let allProjects = [];
@@ -991,20 +860,31 @@ function App() {
           const tasksSnapshot = await getDocs(tasksCollectionRef);
           const tasks = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-          const columns = {};
-          project.columnOrder.forEach(colName => {
-            columns[colName] = tasks.filter(task => task.column === colName) || [];
-          });
-
-          allProjects.push({ ...project, columns });
+          if (project.columnOrder && project.columnOrder.length > 0 && typeof project.columnOrder[0] === 'string') {
+            const oldColumnNames = [...project.columnOrder];
+            project.columnOrder = oldColumnNames.map(name => ({ id: name, name: name }));
+            const newColumns = {};
+            project.columnOrder.forEach(col => {
+              newColumns[col.id] = (tasks.filter(task => task.column === col.name)).map(task => ({ ...task, column: col.id }));
+            });
+            project.columns = newColumns;
+          } else {
+            const columns = {};
+            (project.columnOrder || []).forEach(col => {
+              columns[col.id] = tasks.filter(task => task.column === col.id);
+            });
+            project.columns = columns;
+          }
+          allProjects.push(project);
         });
-
         await Promise.all(projectPromises);
 
-        // 3. Process the flat list of projects into an ordered, grouped structure
         const groupsMap = {};
-
-        // Group projects by their group name
+        groupOrder.forEach(groupName => {
+          if (!groupsMap[groupName]) {
+            groupsMap[groupName] = [];
+          }
+        });
         allProjects.forEach(project => {
           const groupName = project.group || 'Ungrouped';
           if (!groupsMap[groupName]) {
@@ -1012,24 +892,16 @@ function App() {
           }
           groupsMap[groupName].push(project);
         });
-
-        // Sort projects within each group by their 'order' field
         for (const groupName in groupsMap) {
           groupsMap[groupName].sort((a, b) => (a.order || 0) - (b.order || 0));
         }
 
-        // 4. Assemble the final sorted array based on the saved groupOrder
-        const finalSortedData = groupOrder
-          .map(groupName => ({
-            name: groupName,
-            projects: groupsMap[groupName] || []
-          }))
-          .filter(group => groupsMap[group.name]); // Only include groups that actually exist
-
-        // Add any groups that exist in the data but are not in groupOrder yet (e.g., new groups)
-        const orderedGroupsInState = finalSortedData.map(g => g.name);
+        const finalSortedData = groupOrder.map(groupName => ({
+          name: groupName,
+          projects: groupsMap[groupName] || []
+        }));
         for (const groupName in groupsMap) {
-          if (!orderedGroupsInState.includes(groupName)) {
+          if (!finalSortedData.some(g => g.name === groupName)) {
             finalSortedData.push({
               name: groupName,
               projects: groupsMap[groupName]
@@ -1043,20 +915,13 @@ function App() {
 
       fetchUserData();
     } else {
-      // Clear all data and reset view state on logout
       setProjectData([]);
       setProjectLabels([]);
-      setInboxTasks({
-        columnOrder: ['Inbox'],
-        columns: { 'Inbox': [] }
-      });
+      setInboxTasks({ columnOrder: [], columns: {} });
       setCalendarEvents([]);
-
-      // Add these lines to reset the navigation state
       setCurrentView('today');
       setCurrentGroup(null);
       setCurrentProject(null);
-
       setIsLoading(false);
     }
   }, [user]);
@@ -1333,7 +1198,6 @@ function App() {
 
   const handleDeleteGroup = async (groupNameToDelete) => {
     if (groupNameToDelete === 'Ungrouped' || !user) return;
-    if (!window.confirm(`Delete group "${groupNameToDelete}"? All projects within will be moved to 'Ungrouped'.`)) return;
 
     const groupToDelete = projectData.find(g => g.name === groupNameToDelete);
     if (!groupToDelete || !groupToDelete.projects) return;
@@ -1404,35 +1268,23 @@ function App() {
     // A corrected version would look more like handleSaveProjectEdit
   };
 
-  const renameColumn = async (oldColumnName, newColumnName) => {
-    if (oldColumnName === newColumnName || !newColumnName.trim() || !user || !currentProjectData) return;
+  const renameColumn = async (columnId, newName) => {
+    if (!newName.trim() || !user || !currentProjectData) return;
 
-    const trimmedNewName = newColumnName.trim();
+    const trimmedNewName = newName.trim();
     const projectId = currentProjectData.id;
-
     const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
-    const tasksToUpdate = currentProjectData.columns[oldColumnName] || [];
+
     const updatedColumnOrder = currentProjectData.columnOrder.map(col =>
-      col === oldColumnName ? trimmedNewName : col
+      col.id === columnId ? { ...col, name: trimmedNewName } : col
     );
 
-    const batch = writeBatch(db);
-    batch.update(projectRef, { columnOrder: updatedColumnOrder });
-    tasksToUpdate.forEach(task => {
-      const taskRef = doc(db, 'users', user.uid, 'projects', projectId, 'tasks', task.id);
-      batch.update(taskRef, { column: trimmedNewName });
-    });
-
     try {
-      await batch.commit();
+      await updateDoc(projectRef, { columnOrder: updatedColumnOrder });
       setProjectData(prevData => {
         const newData = JSON.parse(JSON.stringify(prevData));
-        const project = newData
-          .find(g => g.name === currentGroup)?.projects
-          .find(p => p.id === projectId);
+        const project = newData.flatMap(g => g.projects).find(p => p.id === projectId);
         if (project) {
-          project.columns[trimmedNewName] = (project.columns[oldColumnName] || []).map(task => ({ ...task, column: trimmedNewName }));
-          delete project.columns[oldColumnName];
           project.columnOrder = updatedColumnOrder;
         }
         return newData;
@@ -1442,10 +1294,19 @@ function App() {
     }
   };
 
-  const updateLabels = (newLabels) => {
-    // This function is a placeholder to prevent a crash.
-    // We can add the logic for saving labels to Firestore later.
-    console.log("Saving labels (placeholder):", newLabels);
+  const updateLabels = async (newLabels) => {
+    if (!user) {
+      alert("You must be logged in to save labels.");
+      return;
+    }
+    try {
+      const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+      await setDoc(appDataRef, { projectLabels: newLabels }, { merge: true });
+      setProjectLabels(newLabels); // Update local state to match
+    } catch (error) {
+      console.error("Error saving labels:", error);
+      alert("Failed to save labels. Please try again.");
+    }
   };
 
   const handleUpdateName = async (newName) => {
@@ -1658,23 +1519,17 @@ function App() {
     }
   };
 
-  const addInboxColumn = async (colName) => {
-    if (!user || !colName.trim()) return;
+  const addInboxColumn = async (newColumn) => {
+    if (!user || !newColumn.name.trim()) return;
 
-    // Ensure inboxTasks has the proper structure
     const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
       ? inboxTasks
-      : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
-
-    const newColumnName = colName.trim();
-    if (currentInboxTasks.columnOrder.includes(newColumnName)) {
-      alert("A column with this name already exists in the inbox.");
-      return;
-    }
+      : { columnOrder: [], columns: {} };
 
     const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
-    newInboxState.columnOrder.push(newColumnName);
-    newInboxState.columns[newColumnName] = [];
+
+    newInboxState.columnOrder.push(newColumn); // Add the new column object
+    newInboxState.columns[newColumn.id] = [];  // Use the new ID as the key
 
     setInboxTasks(newInboxState);
 
@@ -1682,57 +1537,38 @@ function App() {
     await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
   };
 
-  const renameInboxColumn = async (oldName, newName) => {
-    if (!user || !newName.trim() || oldName === newName) return;
+  const renameInboxColumn = async (columnId, newName) => {
+    if (!user || !newName.trim()) return;
 
-    // Ensure inboxTasks has the proper structure
-    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
-      ? inboxTasks
-      : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
+    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    const columnToUpdate = newInboxState.columnOrder.find(c => c.id === columnId);
 
-    const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
-    const { columns, columnOrder } = newInboxState;
-
-    // Update column order
-    const orderIndex = columnOrder.indexOf(oldName);
-    if (orderIndex > -1) {
-      columnOrder[orderIndex] = newName;
+    if (columnToUpdate) {
+      columnToUpdate.name = newName.trim();
     }
 
-    // Move tasks and update their column property
-    const tasks = columns[oldName];
-    delete columns[oldName];
-    columns[newName] = tasks.map(task => ({ ...task, column: newName }));
-
     setInboxTasks(newInboxState);
-
     const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
     await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
   };
 
-  const deleteInboxColumn = async (colNameToDelete) => {
+  const deleteInboxColumn = async (columnId) => {
     if (!user) return;
 
-    // Ensure inboxTasks has the proper structure
     const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
       ? inboxTasks
-      : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
+      : { columnOrder: [], columns: {} };
 
     if (currentInboxTasks.columnOrder.length <= 1) {
       alert("You must have at least one column in the inbox.");
       return;
     }
-    if (!window.confirm(`Delete column "${colNameToDelete}" and all its tasks? This cannot be undone.`)) return;
 
     const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
-
-    // Remove from columnOrder
-    newInboxState.columnOrder = newInboxState.columnOrder.filter(name => name !== colNameToDelete);
-    // Delete the column and its tasks
-    delete newInboxState.columns[colNameToDelete];
+    newInboxState.columnOrder = newInboxState.columnOrder.filter(c => c.id !== columnId);
+    delete newInboxState.columns[columnId];
 
     setInboxTasks(newInboxState);
-
     const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
     await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
   };
@@ -1740,53 +1576,46 @@ function App() {
   const handleInboxDragEnd = async (event) => {
     const { active, over } = event;
     setActiveId(null);
+    if (!over || !user || active.id === over.id) return;
 
-    if (!over || !user) return;
+    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    const { columns, columnOrder } = newInboxState;
 
-    // Ensure inboxTasks has the proper structure
-    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
-      ? inboxTasks
-      : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
-
-    const activeId = active.id;
-    const overId = over.id;
-
-    if (activeId === overId) return;
-
-    const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
-    const { columns } = newInboxState;
-
-    // Find the source column of the dragged task
-    const sourceColumn = Object.keys(columns).find(colName =>
-      columns[colName].some(task => task.id === activeId)
-    );
-
-    // Determine the destination column
-    const destColumn = Object.keys(columns).find(colName =>
-      columns[colName].some(task => task.id === overId)
-    ) || (columns[overId] ? overId : null);
-
-    if (!sourceColumn || !destColumn) return;
-
-    // Find the task and its original index
-    const sourceTaskIndex = columns[sourceColumn].findIndex(task => task.id === activeId);
-    const [movedTask] = columns[sourceColumn].splice(sourceTaskIndex, 1);
-    movedTask.column = destColumn;
-
-    // Find the destination index
-    const destTaskIndex = columns[destColumn].findIndex(task => task.id === overId);
-
-    // Add the task to the destination column
-    if (destTaskIndex >= 0) {
-      columns[destColumn].splice(destTaskIndex, 0, movedTask);
-    } else {
-      // If dropping on a column, not a task, add to the end
-      columns[destColumn].push(movedTask);
+    let sourceColumnId;
+    for (const col of columnOrder) {
+      if (columns[col.id]?.some(task => task.id === active.id)) {
+        sourceColumnId = col.id;
+        break;
+      }
     }
 
-    setInboxTasks(newInboxState); // Optimistically update state
+    let destColumnId = over.id;
+    if (columns[destColumnId] === undefined) {
+      for (const col of columnOrder) {
+        if (columns[col.id]?.some(task => task.id === over.id)) {
+          destColumnId = col.id;
+          break;
+        }
+      }
+    }
 
-    // Save the new state to Firestore
+    if (!sourceColumnId || !destColumnId) return;
+
+    const sourceTaskIndex = columns[sourceColumnId].findIndex(task => task.id === active.id);
+    const [movedTask] = columns[sourceColumnId].splice(sourceTaskIndex, 1);
+
+    if (sourceColumnId !== destColumnId) {
+      movedTask.column = destColumnId;
+    }
+
+    const destTaskIndex = columns[destColumnId].findIndex(task => task.id === over.id);
+    if (destTaskIndex >= 0) {
+      columns[destColumnId].splice(destTaskIndex, 0, movedTask);
+    } else {
+      columns[destColumnId].push(movedTask);
+    }
+
+    setInboxTasks(newInboxState);
     const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
     await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
   };
@@ -1877,11 +1706,11 @@ function App() {
     }
   };
 
-  const findColumnOfTask = (taskId) => {
-    if (!currentProjectData) return null;
-    for (const [colName, tasks] of Object.entries(currentProjectData.columns)) {
-      if (tasks.some(task => task.id === taskId)) {
-        return colName;
+  const findColumnOfTask = (taskId, project) => {
+    if (!project) return null;
+    for (const column of project.columnOrder) {
+      if (project.columns[column.id]?.some(task => task.id === taskId)) {
+        return column.id;
       }
     }
     return null;
@@ -1889,49 +1718,61 @@ function App() {
 
   const handleDrop = async ({ active, over }) => {
     setActiveId(null);
-    if (!active || !over || !over.id || !user || !currentProjectData) return;
+    if (!active || !over || !user || !currentProjectData) return;
 
-    const fromColumn = findColumnOfTask(active.id);
-    // The drop target `over` can be a column or another task.
-    const toColumn = findColumnOfTask(over.id) || (currentProjectData.columns[over.id] ? over.id : null);
+    const fromColumnId = findColumnOfTask(active.id, currentProjectData);
 
-    if (!fromColumn || !toColumn || fromColumn === toColumn) {
-      return; // No valid move occurred
+    // The drop target `over` can be a column ID or another task ID.
+    let toColumnId = over.id;
+    if (currentProjectData.columns[toColumnId] === undefined) {
+      toColumnId = findColumnOfTask(over.id, currentProjectData);
     }
 
-    // Update Firestore
-    const taskRef = doc(db, 'users', user.uid, 'projects', currentProjectData.id, 'tasks', active.id);
-    await updateDoc(taskRef, { column: toColumn });
+    if (!fromColumnId || !toColumnId) return;
 
-    // Optimistically update local state
+    // Optimistically update local state first for a smooth UI
     setProjectData(prevData => {
       const newData = JSON.parse(JSON.stringify(prevData));
-      const project = newData
-        .find(g => g.name === currentGroup)?.projects
-        .find(p => p.id === currentProjectData.id);
+      const project = newData.flatMap(g => g.projects).find(p => p.id === currentProjectData.id);
 
-      if (project) {
-        const taskIndex = project.columns[fromColumn].findIndex(t => t.id === active.id);
-        if (taskIndex > -1) {
-          const [taskToMove] = project.columns[fromColumn].splice(taskIndex, 1);
-          taskToMove.column = toColumn;
-          if (!project.columns[toColumn]) {
-            project.columns[toColumn] = [];
-          }
-          project.columns[toColumn].unshift(taskToMove);
+      if (!project || !project.columns[fromColumnId]) return prevData; // Safety check
+
+      const taskIndex = project.columns[fromColumnId].findIndex(t => t.id === active.id);
+      if (taskIndex > -1) {
+        const [taskToMove] = project.columns[fromColumnId].splice(taskIndex, 1);
+
+        if (fromColumnId !== toColumnId) {
+          taskToMove.column = toColumnId;
+        }
+
+        if (!project.columns[toColumnId]) {
+          project.columns[toColumnId] = [];
+        }
+
+        const overTaskIndex = project.columns[toColumnId].findIndex(t => t.id === over.id);
+        if (overTaskIndex > -1) {
+          project.columns[toColumnId].splice(overTaskIndex, 0, taskToMove);
+        } else {
+          project.columns[toColumnId].push(taskToMove);
         }
       }
       return newData;
     });
+
+    // Then, update Firestore in the background
+    if (fromColumnId !== toColumnId) {
+      const taskRef = doc(db, 'users', user.uid, 'projects', currentProjectData.id, 'tasks', active.id);
+      await updateDoc(taskRef, { column: toColumnId });
+    }
   };
 
-  const deleteColumn = async (colName) => {
-    if (!window.confirm(`Delete column "${colName}" and all its tasks? This cannot be undone.`) || !user || !currentProjectData) return;
+  const deleteColumn = async (columnId) => {
+    if (!user || !currentProjectData) return;
 
     const projectId = currentProjectData.id;
     const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
-    const tasksToDelete = currentProjectData.columns[colName] || [];
-    const updatedColumnOrder = currentProjectData.columnOrder.filter(name => name !== colName);
+    const tasksToDelete = currentProjectData.columns[columnId] || [];
+    const updatedColumnOrder = currentProjectData.columnOrder.filter(c => c.id !== columnId);
 
     const batch = writeBatch(db);
     batch.update(projectRef, { columnOrder: updatedColumnOrder });
@@ -1944,17 +1785,60 @@ function App() {
       await batch.commit();
       setProjectData(prevData => {
         const newData = JSON.parse(JSON.stringify(prevData));
-        const project = newData
-          .find(g => g.name === currentGroup)?.projects
-          .find(p => p.id === projectId);
+        const project = newData.flatMap(g => g.projects).find(p => p.id === projectId);
         if (project) {
-          delete project.columns[colName];
+          delete project.columns[columnId];
           project.columnOrder = updatedColumnOrder;
         }
         return newData;
       });
     } catch (error) {
       console.error("Error deleting column:", error);
+    }
+  };
+  const handleSaveNewColumn = async (view) => {
+    const trimmedName = newColumnName.trim();
+    if (!trimmedName) {
+      setIsAddingColumn({ inbox: false, board: false });
+      setNewColumnName('');
+      return;
+    }
+
+    // Create a new column object with a unique ID and a display name
+    const newColumn = { id: generateUniqueId(), name: trimmedName };
+
+    try {
+      if (view === 'inbox') {
+        await addInboxColumn(newColumn);
+      } else { // This is for the project board
+        if (!user || !currentProjectData) return;
+
+        const projectId = currentProjectData.id;
+        const updatedColumnOrder = [...currentProjectData.columnOrder, newColumn];
+        const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+
+        await updateDoc(projectRef, { columnOrder: updatedColumnOrder });
+
+        // Optimistically update local state
+        setProjectData(prevData => {
+          const newData = JSON.parse(JSON.stringify(prevData));
+          const project = newData
+            .flatMap(g => g.projects)
+            .find(p => p.id === projectId);
+          if (project) {
+            project.columnOrder = updatedColumnOrder;
+            project.columns[newColumn.id] = []; // Use the new ID as the key
+          }
+          return newData;
+        });
+      }
+
+      // On success, reset the state
+      setIsAddingColumn({ inbox: false, board: false });
+      setNewColumnName('');
+    } catch (error) {
+      console.error("Failed to add column:", error);
+      alert("Could not add the new column. Please try again.");
     }
   };
   // Helper to find a task object given its id
@@ -2051,7 +1935,7 @@ function App() {
 
         projectData.forEach(group => {
           group.projects.forEach(project => {
-            Object.values(project.columns).flat().filter(task => !task.completed).forEach(task => {
+            Object.values(project.columns).flat().filter(task => showCompletedTasks || !task.completed).forEach(task => {
               if (task.date === today) {
                 const taskWithProjectId = { ...task, projectId: project.id };
                 // For Board View
@@ -2073,12 +1957,12 @@ function App() {
         allTasksForListView.sort((a, b) => a.priority - b.priority);
 
         return (
-          <div className="today-view">
-            <h1 style={{ padding: '0 20px', fontSize: '1.5rem', fontWeight: '500' }}>
+          <div className="p-6 space-y-4 h-full flex flex-col">
+            <h1 className="text-2xl font-bold tracking-tight">
               Happy {getDayName()}, {user?.displayName || 'Friend'}!
             </h1>
             {getViewMode('today') === 'board' ? (
-              <div className="today-columns">
+              <div className="flex gap-4 overflow-x-auto flex-1">
                 {Object.entries(tasksByProject).map(([projectName, tasks]) => (
                   <Column
                     key={projectName}
@@ -2098,16 +1982,18 @@ function App() {
                 ))}
               </div>
             ) : (
-              <ListView
-                tasksByProject={tasksByProject}
-                onOpenTask={(task) => setModalTask(task)}
-                availableLabels={projectLabels}
-                onToggleComplete={(task) => {
-                  if (task && task.projectId) {
-                    updateTask(task.projectId, task.id, { completed: !task.completed });
-                  }
-                }}
-              />
+              <div className="flex-1 overflow-y-auto">
+                <ListView
+                  tasksByProject={tasksByProject}
+                  onOpenTask={(task) => setModalTask(task)}
+                  availableLabels={projectLabels}
+                  onToggleComplete={(task) => {
+                    if (task && task.projectId) {
+                      updateTask(task.projectId, task.id, { completed: !task.completed });
+                    }
+                  }}
+                />
+              </div>
             )}
           </div>
         );
@@ -2119,7 +2005,7 @@ function App() {
 
         projectData.forEach(group => {
           group.projects.forEach(project => {
-            Object.values(project.columns).flat().filter(task => !task.completed).forEach(task => {
+            Object.values(project.columns).flat().filter(task => showCompletedTasks || !task.completed).forEach(task => {
               if (task.date === tomorrowDate) {
                 const taskWithProjectId = { ...task, projectId: project.id };
                 if (!tasksByProject[project.name]) {
@@ -2185,7 +2071,7 @@ function App() {
 
         projectData.forEach(group => {
           group.projects.forEach(project => {
-            Object.values(project.columns).flat().filter(task => !task.completed).forEach(task => {
+            Object.values(project.columns).flat().filter(task => showCompletedTasks || !task.completed).forEach(task => {
               if (task.date >= weekStartStr && task.date <= weekEndStr) {
                 const taskWithProjectId = { ...task, projectId: project.id };
                 if (!tasksByProject[project.name]) {
@@ -2251,7 +2137,7 @@ function App() {
 
         projectData.forEach(group => {
           group.projects.forEach(project => {
-            Object.values(project.columns).flat().filter(task => !task.completed).forEach(task => {
+            Object.values(project.columns).flat().filter(task => showCompletedTasks || !task.completed).forEach(task => {
               if (task.date >= weekStartStr && task.date <= weekEndStr) {
                 const taskWithProjectId = { ...task, projectId: project.id };
                 if (!tasksByProject[project.name]) {
@@ -2318,22 +2204,21 @@ function App() {
             onDragEnd={handleInboxDragEnd}
             onDragCancel={() => setActiveId(null)}
           >
-            <div className="board">
-              {safeInboxTasks.columnOrder.map((colName) => (
+            <div className="flex p-4 gap-4 overflow-x-auto h-full">
+              {safeInboxTasks.columnOrder.map((column) => (
                 <Column
-                  key={colName}
-                  title={colName}
-                  tasks={(safeInboxTasks.columns[colName] || []).filter(task => showCompletedTasks || !task.completed)}
+                  key={column.id}
+                  column={column}
+                  tasks={(safeInboxTasks.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
                   onAddTask={(taskData) => addInboxTask(taskData)}
-                  onUpdateTask={async (col, taskId, updatedTask) => {
-                    // For inbox tasks, we just update the state and save it to Firestore.
+                  onUpdateTask={async (colId, taskId, updatedTask) => {
                     const newInboxState = JSON.parse(JSON.stringify(safeInboxTasks));
                     let taskUpdated = false;
-                    for (const colName in newInboxState.columns) {
-                      const taskIndex = newInboxState.columns[colName].findIndex(t => t.id === taskId);
+                    for (const col of newInboxState.columnOrder) {
+                      const taskIndex = newInboxState.columns[col.id].findIndex(t => t.id === taskId);
                       if (taskIndex > -1) {
-                        newInboxState.columns[colName][taskIndex] = {
-                          ...newInboxState.columns[colName][taskIndex],
+                        newInboxState.columns[col.id][taskIndex] = {
+                          ...newInboxState.columns[col.id][taskIndex],
                           ...updatedTask
                         };
                         taskUpdated = true;
@@ -2348,23 +2233,43 @@ function App() {
                     }
                   }}
                   onOpenTask={(task) => {
-                    setModalTask({ ...task, isInbox: true }); // Mark as an inbox task
+                    setModalTask({ ...task, isInbox: true });
                   }}
-                  onRenameColumn={(newName) => renameInboxColumn(colName, newName)}
-                  onDeleteColumn={() => deleteInboxColumn(colName)}
+                  onRenameColumn={renameInboxColumn}
+                  onDeleteColumn={deleteInboxColumn}
                   availableLabels={projectLabels}
-                  projectTags={[]} // No project-specific tags in the inbox
+                  projectTags={[]}
                 />
               ))}
-              <button
-                className="add-column-btn"
-                onClick={() => {
-                  const name = prompt("Enter new column name:");
-                  if (name) addInboxColumn(name);
-                }}
-              >
-                + Add Column
-              </button>
+              {isAddingColumn.inbox ? (
+                <div className="shrink-0 w-72 md:w-80 p-1 space-y-2 bg-card rounded-lg border">
+                  <Input
+                    value={newColumnName}
+                    onChange={(e) => setNewColumnName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveNewColumn('inbox');
+                      if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, inbox: false });
+                    }}
+                    placeholder="Enter column name..."
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button onClick={() => handleSaveNewColumn('inbox')}>Add column</Button>
+                    <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: false })}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="h-full w-72 md:w-80 shrink-0 border-dashed"
+                  onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: true })}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Column
+                </Button>
+              )}
             </div>
             <DragOverlay>
               {activeId && findTaskById(activeId) ? (
@@ -2395,60 +2300,54 @@ function App() {
             onDragEnd={event => { handleDrop(event); setActiveId(null); }}
             onDragCancel={() => setActiveId(null)}
           >
-            <div className="board">
-              {currentProjectData?.columnOrder?.map((colName) => (
+            <div className="flex p-4 gap-4 overflow-x-auto h-full">
+              {currentProjectData?.columnOrder?.map((column) => (
                 <Column
-                  key={colName}
-                  title={colName}
-                  tasks={(currentProjectData.columns[colName] || []).filter(task => showCompletedTasks || !task.completed)}
+                  key={column.id}
+                  column={column}
+                  tasks={(currentProjectData.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
                   onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
-                  onUpdateTask={(column, taskId, updatedTask) => {
+                  onUpdateTask={(columnId, taskId, updatedTask) => {
                     updateTask(currentProjectData.id, taskId, updatedTask);
                   }}
                   onOpenTask={(task) => {
-                    console.log("Opening task from project board:", task);
                     setModalTask({ ...task, projectId: currentProjectData.id });
                   }}
-                  onRenameColumn={(newName) => renameColumn(colName, newName)}
+                  onRenameColumn={renameColumn}
                   onDeleteColumn={deleteColumn}
                   availableLabels={projectLabels}
                   projectTags={currentProjectTags}
                 />
               ))}
-              <button
-                className="add-column-btn add-column-placeholder"
-                onClick={async () => {
-                  const name = prompt("Enter new column name:");
-                  if (!name || !name.trim() || !user || !currentProjectData) return;
-                  const colName = name.trim();
-                  const projectId = currentProjectData.id;
-                  if (currentProjectData.columnOrder.includes(colName)) {
-                    alert("Column already exists.");
-                    return;
-                  }
-                  const updatedColumnOrder = [...currentProjectData.columnOrder, colName];
-                  const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
-                  try {
-                    await updateDoc(projectRef, { columnOrder: updatedColumnOrder });
-                    setProjectData(prevData => {
-                      const newData = JSON.parse(JSON.stringify(prevData));
-                      const project = newData
-                        .find(g => g.name === currentGroup)?.projects
-                        .find(p => p.id === projectId);
-                      if (project) {
-                        project.columnOrder = updatedColumnOrder;
-                        project.columns[colName] = [];
-                      }
-                      return newData;
-                    });
-                  } catch (error) {
-                    console.error("Error adding column:", error);
-                    alert("Failed to add column.");
-                  }
-                }}
-              >
-                + Add Column
-              </button>
+              {isAddingColumn.board ? (
+                <div className="shrink-0 w-72 md:w-80 p-1 space-y-2 bg-card rounded-lg border">
+                  <Input
+                    value={newColumnName}
+                    onChange={(e) => setNewColumnName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveNewColumn('board');
+                      if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, board: false });
+                    }}
+                    placeholder="Enter column name..."
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button onClick={() => handleSaveNewColumn('board')}>Add column</Button>
+                    <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, board: false })}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="h-full w-72 md:w-80 shrink-0 border-dashed"
+                  onClick={() => setIsAddingColumn({ ...isAddingColumn, board: true })}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Column
+                </Button>
+              )}
             </div>
             <DragOverlay>
               {activeTask ? (
@@ -2462,7 +2361,7 @@ function App() {
 
         ) : (() => {
           // Flatten all tasks and then sort them
-          const allTasks = Object.values(currentProjectData.columns || {}).flat()
+          const allTasks = Object.values(currentProjectData.columns || {}).flat().filter(task => showCompletedTasks || !task.completed)
             .sort((a, b) => {
               if (a.completed !== b.completed) {
                 return a.completed ? 1 : -1; // Moves completed tasks to the bottom
@@ -2490,14 +2389,26 @@ function App() {
         })();
     }
   };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        {/* Optional: Add a spinner here later */}
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth onSignUp={handleSignUp} onLogin={handleLogin} logoUrl={logoUrl} />;
+  }
+
   return (
-    <div className={`app ${isSidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
+    <div className="flex h-screen bg-background text-foreground">
       {modalTask && (
         <Suspense fallback={<div>Loading...</div>}>
           <TaskDetailPanel
             task={modalTask}
             onClose={() => setModalTask(null)}
-            // Pass both args through so handleTaskUpdate(updatedData, projectId) gets the real ID
             onUpdate={handleTaskUpdate}
             onMoveTask={moveTask}
             availableLabels={projectLabels}
@@ -2506,355 +2417,330 @@ function App() {
             projectColumns={currentProjectData?.columnOrder || []}
             allProjects={projectData}
           />
-
         </Suspense>
       )}
-      {!user ? (
-        <Auth onSignUp={handleSignUp} onLogin={handleLogin} />
-      ) : (
-        <>
-          <div className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
-            <div className="sidebar-header">
-              <img src={logoUrl} alt="Rocket Productivity" className="sidebar-logo" />
-              <button
-                className="sidebar-toggle-btn"
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                title="Toggle Sidebar"
-              >
-                «
-              </button>
-            </div>
-
-            <div className="nav-section">
-              <button
-                title="Goals"
-                className={`nav-btn ${currentView === 'goals' ? 'active' : ''}`}
-                onClick={() => setCurrentView('goals')}
-              >
-                <img src={goalsIconUrl} className="nav-icon" alt="Goals" />
-                <span className="nav-btn-text">Goals</span>
-              </button>
-              <button
-                title="Journal"
-                className={`nav-btn ${currentView === 'journal' ? 'active' : ''}`}
-                onClick={() => setCurrentView('journal')}
-              >
-                <img src={journalIconUrl} className="nav-icon" alt="Journal" />
-                <span className="nav-btn-text">Journal</span>
-              </button>
-              <button
-                title="Today"
-                className={`nav-btn ${currentView === 'today' ? 'active' : ''}`}
-                onClick={() => setCurrentView('today')}
-              >
-                <img src={todayIconUrl} className="nav-icon" alt="Today" />
-                <span className="nav-btn-text">Today</span>
-              </button>
-              <button
-                title="Inbox"
-                className={`nav-btn ${currentView === 'inbox' ? 'active' : ''}`}
-                onClick={() => setCurrentView('inbox')}
-              >
-                <img src={inboxIconUrl} className="nav-icon" alt="Inbox" />
-                <span className="nav-btn-text">Inbox</span>
-              </button>
-              <button
-                title="Tomorrow"
-                className={`nav-btn ${currentView === 'tomorrow' ? 'active' : ''}`}
-                onClick={() => setCurrentView('tomorrow')}
-              >
-                <img src={tomorrowIconUrl} className="nav-icon" alt="Tomorrow" />
-                <span className="nav-btn-text">Tomorrow</span>
-              </button>
-              <button
-                title="This Week"
-                className={`nav-btn ${currentView === 'thisWeek' ? 'active' : ''}`}
-                onClick={() => setCurrentView('thisWeek')}
-              >
-                <img src={thisWeekIconUrl} className="nav-icon" alt="This Week" />
-                <span className="nav-btn-text">This Week</span>
-              </button>
-              <button
-                title="Next Week"
-                className={`nav-btn ${currentView === 'nextWeek' ? 'active' : ''}`}
-                onClick={() => setCurrentView('nextWeek')}
-              >
-                <img src={nextWeekIconUrl} className="nav-icon" alt="Next Week" />
-                <span className="nav-btn-text">Next Week</span>
-              </button>
-            </div>
-
-            <div
-              className={`nav-header project-nav-header ${currentView === 'projects' ? 'active' : ''}`}
-              onClick={() => setCurrentView('projects')}
+      <>
+        <div className={`bg-card text-card-foreground border-r flex flex-col h-screen transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+          {/* Sidebar Content */}
+          <div className="flex items-center justify-between p-4 border-b">
+            <img src={logoUrl} alt="Rocket Productivity" className={`h-8 w-auto transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`} />
+            <button
+              className="p-1 rounded-md hover:bg-muted"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              title="Toggle Sidebar"
             >
-              <div className="nav-header-title">
-                <img src={projectsIconUrl} className="nav-icon" alt="Projects" />
-                <h3>Projects</h3>
-              </div>
-              <div className="nav-buttons">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-6 w-6 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+          </div>
+          <nav className="flex-1 space-y-1 p-2">
+            {mainNavItems.map(item => {
+              const Icon = item.icon;
+              return (
                 <button
-                  className="manage-btn"
-                  onClick={handleAddProject}
-                  title="Add New Project"
+                  key={item.view}
+                  title={item.title}
+                  className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${currentView === item.view ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                  onClick={() => setCurrentView(item.view)}
                 >
-                  ➕
+                  <Icon className="h-5 w-5" />
+                  <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>{item.title}</span>
                 </button>
-              </div>
+              );
+            })}
+          </nav>
+          <div
+            className={`flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors ${currentView === 'projects' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+            onClick={() => setCurrentView('projects')}
+          >
+            <div className="flex items-center">
+              <FolderKanban className="h-5 w-5" />
+              <h3 className={`ml-3 text-sm font-medium whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Projects</h3>
             </div>
-
-            <div className="sidebar-project-list">
-              <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
-                {projectData.map((group) => (
-                  <div key={group.name} style={{ marginBottom: '1rem' }}>
-                    <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.85rem', color: '#666' }}>{group.name}</h4>
-                    <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                      {group.projects.map(project => (
-                        <SortableProjectItem
-                          key={project.id}
-                          id={project.id}
+            <button
+              className={`p-1 rounded-md hover:bg-muted transition-all duration-200 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}
+              onClick={(e) => { e.stopPropagation(); handleAddProject(); }}
+              title="Add New Project"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-4">
+            <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
+              {projectData.map((group) => (
+                <div key={group.name}>
+                  <h4 className={`px-3 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-all duration-200 ${isSidebarCollapsed ? 'text-center' : ''}`}>
+                    {isSidebarCollapsed ? group.name.charAt(0) : group.name}
+                  </h4>
+                  <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                    {group.projects.map(project => (
+                      <SortableProjectItem
+                        key={project.id}
+                        id={project.id}
+                      >
+                        <div
+                          className={`flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm ${currentView === 'board' && currentProject === project.name && currentGroup === group.name ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                          onClick={() => {
+                            setCurrentView('board');
+                            setCurrentGroup(group.name);
+                            setCurrentProject(project.name);
+                          }}
                         >
-                          <div
-                            className={`project-button ${currentView === 'board' && currentProject === project.name && currentGroup === group.name ? 'active' : ''}`}
-                            onClick={() => {
-                              setCurrentView('board'); // Change the view to show the board
-                              setCurrentGroup(group.name);
-                              setCurrentProject(project.name);
+                          <span className={`whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>
+                            {project.name}
+                          </span>
+                          <button
+                            className={`p-1 rounded-md hover:bg-muted transition-all duration-200 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}
+                            title="Edit Project"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setProjectToEdit(project);
+                              setShowProjectDetailPanel(true);
                             }}
                           >
-                            <span className="project-entry">
-                              {project.name}
-                              <button
-                                className="edit-project-btn"
-                                title="Edit Project"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setProjectToEdit(project); // Store the whole project object
-                                  setShowProjectDetailPanel(true);
-                                }}
-                              >
-                                <img src={editIconUrl} alt="Edit Project" />
-                              </button>
-                            </span>
-                          </div>
-                        </SortableProjectItem>
-                      ))}
-                    </SortableContext>
-                  </div>
-                ))}
-              </DndContext>
-            </div>
-            <div className="logout-section">
-              <button
-                title="Settings"
-                onClick={() => setCurrentView('settings')}
-                className={`nav-btn ${currentView === 'settings' ? 'active' : ''}`}
-              >
-                <img src={settingsIconUrl} className="nav-icon" alt="Settings" />
-                <span className="nav-btn-text">Settings</span>
-              </button>
-              <button title="Logout" onClick={handleLogout} className="nav-btn logout-btn-override">
-                <img src={logoutIconUrl} className="nav-icon" alt="Logout" />
-                <span className="nav-btn-text">Logout</span>
-              </button>
-            </div>
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </SortableProjectItem>
+                    ))}
+                  </SortableContext>
+                </div>
+              ))}
+            </DndContext>
           </div>
+          <div className="mt-auto p-2">
+            <button
+              title="Settings"
+              className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${currentView === 'settings' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+              onClick={() => setCurrentView('settings')}
+            >
+              <Settings className="h-5 w-5" />
+              <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Settings</span>
+            </button>
+            <button
+              title="Logout"
+              className="flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-5 w-5" />
+              <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Logout</span>
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {isMobileMenuOpen && <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
+          <div className="w-full shrink-0 px-6 py-4 border-b bg-card flex items-center justify-between">
+            <button className="md:hidden rounded-md p-2 hover:bg-muted" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></svg>}
+            </button>
+            <div className="flex items-center gap-3">
+              {(() => {
+                const Icon = viewIcons[currentView];
+                return Icon ? <Icon className="h-6 w-6 text-muted-foreground" /> : null;
+              })()}
+              <h1 className="text-xl font-bold tracking-tight">
+                {currentView === 'board' && currentProject
+                  ? currentProject
+                  : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim()
+                }
+              </h1>
 
-          <div className={`main-content ${isSidebarCollapsed ? 'collapsed' : ''} ${isMobileMenuOpen ? 'mobile-menu-is-open' : ''}`}>
-            {isMobileMenuOpen && <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
-            <div className="header">
-              <button className="mobile-menu-toggle" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                {isMobileMenuOpen ? '✕' : '☰'}
-              </button>
-              <div className="header-title-container">
-                {viewIcons[currentView] && <img src={viewIcons[currentView]} alt="" className="header-view-icon" />}
-                <h1>
-                  {currentView === 'board' && currentProject
-                    ? currentProject
-                    : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim()
-                  }
-                </h1>
-
-              </div>
-              <div className="header-actions">
-                {/* --- DESKTOP BUTTONS --- */}
-                {/* These will be hidden on mobile by the new CSS */}
-                {/* Universal View Switcher */}
-                {canBeToggled && (
-                  <div className="view-switcher header-view-switcher">
-                    <button
-                      className={`view-mode-btn ${getViewMode(viewKey) === 'board' ? 'active' : ''}`}
-                      onClick={() => setViewMode(viewKey, 'board')}
-                      title="Board View"
-                    >
-                      Board
-                    </button>
-                    <button
-                      className={`view-mode-btn ${getViewMode(viewKey) === 'list' ? 'active' : ''}`}
-                      onClick={() => setViewMode(viewKey, 'list')}
-                      title="List View"
-                    >
-                      List
-                    </button>
-                  </div>
-                )}
-                {currentView === 'board' && (
-                  <button className="header-add-task-btn" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
-                    <img src={addIconUrl} alt="Add Task" />
-                    <span>Add Task</span>
-                  </button>
-                )}
-                {!timerIsRunning && timerTime === timerInputTime * 60 ? (
-                  <button className="timer-toggle" onClick={() => setShowTimerModal(true)}>
-                    <img src={timerIconUrl} alt="Timer" />
-                    <span>Timer</span>
-                  </button>
-                ) : (
-                  <div className="mini-timer">
-                    <span>{formatTime(timerTime)}</span>
-                    <button className="mini-timer-btn" onClick={() => setShowTimerModal(true)}>
-                      <img src={editIconUrl} alt="Edit Timer" />
-                    </button>
-                    <button className="mini-timer-btn" onClick={handleCancelTimer}>
-                      <img src={deleteIconUrl} alt="Cancel Timer" />
-                    </button>
-                  </div>
-                )}
-
-                {/* --- CALENDAR BUTTON --- */}
-                {/* This is always visible */}
-                <button
-                  className="calendar-toggle"
-                  onClick={() => {
-                    const isMobile = window.innerWidth < 768;
-                    if (isMobile) {
-                      setShowCalendar(true);
-                      setIsCalendarMaximized(true);
-                    } else {
-                      setShowCalendar(!showCalendar);
-                    }
-                  }}
-                >
-                  <img src={calendarIconUrl} alt="Calendar" />
-                  <span>Calendar</span>
-                </button>
-
-                {/* --- MOBILE DROPDOWN --- */}
-                {/* This will ONLY appear on mobile */}
-                <HeaderDropdown>
-                  {/* Add Task Button (for dropdown) */}
-                  {currentView === 'board' && (
-                    <button className="dropdown-item" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
-                      <img src={addIconUrl} alt="Add Task" />
-                      <span>Add Task</span>
-                    </button>
-                  )}
-                  {/* Timer Button (for dropdown) */}
-                  <button className="dropdown-item" onClick={() => setShowTimerModal(true)}>
-                    <img src={timerIconUrl} alt="Timer" />
-                    <span>{timerIsRunning ? `Timer: ${formatTime(timerTime)}` : "Timer"}</span>
-                  </button>
-                  {/* View Toggle Button (for dropdown) */}
-                  {canBeToggled && (
-                    getViewMode(viewKey) === 'board'
-                      ? ( // If current view is 'board', show 'List View' button
-                        <button className="dropdown-item" onClick={() => setViewMode(viewKey, 'list')}>
-                          <span>Switch to List View</span>
-                        </button>
-                      )
-                      : ( // Otherwise, show 'Board View' button
-                        <button className="dropdown-item" onClick={() => setViewMode(viewKey, 'board')}>
-                          <span>Switch to Board View</span>
-                        </button>
-                      )
-                  )}
-                </HeaderDropdown>
-              </div>
             </div>
-
-            <div className={`content-wrapper ${showCalendar ? 'with-calendar' : ''}`}>
-              <div className="content">
-                {renderContent()}
-              </div>
-              {showCalendar && (
-                <div className={`calendar-container ${isCalendarMaximized ? 'calendar-maximized' : ''}`}>
-                  <Suspense fallback={<div className="calendar-panel"><h2>Loading Calendar...</h2></div>}>
-                    <CalendarPanel
-                      isMaximized={isCalendarMaximized}
-                      onToggleMaximize={() => {
-                        const isMobile = window.innerWidth < 768;
-                        if (isMobile) {
-                          // On mobile, the "minimize" button should just close the calendar
-                          setShowCalendar(false);
-                          setIsCalendarMaximized(false);
-                        } else {
-                          setIsCalendarMaximized(!isCalendarMaximized);
-                        }
-                      }}
-                      calendarEvents={calendarEvents}
-                      setCalendarEvents={setCalendarEvents}
-                    />
-                  </Suspense>
+            <div className="flex items-center gap-2">
+              {/* Universal View Switcher */}
+              {canBeToggled && (
+                <div className="hidden md:flex items-center bg-muted p-1 rounded-md">
+                  <button
+                    className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewMode(viewKey) === 'board' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
+                    onClick={() => setViewMode(viewKey, 'board')}
+                    title="Board View"
+                  >
+                    Board
+                  </button>
+                  <button
+                    className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewMode(viewKey) === 'list' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
+                    onClick={() => setViewMode(viewKey, 'list')}
+                    title="List View"
+                  >
+                    List
+                  </button>
                 </div>
               )}
+
+              {/* Add Task Button */}
+              {currentView === 'board' && currentProjectData && (
+                <Button className="hidden md:flex items-center gap-2" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
+                  <Plus className="h-4 w-4" />
+                  <span>Add Task</span>
+                </Button>
+              )}
+
+              {/* Timer Section */}
+              {!timerIsRunning && timerTime === timerInputTime * 60 ? (
+                <Button variant="outline" className="hidden md:flex items-center gap-2" onClick={() => setShowTimerModal(true)}>
+                  <Clock className="h-4 w-4" />
+                  <span>Timer</span>
+                </Button>
+              ) : (
+                <div className="hidden md:flex items-center gap-1 bg-muted text-muted-foreground px-3 py-1 rounded-md text-sm font-mono">
+                  <span>{formatTime(timerTime)}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={timerIsRunning ? handlePauseTimer : handleResumeTimer}
+                  >
+                    {timerIsRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowTimerModal(true)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelTimer}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Calendar Button */}
+              <Button
+                variant="outline"
+                className="hidden md:flex items-center gap-2"
+                onClick={() => {
+                  const isMobile = window.innerWidth < 768;
+                  if (isMobile) {
+                    setShowCalendar(true);
+                    setIsCalendarMaximized(true);
+                  } else {
+                    setShowCalendar(!showCalendar);
+                  }
+                }}
+              >
+                <Calendar className="h-4 w-4" />
+                <span>Calendar</span>
+              </Button>
+
+              {/* Mobile Dropdown */}
+              <div className="md:hidden">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreVertical className="h-5 w-5" />
+                      <span className="sr-only">Open menu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {currentView === 'board' && currentProjectData && (
+                      <DropdownMenuItem onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        <span>Add Task</span>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => setShowTimerModal(true)}>
+                      <Clock className="h-4 w-4 mr-2" />
+                      <span>{timerIsRunning ? `Timer: ${formatTime(timerTime)}` : "Timer"}</span>
+                    </DropdownMenuItem>
+                    {canBeToggled && (
+                      getViewMode(viewKey) === 'board'
+                        ? (
+                          <DropdownMenuItem onClick={() => setViewMode(viewKey, 'list')}>
+                            <span>Switch to List View</span>
+                          </DropdownMenuItem>
+                        )
+                        : (
+                          <DropdownMenuItem onClick={() => setViewMode(viewKey, 'board')}>
+                            <span>Switch to Board View</span>
+                          </DropdownMenuItem>
+                        )
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
+          <div className="flex-1 flex overflow-hidden">
+            {/* Conditionally render the main content ONLY if calendar is not maximized */}
+            {!isCalendarMaximized && (
+              <div className="flex-1 overflow-y-auto">
+                {renderContent()}
+              </div>
+            )}
 
-          {showProjectDetailPanel && projectToEdit && (
-            <Suspense fallback={<div>Loading...</div>}>
-              <ProjectDetailPanel
-                project={projectToEdit}
-                user={user}
-                db={db}
-                onClose={() => setShowProjectDetailPanel(false)}
-                onUpdate={(updatedData) => {
-                  handleSaveProjectEdit(projectToEdit, updatedData)
-                }}
-                allGroups={projectData.map(g => g.name)}
-              />
-            </Suspense>
-          )}
-          <NewProjectModal
-            show={showNewProjectModal}
-            onClose={() => setShowNewProjectModal(false)}
-            onSave={handleCreateProject}
-            groups={projectData.map(g => g.name)}
+            {/* The Calendar Panel */}
+            {showCalendar && (
+              <div className={cn(
+                "transition-all duration-300 bg-card border-l",
+                isCalendarMaximized ? "flex-1" : "shrink-0 w-[32rem]"
+              )}>
+                <Suspense fallback={<div className="p-4"><h2>Loading Calendar...</h2></div>}>
+                  <CalendarPanel
+                    isMaximized={isCalendarMaximized}
+                    onToggleMaximize={() => {
+                      const isMobile = window.innerWidth < 768;
+                      if (isMobile) {
+                        setShowCalendar(false);
+                        setIsCalendarMaximized(false);
+                      } else {
+                        setIsCalendarMaximized(!isCalendarMaximized);
+                      }
+                    }}
+                    calendarEvents={calendarEvents}
+                    setCalendarEvents={setCalendarEvents}
+                  />
+                </Suspense>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+
+      {showProjectDetailPanel && projectToEdit && (
+        <Suspense fallback={<div>Loading...</div>}>
+          <ProjectDetailPanel
+            project={projectToEdit}
+            user={user}
+            db={db}
+            onClose={() => setShowProjectDetailPanel(false)}
+            onUpdate={(updatedData) => {
+              handleSaveProjectEdit(projectToEdit, updatedData)
+            }}
+            allGroups={projectData.map(g => g.name)}
           />
-
-          {showTimerModal && (
-            <TimerModal
-              onClose={() => setShowTimerModal(false)}
-              time={timerTime}
-              setTime={setTimerTime}
-              inputTime={timerInputTime}
-              setInputTime={setTimerInputTime}
-              isRunning={timerIsRunning}
-              onStart={handleStartTimer}
-              onPause={handlePauseTimer}
-              onResume={handleResumeTimer}
-              onReset={handleResetTimer}
-              formatTime={formatTime}
-            />
-          )}
-          {showTimerCompleteModal && (
-            <TimerCompleteModal
-              onClose={() => {
-                // Stop and reset the chime sound
-                const chime = document.getElementById('timer-chime');
-                if (chime) {
-                  chime.pause();
-                  chime.currentTime = 0;
-                }
-
-                setShowTimerCompleteModal(false);
-                handleResetTimer(); // Also reset the timer when closing
-              }}
-            />
-          )}
-
-          <audio id="timer-chime" src={timerChime} preload="auto"></audio>
-        </>
+        </Suspense>
       )}
+      <NewProjectModal
+        show={showNewProjectModal}
+        onClose={() => setShowNewProjectModal(false)}
+        onSave={handleCreateProject}
+        groups={projectData.map(g => g.name)}
+      />
+      {showTimerModal && (
+        <TimerModal
+          onClose={() => setShowTimerModal(false)}
+          time={timerTime}
+          setTime={setTimerTime}
+          inputTime={timerInputTime}
+          setInputTime={setTimerInputTime}
+          isRunning={timerIsRunning}
+          onStart={handleStartTimer}
+          onPause={handlePauseTimer}
+          onResume={handleResumeTimer}
+          onReset={handleResetTimer}
+          formatTime={formatTime}
+        />
+      )}
+      {showTimerCompleteModal && (
+        <TimerCompleteModal
+          onClose={() => {
+            const chime = document.getElementById('timer-chime');
+            if (chime) {
+              chime.pause();
+              chime.currentTime = 0;
+            }
+            setShowTimerCompleteModal(false);
+            handleResetTimer();
+          }}
+        />
+      )}
+      <audio id="timer-chime" src={timerChime} preload="auto"></audio>
     </div>
   );
 }
