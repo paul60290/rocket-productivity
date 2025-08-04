@@ -5,7 +5,6 @@ import { DndContext, DragOverlay, useDroppable, closestCenter, useSensor, useSen
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import './App.css';
 const GoalsPage = lazy(() => import('./components/GoalsPage'));
 const CalendarPanel = lazy(() => import('./components/CalendarPanel'));
 const JournalsPage = lazy(() => import('./components/JournalsPage'));
@@ -18,6 +17,8 @@ import NewProjectModal from './components/NewProjectModal';
 import ProjectDetailPanel from './components/ProjectDetailPanel';
 import SortableProjectItem from './components/SortableProjectItem';
 import BottomNav from './components/BottomNav';
+import FAB from './components/FAB';
+import MobileSidebar from './components/MobileSidebar';
 import logoUrl from './assets/logo.svg';
 import { auth, db } from './firebase';
 import { Button } from "@/components/ui/button";
@@ -140,6 +141,11 @@ function EditableTitle({ title, onUpdate, className = "" }) {
   );
 }
 function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels, projectTags = [] }) {
+  // Safety check for column prop
+  if (!column) {
+    console.error("Column component received undefined column prop");
+    return null;
+  }
   const [adding, setAdding] = useState(false);
   const [newTask, setNewTask] = useState('');
   const inputRef = useRef(null);
@@ -634,7 +640,7 @@ function App() {
   const [projectData, setProjectData] = useState([]);
   const [projectLabels, setProjectLabels] = useState([]);
   const [inboxTasks, setInboxTasks] = useState({
-    columnOrder: ['Inbox'],
+    columnOrder: [{ id: 'Inbox', name: 'Inbox' }],
     columns: {
       'Inbox': []
     }
@@ -676,7 +682,7 @@ function App() {
     if (!currentGroup || !currentProject) {
       return null;
     }
-    return projectData.find(g => g.name === currentGroup)?.projects.find(p => p.name === currentProject);
+    return (projectData || []).find(g => g.name === currentGroup)?.projects.find(p => p.name === currentProject);
   }, [projectData, currentGroup, currentProject]);
   useEffect(() => {
     if (currentProjectData && user) {
@@ -802,6 +808,28 @@ function App() {
       setShowCalendar(!showCalendar);
     }
   };
+
+  const handleFabClick = () => {
+    switch (currentView) {
+      case 'projects':
+        setShowNewProjectModal(true);
+        break;
+      case 'inbox':
+      case 'board':
+      case 'today':
+      case 'tomorrow':
+      case 'thisWeek':
+      case 'nextWeek':
+        setModalTask({ isNew: true });
+        break;
+      default:
+        // The FAB will be hidden on other views like settings, goals, etc.
+        break;
+    }
+  };
+
+  const fabVisibleViews = ['projects', 'inbox', 'board', 'today', 'tomorrow', 'thisWeek', 'nextWeek', 'journal'];
+  const isFabVisible = fabVisibleViews.includes(currentView);
 
   const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -1635,88 +1663,98 @@ function App() {
   };
 
   const moveTask = async (originalTask, editedTask) => {
-    // 1. Get all necessary IDs from the correct, explicit sources
     const sourceProjectId = originalTask.projectId;
     const taskIdToDelete = originalTask.id;
     const destinationProjectId = editedTask.projectId;
 
     if (!user || !destinationProjectId || !taskIdToDelete) {
-      console.error("Move failed: Missing critical data for the operation.");
+      console.error("Move failed: Missing critical data.");
       return;
     }
 
-    const newTaskId = generateUniqueId(); // Generate a new ID for the task in its new home
-
     try {
-      // --- STEP 1: Delete the original task document from Firestore ---
-      // This step is for moves from a project. Inbox moves are handled later.
-      if (sourceProjectId) {
-        const sourceTaskRef = doc(db, 'users', user.uid, 'projects', sourceProjectId, 'tasks', taskIdToDelete);
-        await deleteDoc(sourceTaskRef);
+      // --- Step 1: Prepare the new task data ---
+      const destinationProject = projectData.flatMap(g => g.projects).find(p => p.id === destinationProjectId);
+      if (!destinationProject || !destinationProject.columnOrder || destinationProject.columnOrder.length === 0) {
+        throw new Error("Destination project or its columns not found!");
       }
 
-      // --- STEP 2: Create the new task document in the destination project ---
-      const destinationProject = projectData.flatMap(g => g.projects).find(p => p.id === destinationProjectId);
-      if (!destinationProject) throw new Error("Destination project not found!");
+      const destinationColumnId = destinationProject.columnOrder[0].id;
 
-      const destinationColumn = destinationProject.columnOrder[0] || 'Backlog';
-      const destTaskRef = doc(db, 'users', user.uid, 'projects', destinationProjectId, 'tasks', newTaskId);
-
-      // Merge data from the original task and any edits, then set new properties
       const movedTaskData = {
         ...originalTask,
         ...editedTask,
-        id: newTaskId, // The task now officially has its new ID
         projectId: destinationProjectId,
-        column: destinationColumn,
+        column: destinationColumnId, // Set the correct destination column ID
         isInbox: false,
       };
       delete movedTaskData.isNew;
+      delete movedTaskData.isInbox;
 
-      await setDoc(destTaskRef, movedTaskData);
+      // --- Step 2: Perform Firestore operations in a batch ---
+      const batch = writeBatch(db);
 
-      // --- STEP 3: Update the local UI state ---
+      // Delete the original task (from either a project or inbox)
+      if (sourceProjectId) {
+        const sourceTaskRef = doc(db, 'users', user.uid, 'projects', sourceProjectId, 'tasks', taskIdToDelete);
+        batch.delete(sourceTaskRef);
+      }
 
-      // Update Project Data state
-      setProjectData(prevData => {
-        const newData = JSON.parse(JSON.stringify(prevData));
+      // Create the new task in the destination project
+      const destTaskRef = doc(db, 'users', user.uid, 'projects', destinationProjectId, 'tasks', movedTaskData.id);
+      batch.set(destTaskRef, movedTaskData);
 
-        // Remove from old project's state
-        if (sourceProjectId) {
+      await batch.commit();
+
+      // --- Step 3: Update local UI state ---
+      if (sourceProjectId) {
+        // Task was in a project, update projectData
+        setProjectData(prevData => {
+          const newData = JSON.parse(JSON.stringify(prevData));
+
+          // Remove from old project
           const oldProject = newData.flatMap(g => g.projects).find(p => p.id === sourceProjectId);
           if (oldProject) {
-            for (const colName in oldProject.columns) {
-              oldProject.columns[colName] = oldProject.columns[colName].filter(t => t.id !== taskIdToDelete);
+            for (const colId in oldProject.columns) {
+              oldProject.columns[colId] = oldProject.columns[colId].filter(t => t.id !== taskIdToDelete);
             }
           }
-        }
 
-        // Add to new project's state
-        const newProject = newData.flatMap(g => g.projects).find(p => p.id === destinationProjectId);
-        if (newProject) {
-          if (!newProject.columns[destinationColumn]) {
-            newProject.columns[destinationColumn] = [];
+          // Add to new project
+          const newProject = newData.flatMap(g => g.projects).find(p => p.id === destinationProjectId);
+          if (newProject) {
+            if (!newProject.columns[destinationColumnId]) {
+              newProject.columns[destinationColumnId] = [];
+            }
+            newProject.columns[destinationColumnId].push(movedTaskData);
           }
-          newProject.columns[destinationColumn].push(movedTaskData); // Push the final object
-        }
-        return newData;
-      });
 
-      // Update Inbox Data state (if the move was from the inbox)
-      const wasInboxTask = !sourceProjectId;
-      if (wasInboxTask) {
+          return newData;
+        });
+      } else {
+        // Task was in the inbox, update both inboxTasks and projectData
         const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
-        for (const colName in newInboxState.columns) {
-          newInboxState.columns[colName] = newInboxState.columns[colName].filter(t => t.id !== taskIdToDelete);
+        for (const colId in newInboxState.columns) {
+          newInboxState.columns[colId] = newInboxState.columns[colId].filter(t => t.id !== taskIdToDelete);
         }
         setInboxTasks(newInboxState);
-        const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-        await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
+
+        setProjectData(prevData => {
+          const newData = JSON.parse(JSON.stringify(prevData));
+          const newProject = newData.flatMap(g => g.projects).find(p => p.id === destinationProjectId);
+          if (newProject) {
+            if (!newProject.columns[destinationColumnId]) {
+              newProject.columns[destinationColumnId] = [];
+            }
+            newProject.columns[destinationColumnId].push(movedTaskData);
+          }
+          return newData;
+        });
       }
 
     } catch (error) {
       console.error("A critical error occurred while moving the task:", error);
-      alert("An error occurred while moving the task. The operation may be incomplete. Please refresh.");
+      alert("An error occurred while moving the task. Please refresh to see the correct state.");
     }
   };
 
@@ -1736,10 +1774,12 @@ function App() {
       return;
     }
 
+    const projectId = currentProjectData.id;
     const fromColumnId = findColumnOfTask(active.id, currentProjectData);
 
+    // Determine the destination column. It could be the column itself or a task within a column.
     let toColumnId = over.id;
-    if (currentProjectData.columns[toColumnId] === undefined) {
+    if (!currentProjectData.columns[toColumnId]) {
       toColumnId = findColumnOfTask(over.id, currentProjectData);
     }
 
@@ -1749,13 +1789,47 @@ function App() {
 
     // Optimistically update local state first
     setProjectData(prevData => {
-      // ... (rest of the function is the same, no changes needed inside)
+      const newData = JSON.parse(JSON.stringify(prevData));
+      const project = newData.flatMap(g => g.projects).find(p => p.id === projectId);
+
+      if (!project) return prevData; // Return original state if project not found
+
+      const sourceColumnTasks = project.columns[fromColumnId] || [];
+      const taskIndex = sourceColumnTasks.findIndex(t => t.id === active.id);
+
+      if (taskIndex === -1) return prevData; // Return original state if task not found
+
+      // Remove the task from the source column
+      const [movedTask] = sourceColumnTasks.splice(taskIndex, 1);
+      movedTask.column = toColumnId; // Update the task's column property
+
+      // Add the task to the destination column
+      const destinationColumnTasks = project.columns[toColumnId] || [];
+      const overTaskIndex = destinationColumnTasks.findIndex(t => t.id === over.id);
+
+      if (overTaskIndex !== -1) {
+        // Dropped onto another task
+        destinationColumnTasks.splice(overTaskIndex, 0, movedTask);
+      } else {
+        // Dropped onto the column itself
+        destinationColumnTasks.push(movedTask);
+      }
+
+      project.columns[fromColumnId] = sourceColumnTasks;
+      project.columns[toColumnId] = destinationColumnTasks;
+
+      return newData;
     });
 
     // Then, update Firestore in the background
     if (fromColumnId !== toColumnId) {
-      const taskRef = doc(db, 'users', user.uid, 'projects', currentProjectData.id, 'tasks', active.id);
-      await updateDoc(taskRef, { column: toColumnId });
+      const taskRef = doc(db, 'users', user.uid, 'projects', projectId, 'tasks', active.id);
+      try {
+        await updateDoc(taskRef, { column: toColumnId });
+      } catch (error) {
+        console.error("Failed to update task column in Firestore:", error);
+        // Here you might want to add logic to revert the state change on failure
+      }
     }
   };
 
@@ -1959,7 +2033,7 @@ function App() {
                 {Object.entries(tasksByProject).map(([projectName, tasks]) => (
                   <Column
                     key={projectName}
-                    title={projectName}
+                    column={{ id: projectName, name: projectName }}
                     tasks={tasks}
                     onAddTask={() => { }}
                     onUpdateTask={(col, taskId, updatedTask) => {
@@ -2019,7 +2093,7 @@ function App() {
                 {Object.entries(tasksByProject).map(([projectName, tasks]) => (
                   <Column
                     key={projectName}
-                    title={projectName}
+                    column={{ id: projectName, name: projectName }}
                     tasks={tasks}
                     onAddTask={() => { }}
                     onUpdateTask={(col, taskId, updatedTask) => {
@@ -2085,7 +2159,7 @@ function App() {
                 {Object.entries(tasksByProject).map(([projectName, tasks]) => (
                   <Column
                     key={projectName}
-                    title={projectName}
+                    column={{ id: projectName, name: projectName }}
                     tasks={tasks}
                     onAddTask={() => { }}
                     onUpdateTask={(col, taskId, updatedTask) => {
@@ -2151,7 +2225,7 @@ function App() {
                 {Object.entries(tasksByProject).map(([projectName, tasks]) => (
                   <Column
                     key={projectName}
-                    title={projectName}
+                    column={{ id: projectName, name: projectName }}
                     tasks={tasks}
                     onAddTask={() => { }}
                     onUpdateTask={(col, taskId, updatedTask) => {
@@ -2197,8 +2271,8 @@ function App() {
             onDragEnd={handleInboxDragEnd}
             onDragCancel={() => setActiveId(null)}
           >
-            <div className="flex p-4 gap-4 overflow-x-auto h-full">
-              {safeInboxTasks.columnOrder.map((column) => (
+            <div className="flex p-4 gap-4 overflow-x-auto overflow-y-hidden h-full">
+              {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
                 <Column
                   key={column.id}
                   column={column}
@@ -2293,8 +2367,8 @@ function App() {
             onDragEnd={event => { handleDrop(event); setActiveId(null); }}
             onDragCancel={() => setActiveId(null)}
           >
-            <div className="flex p-4 gap-4 overflow-x-auto h-full">
-              {currentProjectData?.columnOrder?.map((column) => (
+            <div className="flex p-4 gap-4 overflow-x-auto overflow-y-hidden h-full">
+              {currentProjectData?.columnOrder?.filter(Boolean).map((column) => (
                 <Column
                   key={column.id}
                   column={column}
@@ -2396,75 +2470,9 @@ function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
-      {/* The main content area that will grow and scroll internally */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Modals and Panels that overlay content */}
-        {modalTask && (
-          <Suspense fallback={<div>Loading...</div>}>
-            <TaskDetailPanel
-              task={modalTask}
-              onClose={() => setModalTask(null)}
-              onUpdate={handleTaskUpdate}
-              onMoveTask={moveTask}
-              availableLabels={projectLabels}
-              user={user}
-              db={db}
-              projectColumns={currentProjectData?.columnOrder || []}
-              allProjects={projectData}
-            />
-          </Suspense>
-        )}
-        {showProjectDetailPanel && projectToEdit && (
-          <Suspense fallback={<div>Loading...</div>}>
-            <ProjectDetailPanel
-              project={projectToEdit}
-              user={user}
-              db={db}
-              onClose={() => setShowProjectDetailPanel(false)}
-              onUpdate={(updatedData) => {
-                handleSaveProjectEdit(projectToEdit, updatedData)
-              }}
-              allGroups={projectData.map(g => g.name)}
-            />
-          </Suspense>
-        )}
-        <NewProjectModal
-          show={showNewProjectModal}
-          onClose={() => setShowNewProjectModal(false)}
-          onSave={handleCreateProject}
-          groups={projectData.map(g => g.name)}
-        />
-        {showTimerModal && (
-          <TimerModal
-            onClose={() => setShowTimerModal(false)}
-            time={timerTime}
-            setTime={setTimerTime}
-            inputTime={timerInputTime}
-            setInputTime={setTimerInputTime}
-            isRunning={timerIsRunning}
-            onStart={handleStartTimer}
-            onPause={handlePauseTimer}
-            onResume={handleResumeTimer}
-            onReset={handleResetTimer}
-            formatTime={formatTime}
-          />
-        )}
-        {showTimerCompleteModal && (
-          <TimerCompleteModal
-            onClose={() => {
-              const chime = document.getElementById('timer-chime');
-              if (chime) {
-                chime.pause();
-                chime.currentTime = 0;
-              }
-              setShowTimerCompleteModal(false);
-              handleResetTimer();
-            }}
-          />
-        )}
-        <audio id="timer-chime" src={timerChime} preload="auto"></audio>
-
+    <div className="fixed inset-0 flex flex-col bg-background text-foreground overflow-hidden">
+      {/* Main content area that will grow and scroll internally */}
+      <div className="flex flex-1 min-h-0">
         {/* --- Main Layout: Sidebar + Content --- */}
         <div className={`hidden md:flex bg-card text-card-foreground border-r flex-col h-full transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
           {/* Sidebar Content */}
@@ -2512,7 +2520,7 @@ function App() {
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-4">
             <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
-              {projectData.map((group) => (
+              {(projectData || []).map((group) => (
                 <div key={group.name}>
                   <h4 className={`px-3 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-all duration-200 ${isSidebarCollapsed ? 'text-center' : ''}`}>
                     {isSidebarCollapsed ? group.name.charAt(0) : group.name}
@@ -2572,11 +2580,11 @@ function App() {
             </button>
           </div>
         </div>
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {isMobileMenuOpen && <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
           <div className="w-full shrink-0 px-6 py-4 border-b bg-card flex items-center justify-between">
             <button className="md:hidden rounded-md p-2 hover:bg-muted" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <svg xmlns="http://www.w.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></svg>}
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></svg>}
             </button>
             <div className="flex items-center gap-3">
               {(() => {
@@ -2702,10 +2710,10 @@ function App() {
               </div>
             </div>
           </div>
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex min-h-0 min-w-0">
             {/* Conditionally render the main content ONLY if calendar is not maximized */}
             {!isCalendarMaximized && (
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-auto min-h-0">
                 {renderContent()}
               </div>
             )}
@@ -2738,12 +2746,97 @@ function App() {
         </div>
       </div>
 
-      {/* The BottomNav is now a direct child of the main vertical flex container */}
+      {/* The BottomNav is part of the main vertical flex container */}
       <BottomNav
         currentView={currentView}
         onNavigate={setCurrentView}
         onShowCalendar={handleShowCalendar}
       />
+
+      {/* MODALS AND OVERLAYS are now at the top level to float over everything */}
+      {isFabVisible && <FAB onClick={handleFabClick} />}
+      {modalTask && (
+        <Suspense fallback={<div>Loading...</div>}>
+          <TaskDetailPanel
+            task={modalTask}
+            onClose={() => setModalTask(null)}
+            onUpdate={handleTaskUpdate}
+            onMoveTask={moveTask}
+            availableLabels={projectLabels}
+            user={user}
+            db={db}
+            projectColumns={currentProjectData?.columnOrder || []}
+            allProjects={projectData}
+          />
+        </Suspense>
+      )}
+      {showProjectDetailPanel && projectToEdit && (
+        <Suspense fallback={<div>Loading...</div>}>
+          <ProjectDetailPanel
+            project={projectToEdit}
+            user={user}
+            db={db}
+            onClose={() => setShowProjectDetailPanel(false)}
+            onUpdate={(updatedData) => {
+              handleSaveProjectEdit(projectToEdit, updatedData)
+            }}
+            allGroups={(projectData || []).map(g => g.name)}
+          />
+        </Suspense>
+      )}
+      <NewProjectModal
+        show={showNewProjectModal}
+        onClose={() => setShowNewProjectModal(false)}
+        onSave={handleCreateProject}
+        groups={(projectData || []).map(g => g.name)}
+      />
+      {showTimerModal && (
+        <TimerModal
+          onClose={() => setShowTimerModal(false)}
+          time={timerTime}
+          setTime={setTimerTime}
+          inputTime={timerInputTime}
+          setInputTime={setTimerInputTime}
+          isRunning={timerIsRunning}
+          onStart={handleStartTimer}
+          onPause={handlePauseTimer}
+          onResume={handleResumeTimer}
+          onReset={handleResetTimer}
+          formatTime={formatTime}
+        />
+      )}
+      {showTimerCompleteModal && (
+        <TimerCompleteModal
+          onClose={() => {
+            const chime = document.getElementById('timer-chime');
+            if (chime) {
+              chime.pause();
+              chime.currentTime = 0;
+            }
+            setShowTimerCompleteModal(false);
+            handleResetTimer();
+          }}
+        />
+      )}
+      <MobileSidebar
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        onLogout={handleLogout}
+        projectData={projectData}
+        onSelectProject={(groupName, projectName) => {
+          setCurrentView('board');
+          setCurrentGroup(groupName);
+          setCurrentProject(projectName);
+        }}
+        onEditProject={(project) => {
+          setProjectToEdit(project);
+          setShowProjectDetailPanel(true);
+        }}
+        onAddProject={() => setShowNewProjectModal(true)}
+      />
+      <audio id="timer-chime" src={timerChime} preload="auto"></audio>
     </div>
   );
 }

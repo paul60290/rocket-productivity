@@ -248,7 +248,7 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, onMoveTask, a
       </SelectTrigger>
       <SelectContent>
         {projectColumns.map(col => (
-          <SelectItem key={col} value={col}>{col}</SelectItem>
+          <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
         ))}
       </SelectContent>
     </Select>
