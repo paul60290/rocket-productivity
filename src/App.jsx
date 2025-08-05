@@ -27,7 +27,7 @@ import {
   MoreVertical, GripVertical, MessageSquare, Plus, X,
   Target, BookText, Calendar, Inbox, Sunrise, CalendarDays,
   CalendarPlus, FolderKanban, Settings, LogOut, Clock, Pencil, Trash2,
-  Pause, Play
+  Pause, Play, Tag, Bookmark, Network
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -140,7 +140,7 @@ function EditableTitle({ title, onUpdate, className = "" }) {
     </span>
   );
 }
-function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels, projectTags = [] }) {
+function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels, allTags = {} }) {
   // Safety check for column prop
   if (!column) {
     console.error("Column component received undefined column prop");
@@ -204,7 +204,7 @@ function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRen
               onComplete={() => onUpdateTask(column.id, task.id, { completed: !task.completed })}
               onClick={() => onOpenTask(task)}
               availableLabels={availableLabels}
-              projectTags={projectTags}
+              allTags={allTags}
             />
           ))}
         </SortableContext>
@@ -250,10 +250,11 @@ function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRen
     </div>
   );
 }
+
 // === SECTION: Task Item Components ===
 
 // 1. Presentational Component (The Visuals)
-const TaskItem = React.forwardRef(({ task, availableLabels, projectTags, onComplete, onClick, listeners, ...props }, ref) => {
+const TaskItem = React.forwardRef(({ task, availableLabels, allTags, onComplete, onClick, listeners, ...props }, ref) => {
   const priorityBorderClasses = {
     1: 'border-l-red-500',
     2: 'border-l-orange-400',
@@ -263,11 +264,48 @@ const TaskItem = React.forwardRef(({ task, availableLabels, projectTags, onCompl
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
-    return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, {
+    return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
+      timeZone: 'UTC'
     });
   };
+
+  const dateInfo = useMemo(() => {
+    if (!task.date) return { colorClass: '', isVisible: false };
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setUTCDate(today.getUTCDate() + 1);
+
+    const dueDate = new Date(`${task.date}T00:00:00Z`);
+
+    const isCompleted = task.completed;
+    const isOverdue = dueDate < today && !isCompleted;
+
+    let colorClass = 'text-muted-foreground'; // Default color
+    if (isOverdue) {
+      colorClass = 'text-red-500 font-semibold';
+    } else if (dueDate.getTime() === today.getTime()) {
+      colorClass = 'text-green-600 font-semibold';
+    } else if (dueDate.getTime() === tomorrow.getTime()) {
+      colorClass = 'text-yellow-600 font-semibold';
+    }
+
+    return { colorClass, isVisible: true };
+  }, [task.date, task.completed]);
+
+  const subtaskProgress = useMemo(() => {
+    const subtasks = task.subtasks || [];
+    if (subtasks.length === 0) {
+      return { isVisible: false, text: '' };
+    }
+    const total = subtasks.length;
+    const completed = subtasks.filter(st => st.completed).length;
+    return { isVisible: true, text: `${completed}/${total}` };
+  }, [task.subtasks]);
 
   return (
     <Card
@@ -292,42 +330,53 @@ const TaskItem = React.forwardRef(({ task, availableLabels, projectTags, onCompl
         />
         <div className="flex-1" onClick={onClick}>
           <p className={`text-sm font-medium leading-tight ${task.completed ? 'line-through' : ''}`}>{task.text}</p>
-          {(task.date || task.label || task.tag || task.comments?.length > 0) && (
-            <div className="mt-2 flex items-center flex-wrap gap-2">
-              {task.date && <Badge variant="secondary">{formatDate(task.date)}</Badge>}
-              {task.label && (() => {
-                const labelInfo = availableLabels?.find(l => l.name === task.label);
-                return labelInfo ? (
-                  <Badge style={{ backgroundColor: labelInfo.color, color: '#fff' }}>
-                    {labelInfo.name}
-                  </Badge>
-                ) : null;
-              })()}
-              {task.tag && (() => {
-                const tagInfo = projectTags?.find(t => t.name === task.tag);
-                return tagInfo ? (
-                  <Badge style={{ backgroundColor: tagInfo.color, color: '#fff' }}>
-                    {tagInfo.name}
-                  </Badge>
-                ) : null;
-              })()}
-              {task.comments?.length > 0 && (
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <MessageSquare className="h-4 w-4" />
-                  <span className="text-xs">{task.comments.length}</span>
+          <div className="mt-2 flex items-center flex-wrap gap-x-4 gap-y-2 text-xs">
+            {dateInfo.isVisible && (
+              <div className={cn("flex items-center gap-1.5", dateInfo.colorClass)}>
+                <CalendarDays className="h-4 w-4" />
+                <span>{formatDate(task.date)}</span>
+              </div>
+            )}
+            {subtaskProgress.isVisible && (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Network className="h-4 w-4" />
+                <span>{subtaskProgress.text}</span>
+              </div>
+            )}
+            {task.label && (() => {
+              const labelInfo = availableLabels?.find(l => l.name === task.label);
+              return labelInfo ? (
+                <div className="flex items-center gap-1.5" style={{ color: labelInfo.color }}>
+                  <Bookmark className="h-4 w-4" />
+                  <span>{labelInfo.name}</span>
                 </div>
-              )}
-            </div>
-          )}
+              ) : null;
+            })()}
+            {task.tag && (() => {
+              const projectTags = allTags[task.projectId] || [];
+              const tagInfo = projectTags.find(t => t.name === task.tag);
+              return tagInfo ? (
+                <div className="flex items-center gap-1.5" style={{ color: tagInfo.color }}>
+                  <Tag className="h-4 w-4" />
+                  <span>{tagInfo.name}</span>
+                </div>
+              ) : null;
+            })()}
+            {task.comments?.length > 0 && (
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <MessageSquare className="h-4 w-4" />
+                <span>{task.comments.length}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </Card>
   );
 });
 
-
 // 2. Sortable Logic Component (The DnD Logic)
-function SortableTask({ task, onComplete, onClick, availableLabels, projectTags }) {
+function SortableTask({ task, onComplete, onClick, availableLabels, allTags }) {
   const {
     attributes,
     listeners,
@@ -349,7 +398,7 @@ function SortableTask({ task, onComplete, onClick, availableLabels, projectTags 
       className={isDragging ? 'opacity-40' : ''}
       task={task}
       availableLabels={availableLabels}
-      projectTags={projectTags}
+      allTags={allTags}
       onComplete={onComplete}
       onClick={onClick}
       listeners={listeners}
@@ -647,6 +696,7 @@ function App() {
   });
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [currentProjectTags, setCurrentProjectTags] = useState([]);
+  const [allTags, setAllTags] = useState({});
 
 
   // State for App Logic
@@ -796,6 +846,12 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+  }, [theme]);
+
   // Effect to apply the theme class to the root element for Tailwind
   const handleShowCalendar = () => {
     const isMobile = window.innerWidth < 768;
@@ -886,13 +942,23 @@ function App() {
         const projectsCollectionRef = collection(db, 'users', user.uid, 'projects');
         const projectsSnapshot = await getDocs(projectsCollectionRef);
         let allProjects = [];
+        const allTagsData = {};
 
         const projectPromises = projectsSnapshot.docs.map(async (projectDoc) => {
           const project = { id: projectDoc.id, ...projectDoc.data() };
+
+          // Fetch tasks for the project
           const tasksCollectionRef = collection(db, 'users', user.uid, 'projects', project.id, 'tasks');
           const tasksSnapshot = await getDocs(tasksCollectionRef);
-          const tasks = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          // Add the projectId to every task object right here
+          const tasks = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), projectId: project.id }));
 
+          // Fetch tags for the project
+          const tagsCollectionRef = collection(db, 'users', user.uid, 'projects', project.id, 'tags');
+          const tagsSnapshot = await getDocs(tagsCollectionRef);
+          allTagsData[project.id] = tagsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+          // --- COLUMN MIGRATION & TASK SORTING ---
           if (project.columnOrder && project.columnOrder.length > 0 && typeof project.columnOrder[0] === 'string') {
             const oldColumnNames = [...project.columnOrder];
             project.columnOrder = oldColumnNames.map(name => ({ id: name, name: name }));
@@ -908,9 +974,13 @@ function App() {
             });
             project.columns = columns;
           }
+          // --- END MIGRATION ---
+
           allProjects.push(project);
         });
         await Promise.all(projectPromises);
+
+        setAllTags(allTagsData); // Set the new state with all fetched tags
 
         const groupsMap = {};
         groupOrder.forEach(groupName => {
@@ -952,6 +1022,7 @@ function App() {
       setProjectLabels([]);
       setInboxTasks({ columnOrder: [], columns: {} });
       setCalendarEvents([]);
+      setAllTags({});
       setCurrentView('today');
       setCurrentGroup(null);
       setCurrentProject(null);
@@ -1385,6 +1456,7 @@ function App() {
       subtasks: taskData.subtasks || [],
       completed: taskData.completed || false,
       column: columnName,
+      projectId: projectId, // Add the project ID here
     };
 
     try {
@@ -1996,32 +2068,38 @@ function App() {
           const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
           return days[new Date().getDay()];
         };
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0); // Set to start of day for accurate comparison
+
         const tasksByProject = {};
-        let allTasksForListView = [];
 
         projectData.forEach(group => {
           group.projects.forEach(project => {
-            Object.values(project.columns).flat().filter(task => showCompletedTasks || !task.completed).forEach(task => {
-              if (task.date === today) {
-                const taskWithProjectId = { ...task, projectId: project.id };
-                // For Board View
-                if (!tasksByProject[project.name]) {
-                  tasksByProject[project.name] = [];
-                }
-                tasksByProject[project.name].push(taskWithProjectId);
-                // For List View
-                allTasksForListView.push(task);
+            const relevantTasks = Object.values(project.columns).flat().filter(task => {
+              if (!task.date || (task.completed && !showCompletedTasks)) {
+                return false;
               }
-            });
+              const dueDate = new Date(`${task.date}T00:00:00Z`);
+              // Include task if it's due today OR if it's overdue and not completed
+              return dueDate.getTime() === today.getTime() || (dueDate < today && !task.completed);
+            }).map(task => ({ ...task, projectId: project.id })); // Add projectId for context
+
+            if (relevantTasks.length > 0) {
+              if (!tasksByProject[project.name]) {
+                tasksByProject[project.name] = [];
+              }
+              tasksByProject[project.name].push(...relevantTasks);
+            }
           });
         });
 
+        // Sort tasks within each project group by priority
         Object.values(tasksByProject).forEach(list =>
           list.sort((a, b) => a.priority - b.priority)
         );
 
-        allTasksForListView.sort((a, b) => a.priority - b.priority);
+        // This variable is now populated correctly for both list and board views
+        const allTasksForListView = Object.values(tasksByProject).flat();
 
         return (
           <div className="p-6 space-y-4 h-full flex flex-col">
@@ -2045,6 +2123,7 @@ function App() {
                     onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
                     isEditable={false}
                     availableLabels={projectLabels}
+                    allTags={allTags}
                   />
                 ))}
               </div>
@@ -2105,6 +2184,7 @@ function App() {
                     onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
                     isEditable={false}
                     availableLabels={projectLabels}
+                    allTags={allTags}
                   />
                 ))}
               </div>
@@ -2171,6 +2251,7 @@ function App() {
                     onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
                     isEditable={false}
                     availableLabels={projectLabels}
+                    allTags={allTags}
                   />
                 ))}
               </div>
@@ -2237,6 +2318,7 @@ function App() {
                     onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
                     isEditable={false}
                     availableLabels={projectLabels}
+                    allTags={allTags}
                   />
                 ))}
               </div>
@@ -2305,7 +2387,7 @@ function App() {
                   onRenameColumn={renameInboxColumn}
                   onDeleteColumn={deleteInboxColumn}
                   availableLabels={projectLabels}
-                  projectTags={[]}
+                  allTags={allTags}
                 />
               ))}
               {isAddingColumn.inbox ? (
@@ -2343,6 +2425,7 @@ function App() {
                 <TaskItem
                   task={findTaskById(activeId)}
                   availableLabels={projectLabels}
+                  allTags={allTags}
                 />
               ) : null}
             </DragOverlay>
@@ -2383,7 +2466,7 @@ function App() {
                   onRenameColumn={renameColumn}
                   onDeleteColumn={deleteColumn}
                   availableLabels={projectLabels}
-                  projectTags={currentProjectTags}
+                  allTags={allTags}
                 />
               ))}
               {isAddingColumn.board ? (
@@ -2421,6 +2504,7 @@ function App() {
                 <TaskItem
                   task={activeTask}
                   availableLabels={projectLabels}
+                  allTags={allTags}
                 />
               ) : null}
             </DragOverlay>
@@ -2519,47 +2603,49 @@ function App() {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-4">
-            <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
-              {(projectData || []).map((group) => (
-                <div key={group.name}>
-                  <h4 className={`px-3 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-all duration-200 ${isSidebarCollapsed ? 'text-center' : ''}`}>
-                    {isSidebarCollapsed ? group.name.charAt(0) : group.name}
-                  </h4>
-                  <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                    {group.projects.map(project => (
-                      <SortableProjectItem
-                        key={project.id}
-                        id={project.id}
-                      >
-                        <div
-                          className={`flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm ${currentView === 'board' && currentProject === project.name && currentGroup === group.name ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                          onClick={() => {
-                            setCurrentView('board');
-                            setCurrentGroup(group.name);
-                            setCurrentProject(project.name);
-                          }}
+            {!isSidebarCollapsed && (
+              <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
+                {(projectData || []).map((group) => (
+                  <div key={group.name}>
+                    <h4 className="px-3 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {group.name}
+                    </h4>
+                    <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                      {group.projects.map(project => (
+                        <SortableProjectItem
+                          key={project.id}
+                          id={project.id}
                         >
-                          <span className={`whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>
-                            {project.name}
-                          </span>
-                          <button
-                            className={`p-1 rounded-md hover:bg-muted transition-all duration-200 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}
-                            title="Edit Project"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setProjectToEdit(project);
-                              setShowProjectDetailPanel(true);
+                          <div
+                            className={`flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm ${currentView === 'board' && currentProject === project.name && currentGroup === group.name ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                            onClick={() => {
+                              setCurrentView('board');
+                              setCurrentGroup(group.name);
+                              setCurrentProject(project.name);
                             }}
                           >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </SortableProjectItem>
-                    ))}
-                  </SortableContext>
-                </div>
-              ))}
-            </DndContext>
+                            <span className="whitespace-nowrap">
+                              {project.name}
+                            </span>
+                            <button
+                              className="p-1 rounded-md hover:bg-muted"
+                              title="Edit Project"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setProjectToEdit(project);
+                                setShowProjectDetailPanel(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </SortableProjectItem>
+                      ))}
+                    </SortableContext>
+                  </div>
+                ))}
+              </DndContext>
+            )}
           </div>
           <div className="mt-auto p-2">
             <button
