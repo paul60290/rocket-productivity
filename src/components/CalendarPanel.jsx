@@ -149,7 +149,7 @@ export default function CalendarPanel({ calendarEvents, setCalendarEvents, isMax
       />
       <Button
         size="icon"
-        className="absolute bottom-4 right-4 z-10 rounded-full h-12 w-12 shadow-lg"
+        className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg md:absolute md:bottom-4 md:right-4 md:h-12 md:w-12"
         onClick={handleFabClick}
         title="Add New Event"
       >

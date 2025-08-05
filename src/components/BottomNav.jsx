@@ -11,18 +11,17 @@ const navItems = [
   { view: 'calendar', icon: CalendarDays, label: 'Calendar' },
 ];
 
-export default function BottomNav({ currentView, onNavigate, onShowCalendar }) {
+export default function BottomNav({ currentView, onNavigate }) {
   return (
     <div className="md:hidden shrink-0 bg-card border-t">
       <div className="flex justify-around items-center h-16">
         {navItems.map((item) => {
-          const isCalendar = item.view === 'calendar';
-          const isActive = !isCalendar && currentView === item.view;
+          const isActive = currentView === item.view;
 
           return (
             <button
               key={item.view}
-              onClick={isCalendar ? onShowCalendar : () => onNavigate(item.view)}
+              onClick={() => onNavigate(item.view)}
               className={cn(
                 "flex flex-1 flex-col items-center justify-center space-y-1 h-full transition-colors",
                 isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'

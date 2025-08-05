@@ -853,16 +853,26 @@ function App() {
   }, [theme]);
 
   // Effect to apply the theme class to the root element for Tailwind
-  const handleShowCalendar = () => {
+  const handleNavigation = (view) => {
     const isMobile = window.innerWidth < 768;
-    // On mobile, the calendar should always open maximized as a full-screen view
-    if (isMobile) {
-      setShowCalendar(true);
-      setIsCalendarMaximized(true);
+
+    if (view === 'calendar') {
+      if (isMobile) {
+        // On mobile, tapping calendar maximizes it and sets the view
+        setShowCalendar(true);
+        setIsCalendarMaximized(true);
+      } else {
+        // On desktop, it's just a toggle
+        setShowCalendar(!showCalendar);
+      }
     } else {
-      // On desktop, it toggles as a side panel
-      setShowCalendar(!showCalendar);
+      // For any other view, set the view and ensure the calendar is closed
+      setShowCalendar(false);
+      setIsCalendarMaximized(false);
     }
+    
+    // Always update the current view so the correct nav item is highlighted
+    setCurrentView(view);
   };
 
   const handleFabClick = () => {
@@ -2410,14 +2420,16 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <Button
-                  variant="outline"
-                  className="h-full w-72 md:w-80 shrink-0 border-dashed"
-                  onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: true })}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Column
-                </Button>
+                <div className="w-72 md:w-80 shrink-0">
+                  <Button
+                    variant="outline"
+                    className="w-full border-dashed"
+                    onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: true })}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Column
+                  </Button>
+                </div>
               )}
             </div>
             <DragOverlay>
@@ -2489,14 +2501,16 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <Button
-                  variant="outline"
-                  className="h-full w-72 md:w-80 shrink-0 border-dashed"
-                  onClick={() => setIsAddingColumn({ ...isAddingColumn, board: true })}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Column
-                </Button>
+                <div className="w-72 md:w-80 shrink-0">
+                  <Button
+                    variant="outline"
+                    className="w-full border-dashed"
+                    onClick={() => setIsAddingColumn({ ...isAddingColumn, board: true })}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Column
+                  </Button>
+                </div>
               )}
             </div>
             <DragOverlay>
@@ -2835,8 +2849,8 @@ function App() {
       {/* The BottomNav is part of the main vertical flex container */}
       <BottomNav
         currentView={currentView}
-        onNavigate={setCurrentView}
-        onShowCalendar={handleShowCalendar}
+        onNavigate={handleNavigation}
+        onShowCalendar={() => handleNavigation('calendar')}
       />
 
       {/* MODALS AND OVERLAYS are now at the top level to float over everything */}
