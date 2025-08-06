@@ -18,8 +18,11 @@ import ProjectDetailPanel from './components/ProjectDetailPanel';
 import SortableProjectItem from './components/SortableProjectItem';
 import BottomNav from './components/BottomNav';
 import FAB from './components/FAB';
+import ListView from './components/ListView';
 import MobileSidebar from './components/MobileSidebar';
+import ViewControls from './components/ViewControls';
 import logoUrl from './assets/logo.svg';
+import useGroupedTasks from './hooks/useGroupedTasks';
 import { auth, db } from './firebase';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -29,7 +32,7 @@ import {
   CalendarPlus, FolderKanban, Settings, LogOut, Clock, Pencil, Trash2,
   Pause, Play, Tag, Bookmark, Network
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -140,7 +143,7 @@ function EditableTitle({ title, onUpdate, className = "" }) {
     </span>
   );
 }
-function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels, allTags = {} }) {
+function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels, allTags = {}, currentView }) {
   // Safety check for column prop
   if (!column) {
     console.error("Column component received undefined column prop");
@@ -205,6 +208,7 @@ function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRen
               onClick={() => onOpenTask(task)}
               availableLabels={availableLabels}
               allTags={allTags}
+              currentView={currentView}
             />
           ))}
         </SortableContext>
@@ -254,21 +258,12 @@ function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRen
 // === SECTION: Task Item Components ===
 
 // 1. Presentational Component (The Visuals)
-const TaskItem = React.forwardRef(({ task, availableLabels, allTags, onComplete, onClick, listeners, ...props }, ref) => {
+const TaskItem = React.forwardRef(({ task, availableLabels, allTags, onComplete, onClick, listeners, className, isDraggable = true, ...props }, ref) => {
   const priorityBorderClasses = {
     1: 'border-l-red-500',
     2: 'border-l-orange-400',
     3: 'border-l-yellow-400',
     4: 'border-l-green-500',
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC'
-    });
   };
 
   const dateInfo = useMemo(() => {
@@ -315,13 +310,15 @@ const TaskItem = React.forwardRef(({ task, availableLabels, allTags, onComplete,
       className={cn(
         "p-3 data-[completed=true]:opacity-60 border-l-4 data-[completed=true]:border-l-border",
         priorityBorderClasses[task.priority] || 'border-l-transparent',
-        props.className
+        className
       )}
     >
       <div className="flex items-start gap-3">
-        <div {...listeners} className="py-1 cursor-grab touch-none text-muted-foreground hover:text-foreground">
-          <GripVertical className="h-5 w-5" />
-        </div>
+        {isDraggable && (
+          <div {...listeners} className="py-1 cursor-grab touch-none text-muted-foreground hover:text-foreground">
+            <GripVertical className="h-5 w-5" />
+          </div>
+        )}
         <Checkbox
           checked={task.completed}
           onCheckedChange={onComplete}
@@ -376,7 +373,10 @@ const TaskItem = React.forwardRef(({ task, availableLabels, allTags, onComplete,
 });
 
 // 2. Sortable Logic Component (The DnD Logic)
-function SortableTask({ task, onComplete, onClick, availableLabels, allTags }) {
+function SortableTask({ task, onComplete, onClick, availableLabels, allTags, currentView }) {
+  // Determine if dragging should be enabled based on the current view.
+  const isDraggable = ['inbox', 'board'].includes(currentView);
+
   const {
     attributes,
     listeners,
@@ -384,109 +384,30 @@ function SortableTask({ task, onComplete, onClick, availableLabels, allTags }) {
     transform,
     transition,
     isDragging
-  } = useSortable({ id: task.id });
+  } = useSortable({ id: task.id, disabled: !isDraggable }); // Disable hook based on view
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0 : 1,
   };
 
   return (
     <TaskItem
       ref={setNodeRef}
       style={style}
-      className={isDragging ? 'opacity-40' : ''}
+      className={isDragging ? 'z-10' : ''}
       task={task}
       availableLabels={availableLabels}
       allTags={allTags}
       onComplete={onComplete}
       onClick={onClick}
       listeners={listeners}
+      isDraggable={isDraggable} // Pass the flag down to show/hide the handle
       {...attributes}
     />
   );
 }
-
-// === SECTION: List View Components ===
-function TaskListItem({ task, onOpenTask, onToggleComplete }) {
-  const priorityBorderClasses = {
-    1: 'border-l-red-500',
-    2: 'border-l-orange-400',
-    3: 'border-l-yellow-400',
-    4: 'border-l-green-500',
-  };
-
-  return (
-    <TableRow
-      key={task.id}
-      data-completed={task.completed}
-      className={cn(
-        "cursor-pointer data-[completed=true]:text-muted-foreground data-[completed=true]:opacity-60 border-l-4 data-[completed=true]:border-l-border",
-        priorityBorderClasses[task.priority] || 'border-l-transparent'
-      )}
-      onClick={() => onOpenTask(task)}
-    >
-      <TableCell>
-        <Checkbox
-          checked={!!task.completed}
-          onCheckedChange={() => onToggleComplete(task)}
-          onClick={(e) => e.stopPropagation()}
-        />
-      </TableCell>
-      <TableCell className="font-medium">
-        <div className={`flex items-center ${task.completed ? 'line-through' : ''}`}>
-          <span>{task.text}</span>
-        </div>
-      </TableCell>
-      <TableCell className={task.completed ? 'line-through' : ''}>{task.column}</TableCell>
-      <TableCell className={task.completed ? 'line-through' : ''}>{task.date}</TableCell>
-    </TableRow>
-  );
-}
-
-function ListView({ tasksByProject, onOpenTask, onToggleComplete, availableLabels }) {
-  if (Object.keys(tasksByProject).length === 0) {
-    return (
-      <div className="p-4">
-        <p className="text-center text-muted-foreground">No tasks for this period.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-4 space-y-8">
-      {Object.entries(tasksByProject).map(([projectName, tasks]) => (
-        <div key={projectName}>
-          <h3 className="text-lg font-semibold mb-2">{projectName}</h3>
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px]"></TableHead> {/* Checkbox column */}
-                  <TableHead>Task Name</TableHead>
-                  <TableHead>Status / Column</TableHead>
-                  <TableHead>Due Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasks.map(task => (
-                  <TaskListItem
-                    key={task.id}
-                    task={task}
-                    onOpenTask={() => onOpenTask(task)}
-                    onToggleComplete={onToggleComplete}
-                    availableLabels={availableLabels}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 
 // === SECTION: Timer Component ===
 function Timer() {
@@ -672,19 +593,23 @@ function App() {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(true);
-  const [viewModes, setViewModes] = useState({});
-  const getViewMode = (viewKey) => {
-    return viewModes[viewKey] || 'board';
+  const [viewOptions, setViewOptions] = useState({});
+
+  const getViewOption = (viewKey, option, defaultValue) => {
+    return viewOptions[viewKey]?.[option] || defaultValue;
   };
 
-  const setViewMode = (viewKey, mode) => {
-    setViewModes(prevModes => ({
-      ...prevModes,
-      [viewKey]: mode
+  const setViewOption = (viewKey, option, value) => {
+    setViewOptions(prevOptions => ({
+      ...prevOptions,
+      [viewKey]: {
+        ...prevOptions[viewKey],
+        [option]: value,
+      },
     }));
   };
 
-
+  const [listFilters, setListFilters] = useState({ labels: [] });
   // State for Data - Initialized as empty. Will be filled from Firestore.
   const [projectData, setProjectData] = useState([]);
   const [projectLabels, setProjectLabels] = useState([]);
@@ -697,6 +622,89 @@ function App() {
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [currentProjectTags, setCurrentProjectTags] = useState([]);
   const [allTags, setAllTags] = useState({});
+
+  const viewKey = currentView === 'board' ? currentProject : currentView;
+
+  // Memoized value for the currently selected project data
+  // This avoids re-calculating on every render and provides a single source of truth
+  const currentProjectData = useMemo(() => {
+    if (!currentGroup || !currentProject) {
+      return null;
+    }
+    return (projectData || []).find(g => g.name === currentGroup)?.projects.find(p => p.name === currentProject);
+  }, [projectData, currentGroup, currentProject]);
+
+  const viewData = useMemo(() => {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    let allTasksForListView = [];
+
+    // Step 1: Gather all tasks relevant to the current view
+    if (currentView === 'today') {
+      allTasksForListView = projectData.flatMap(group =>
+        group.projects.flatMap(project =>
+          Object.values(project.columns).flat().filter(task => {
+            if (!task.date) return false;
+            const dueDate = new Date(`${task.date}T00:00:00Z`);
+            return dueDate.getTime() === today.getTime() || (dueDate < today && !task.completed);
+          }).map(task => ({ ...task, projectId: project.id, projectName: project.name }))
+        )
+      );
+    } else if (['tomorrow', 'thisWeek', 'nextWeek'].includes(currentView)) {
+      const { start, end } = (() => {
+        const now = new Date();
+        now.setUTCHours(0, 0, 0, 0);
+        if (currentView === 'tomorrow') {
+          const tomorrow = new Date(now);
+          tomorrow.setUTCDate(now.getUTCDate() + 1);
+          const tomorrowStr = tomorrow.toISOString().split('T')[0];
+          return { start: tomorrowStr, end: tomorrowStr };
+        }
+        if (currentView === 'thisWeek') {
+          const day = now.getUTCDay();
+          const mondayOffset = day === 0 ? -6 : 1 - day;
+          const weekStart = new Date(now);
+          weekStart.setUTCDate(now.getUTCDate() + mondayOffset);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+          return { start: weekStart.toISOString().split('T')[0], end: weekEnd.toISOString().split('T')[0] };
+        }
+        // nextWeek
+        const day = now.getUTCDay();
+        const mondayOffset = day === 0 ? -6 : 1 - day;
+        const weekStart = new Date(now);
+        weekStart.setUTCDate(now.getUTCDate() + mondayOffset + 7);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+        return { start: weekStart.toISOString().split('T')[0], end: weekEnd.toISOString().split('T')[0] };
+      })();
+      allTasksForListView = projectData.flatMap(group =>
+        group.projects.flatMap(project =>
+          Object.values(project.columns).flat().filter(task =>
+            task.date >= start && task.date <= end
+          ).map(task => ({ ...task, projectId: project.id, projectName: project.name }))
+        )
+      );
+    } else if (currentProjectData) {
+      allTasksForListView = Object.values(currentProjectData.columns || {}).flat();
+    }
+
+    // Step 2: Filter out completed tasks if needed
+    const filteredTasks = allTasksForListView.filter(task => showCompletedTasks || !task.completed);
+
+    // The hook now only returns the raw list. Grouping/sorting is delegated to ListView.
+    // The 'tasksByProject' variable is no longer needed here.
+    return { allTasksForListView: filteredTasks };
+
+  }, [currentView, projectData, showCompletedTasks, currentProjectData]);
+  const { allTasksForListView } = viewData;
+
+  // This logic now lives at the top level, not inside renderContent, to follow the Rules of Hooks.
+  const isGlobalView = ['today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView);
+  const defaultGroupBy = isGlobalView ? 'project' : 'manual';
+  const groupBy = getViewOption(viewKey, 'groupBy', defaultGroupBy);
+  const tasksByProject = useGroupedTasks(allTasksForListView, groupBy, projectData);
 
 
   // State for App Logic
@@ -724,16 +732,8 @@ function App() {
     { view: 'nextWeek', title: 'Next Week', icon: CalendarPlus },
   ];
 
-  const viewKey = currentView === 'board' ? currentProject : currentView;
   const canBeToggled = ['board', 'today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView);
-  // Memoized value for the currently selected project data
-  // This avoids re-calculating on every render and provides a single source of truth
-  const currentProjectData = useMemo(() => {
-    if (!currentGroup || !currentProject) {
-      return null;
-    }
-    return (projectData || []).find(g => g.name === currentGroup)?.projects.find(p => p.name === currentProject);
-  }, [projectData, currentGroup, currentProject]);
+
   useEffect(() => {
     if (currentProjectData && user) {
       const fetchTags = async () => {
@@ -835,7 +835,227 @@ function App() {
     // Show the completion modal
     setShowTimerCompleteModal(true);
   };
+  const renderContent = () => {
+    if (isLoading) {
+      return <div style={{ padding: 20 }}><h2>Loading...</h2></div>;
+    }
 
+    // Get all pre-processed data from our centralized viewData hook
+    const { allTasksForListView } = viewData;
+    const activeTask = activeId ? findTaskById(activeId) : null;
+
+    switch (currentView) {
+      case 'projects':
+        return (
+          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Projects...</h2></div>}>
+            <ProjectsPage
+              projectData={projectData}
+              onSelectProject={(groupName, projectName) => {
+                setCurrentGroup(groupName);
+                setCurrentProject(projectName);
+                setCurrentView('board');
+              }}
+            />
+          </Suspense>
+        );
+      case 'settings':
+        return (
+          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Settings...</h2></div>}>
+            <SettingsPage
+              currentUser={user}
+              onUpdateName={handleUpdateName}
+              initialLabels={projectLabels}
+              initialGroups={projectData.map(g => g.name)}
+              onUpdateLabels={updateLabels}
+              onAddGroup={handleAddGroup}
+              onRenameGroup={handleRenameGroup}
+              onDeleteGroup={handleDeleteGroup}
+              currentTheme={theme}
+              onToggleTheme={toggleTheme}
+              showCompletedTasks={showCompletedTasks}
+              onToggleShowCompletedTasks={handleToggleShowCompletedTasks}
+            />
+          </Suspense>
+        );
+      case 'goals':
+        return <Suspense fallback={<div>Loading...</div>}><GoalsPage /></Suspense>;
+      case 'journal':
+        return (
+          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Journals...</h2></div>}>
+            <JournalsPage onSelectJournal={(id) => { setSelectedJournalId(id); setCurrentView('journalEntry'); }} />
+          </Suspense>
+        );
+      case 'journalEntry':
+        return <Suspense fallback={<div>Loading...</div>}><JournalEntryPage journalId={selectedJournalId} user={user} /></Suspense>;
+
+      case 'today':
+      case 'tomorrow':
+      case 'thisWeek':
+      case 'nextWeek': {
+        const viewTitle = currentView === 'today'
+          ? `Happy ${new Date().toLocaleDateString('en-us', { weekday: 'long' })}, ${user?.displayName || 'Friend'}!`
+          : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim();
+
+
+
+        return (
+          <div className="p-6 space-y-4 h-full flex flex-col">
+            <h1 className="text-2xl font-bold tracking-tight">{viewTitle}</h1>
+            {getViewOption(currentView, 'mode', 'board') === 'board' ? (
+              <div className="flex gap-4 overflow-x-auto flex-1 p-1">
+                {Object.entries(tasksByProject).map(([groupName, tasks]) => (
+                  <Column
+                    key={groupName}
+                    column={{ id: groupName, name: groupName }}
+                    tasks={tasks}
+                    isEditable={false}
+                    onOpenTask={(task) => setModalTask({ ...task })}
+                    onUpdateTask={(col, taskId, updatedTask) => updateTask(tasks[0]?.projectId, taskId, updatedTask)}
+                    availableLabels={projectLabels}
+                    allTags={allTags}
+                    currentView={currentView}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto">
+                <DndContext sensors={sensors} onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleListDragEnd} onDragCancel={() => setActiveId(null)}>
+                  <ListView
+                    tasks={allTasksForListView}
+                    groupBy={getViewOption(viewKey, 'groupBy', 'project')}
+                    projectData={projectData}
+                    availableLabels={projectLabels}
+                    allTags={allTags}
+                    onOpenTask={(task) => setModalTask({ ...task })}
+                    onToggleComplete={(task) => updateTask(task.projectId, task.id, { completed: !task.completed })}
+                    onToggleSubtask={(taskId, subtaskId) => {
+                      const task = allTasksForListView.find(t => t.id === taskId);
+                      if (task) handleToggleSubtask(task.projectId, taskId, subtaskId);
+                    }}
+                    isDraggable={false}
+                  />
+                  <DragOverlay>{activeTask ? <TaskItem task={activeTask} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
+                </DndContext>
+              </div>
+            )}
+          </div>
+        );
+      }
+      case 'inbox':
+        const safeInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns ? inboxTasks : { columnOrder: [{ id: 'Inbox', name: 'Inbox' }], columns: { 'Inbox': [] } };
+        return (
+          <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleInboxDragEnd} onDragCancel={() => setActiveId(null)}>
+            <div className="flex p-4 gap-4 overflow-x-auto overflow-y-hidden h-full">
+              {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
+                <Column key={column.id} column={column}
+                  tasks={(safeInboxTasks.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
+                  onAddTask={(taskData) => addInboxTask(taskData)}
+                  onUpdateTask={handleInboxTaskUpdate}
+                  onOpenTask={(task) => setModalTask({ ...task, isInbox: true })}
+                  onRenameColumn={renameInboxColumn} onDeleteColumn={deleteInboxColumn}
+                  availableLabels={projectLabels} allTags={allTags}
+                  currentView={currentView}
+                />
+              ))}
+              {isAddingColumn.inbox ? (
+                <div className="shrink-0 w-72 md:w-80 p-1 space-y-2 bg-card rounded-lg border">
+                  <Input
+                    value={newColumnName}
+                    onChange={(e) => setNewColumnName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveNewColumn('inbox');
+                      if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, inbox: false });
+                    }}
+                    placeholder="Enter column name..."
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button onClick={() => handleSaveNewColumn('inbox')}>Add column</Button>
+                    <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: false })}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-72 md:w-80 shrink-0">
+                  <Button variant="outline" className="w-full border-dashed" onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: true })}>
+                    <Plus className="mr-2 h-4 w-4" /> Add Column
+                  </Button>
+                </div>
+              )}
+            </div>
+            <DragOverlay>{activeId && findTaskById(activeId) ? <TaskItem task={findTaskById(activeId)} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
+          </DndContext>
+        );
+      default:
+        if (!currentProjectData) {
+          return (
+            <div className="p-6 text-center">
+              <h2 className="text-xl font-semibold">Welcome to Rocket Productivity!</h2>
+              <p className="text-muted-foreground mt-2">Select a project from the sidebar to get started, or create a new one.</p>
+            </div>
+          );
+        }
+
+        return getViewOption(currentProject, 'mode', 'board') === 'board' ? (
+          <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={e => { handleDrop(e); setActiveId(null); }} onDragCancel={() => setActiveId(null)}>
+            <div className="flex p-4 gap-4 overflow-x-auto overflow-y-hidden h-full">
+              {currentProjectData?.columnOrder?.filter(Boolean).map((column) => (
+                <Column key={column.id} column={column}
+                  tasks={(currentProjectData.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
+                  onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
+                  onUpdateTask={(colId, taskId, updatedData) => updateTask(currentProjectData.id, taskId, updatedData)}
+                  onOpenTask={(task) => setModalTask({ ...task, projectId: currentProjectData.id })}
+                  onRenameColumn={renameColumn} onDeleteColumn={deleteColumn}
+                  availableLabels={projectLabels} allTags={allTags}
+                  currentView={currentView}
+                />
+              ))}
+              {isAddingColumn.board ? (
+                <div className="shrink-0 w-72 md:w-80 p-1 space-y-2 bg-card rounded-lg border">
+                  <Input
+                    value={newColumnName}
+                    onChange={(e) => setNewColumnName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveNewColumn('board');
+                      if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, board: false });
+                    }}
+                    placeholder="Enter column name..."
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button onClick={() => handleSaveNewColumn('board')}>Add column</Button>
+                    <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, board: false })}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-72 md:w-80 shrink-0">
+                  <Button variant="outline" className="w-full border-dashed" onClick={() => setIsAddingColumn({ ...isAddingColumn, board: true })}>
+                    <Plus className="mr-2 h-4 w-4" /> Add Column
+                  </Button>
+                </div>
+              )}
+            </div>
+            <DragOverlay>{activeTask ? <TaskItem task={activeTask} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
+          </DndContext>
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            <DndContext sensors={sensors} onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleListDragEnd} onDragCancel={() => setActiveId(null)}>
+              <ListView
+                tasks={allTasksForListView}
+                groupBy={getViewOption(viewKey, 'groupBy', 'manual')}
+                projectData={projectData}
+                availableLabels={projectLabels}
+                allTags={allTags}
+                onOpenTask={(task) => setModalTask({ ...task, projectId: currentProjectData?.id })}
+                onToggleComplete={(task) => updateTask(currentProjectData.id, task.id, { completed: !task.completed })}
+                onToggleSubtask={(taskId, subtaskId) => handleToggleSubtask(currentProjectData.id, taskId, subtaskId)}
+                isDraggable={true}
+              />
+              <DragOverlay>{activeTask ? <TaskItem task={activeTask} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
+            </DndContext>
+          </div>
+        );
+    }
+  };
   // Listen to authentication state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -870,7 +1090,7 @@ function App() {
       setShowCalendar(false);
       setIsCalendarMaximized(false);
     }
-    
+
     // Always update the current view so the correct nav item is highlighted
     setCurrentView(view);
   };
@@ -1466,7 +1686,8 @@ function App() {
       subtasks: taskData.subtasks || [],
       completed: taskData.completed || false,
       column: columnName,
-      projectId: projectId, // Add the project ID here
+      projectId: projectId,
+      order: Date.now(), // Add this line to set a default order
     };
 
     try {
@@ -1493,7 +1714,32 @@ function App() {
       alert("There was an error saving your task.");
     }
   };
+  const handleToggleSubtask = async (projectId, taskId, subtaskId) => {
+    if (!user || !projectId) return;
 
+    let targetTask;
+    let targetProject;
+
+    // Find the task in the projectData state
+    for (const group of projectData) {
+      targetProject = group.projects.find(p => p.id === projectId);
+      if (targetProject) {
+        for (const colId in targetProject.columns) {
+          targetTask = targetProject.columns[colId].find(t => t.id === taskId);
+          if (targetTask) break;
+        }
+      }
+      if (targetTask) break;
+    }
+
+    if (!targetTask || !targetTask.subtasks) return;
+
+    const updatedSubtasks = targetTask.subtasks.map(st =>
+      st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    );
+
+    await updateTask(projectId, taskId, { subtasks: updatedSubtasks });
+  };
   const updateTask = async (projectId, taskId, updatedTaskData) => {
     // --- Start Enhanced Debugging ---
     console.log("--- DEBUGGING updateTask ---");
@@ -1631,6 +1877,30 @@ function App() {
       alert("Failed to save task to inbox.");
       // If the save fails, we can revert to the previous state.
       // For simplicity, we'll log the error, but a production app might revert.
+    }
+  };
+
+  const handleInboxTaskUpdate = async (columnId, taskId, updatedData) => {
+    if (!user) return;
+
+    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
+    let taskUpdated = false;
+
+    const taskIndex = newInboxState.columns[columnId]?.findIndex(t => t.id === taskId);
+
+    if (taskIndex > -1) {
+      // Update the task with the new data
+      newInboxState.columns[columnId][taskIndex] = {
+        ...newInboxState.columns[columnId][taskIndex],
+        ...updatedData
+      };
+      taskUpdated = true;
+    }
+
+    if (taskUpdated) {
+      setInboxTasks(newInboxState);
+      const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+      await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
     }
   };
 
@@ -1852,67 +2122,89 @@ function App() {
 
   const handleDrop = async ({ active, over }) => {
     setActiveId(null);
-    if (!active || !over || !user || !currentProjectData || !currentProjectData.columns) {
-      return;
-    }
+    if (!active || !over || !user || !currentProjectData) return;
 
     const projectId = currentProjectData.id;
     const fromColumnId = findColumnOfTask(active.id, currentProjectData);
 
-    // Determine the destination column. It could be the column itself or a task within a column.
+    // Determine if the drop target is a column or a task within a column
     let toColumnId = over.id;
     if (!currentProjectData.columns[toColumnId]) {
       toColumnId = findColumnOfTask(over.id, currentProjectData);
     }
 
-    if (!fromColumnId || !toColumnId) {
-      return;
+    if (!fromColumnId || !toColumnId) return;
+
+    const batch = writeBatch(db);
+
+    // CASE 1: Reordering within the same column
+    if (fromColumnId === toColumnId) {
+      const columnTasks = [...(currentProjectData.columns[fromColumnId] || [])];
+      const oldIndex = columnTasks.findIndex(t => t.id === active.id);
+      const newIndex = columnTasks.findIndex(t => t.id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+      const reorderedTasks = arrayMove(columnTasks, oldIndex, newIndex);
+
+      // Optimistically update the UI
+      setProjectData(prevData => {
+        const newData = JSON.parse(JSON.stringify(prevData));
+        const project = newData.flatMap(g => g.projects).find(p => p.id === projectId);
+        if (project) {
+          project.columns[fromColumnId] = reorderedTasks;
+        }
+        return newData;
+      });
+
+      // Update order for all tasks in the reordered array in Firestore
+      reorderedTasks.forEach((task, index) => {
+        const taskRef = doc(db, 'users', user.uid, 'projects', projectId, 'tasks', task.id);
+        batch.update(taskRef, { order: index * 1000 });
+      });
+
+    } else {
+      // CASE 2: Moving task to a different column
+      const sourceTasks = [...(currentProjectData.columns[fromColumnId] || [])];
+      let destTasks = [...(currentProjectData.columns[toColumnId] || [])];
+
+      const activeIndex = sourceTasks.findIndex(t => t.id === active.id);
+      if (activeIndex === -1) return;
+
+      const [movedTask] = sourceTasks.splice(activeIndex, 1);
+      movedTask.column = toColumnId;
+
+      let newIndexInDest = destTasks.length; // Default to end of the list
+      const overIndexInDest = destTasks.findIndex(t => t.id === over.id);
+      if (overIndexInDest !== -1) {
+        newIndexInDest = overIndexInDest;
+      }
+      destTasks.splice(newIndexInDest, 0, movedTask);
+
+      // Optimistically update the UI first with the structural change
+      setProjectData(prevData => {
+        const newData = JSON.parse(JSON.stringify(prevData));
+        const project = newData.flatMap(g => g.projects).find(p => p.id === projectId);
+        if (project) {
+          project.columns[fromColumnId] = sourceTasks;
+          project.columns[toColumnId] = destTasks;
+        }
+        return newData;
+      });
+
+      // Now, re-order all tasks in both affected columns and update Firestore
+      const sourceUpdates = sourceTasks.map((task, index) => ({ ref: doc(db, 'users', user.uid, 'projects', projectId, 'tasks', task.id), data: { order: index * 1000 } }));
+      const destUpdates = destTasks.map((task, index) => ({ ref: doc(db, 'users', user.uid, 'projects', projectId, 'tasks', task.id), data: { order: index * 1000 } }));
+
+      const movedTaskUpdateRef = doc(db, 'users', user.uid, 'projects', projectId, 'tasks', active.id);
+      batch.update(movedTaskUpdateRef, { column: toColumnId });
+
+      [...sourceUpdates, ...destUpdates].forEach(update => {
+        batch.update(update.ref, update.data);
+      });
     }
 
-    // Optimistically update local state first
-    setProjectData(prevData => {
-      const newData = JSON.parse(JSON.stringify(prevData));
-      const project = newData.flatMap(g => g.projects).find(p => p.id === projectId);
-
-      if (!project) return prevData; // Return original state if project not found
-
-      const sourceColumnTasks = project.columns[fromColumnId] || [];
-      const taskIndex = sourceColumnTasks.findIndex(t => t.id === active.id);
-
-      if (taskIndex === -1) return prevData; // Return original state if task not found
-
-      // Remove the task from the source column
-      const [movedTask] = sourceColumnTasks.splice(taskIndex, 1);
-      movedTask.column = toColumnId; // Update the task's column property
-
-      // Add the task to the destination column
-      const destinationColumnTasks = project.columns[toColumnId] || [];
-      const overTaskIndex = destinationColumnTasks.findIndex(t => t.id === over.id);
-
-      if (overTaskIndex !== -1) {
-        // Dropped onto another task
-        destinationColumnTasks.splice(overTaskIndex, 0, movedTask);
-      } else {
-        // Dropped onto the column itself
-        destinationColumnTasks.push(movedTask);
-      }
-
-      project.columns[fromColumnId] = sourceColumnTasks;
-      project.columns[toColumnId] = destinationColumnTasks;
-
-      return newData;
-    });
-
-    // Then, update Firestore in the background
-    if (fromColumnId !== toColumnId) {
-      const taskRef = doc(db, 'users', user.uid, 'projects', projectId, 'tasks', active.id);
-      try {
-        await updateDoc(taskRef, { column: toColumnId });
-      } catch (error) {
-        console.error("Failed to update task column in Firestore:", error);
-        // Here you might want to add logic to revert the state change on failure
-      }
-    }
+    await batch.commit();
   };
 
   const deleteColumn = async (columnId) => {
@@ -1991,6 +2283,75 @@ function App() {
     }
   };
   // Helper to find a task object given its id
+  const handleListDragEnd = async (event) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || !user || active.id === over.id) {
+      return;
+    }
+
+    const activeTask = findTaskById(active.id);
+    const overTask = findTaskById(over.id);
+
+    if (!activeTask || !overTask || !activeTask.projectId || activeTask.projectId !== overTask.projectId) {
+      return; // Abort if tasks are invalid or in different projects
+    }
+
+    const projectId = activeTask.projectId;
+    const project = projectData.flatMap(g => g.projects).find(p => p.id === projectId);
+    if (!project) return;
+
+    // Get all tasks for this project in a single, sorted array
+    const allProjectTasks = Object.values(project.columns || {})
+      .flat()
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const oldIndex = allProjectTasks.findIndex(t => t.id === active.id);
+    const newIndex = allProjectTasks.findIndex(t => t.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reorderedTasks = arrayMove(allProjectTasks, oldIndex, newIndex);
+
+    // Identify which tasks need their 'order' property updated
+    const updates = [];
+    reorderedTasks.forEach((task, index) => {
+      const newOrder = index * 1000; // Use stable, spaced-out integer ordering
+      if (task.order !== newOrder) {
+        updates.push({ taskId: task.id, newOrder: newOrder });
+      }
+    });
+
+    // Only proceed if there are actual changes to save
+    if (updates.length === 0) return;
+
+    // Optimistically update the UI
+    setProjectData(prevData => {
+      const newData = JSON.parse(JSON.stringify(prevData));
+      const projectToUpdate = newData.flatMap(g => g.projects).find(p => p.id === projectId);
+      if (projectToUpdate) {
+        updates.forEach(({ taskId, newOrder }) => {
+          for (const colId in projectToUpdate.columns) {
+            const task = projectToUpdate.columns[colId].find(t => t.id === taskId);
+            if (task) {
+              task.order = newOrder;
+              break;
+            }
+          }
+        });
+      }
+      return newData;
+    });
+
+    // Update Firestore in a single batch
+    const batch = writeBatch(db);
+    updates.forEach(({ taskId, newOrder }) => {
+      const taskRef = doc(db, 'users', user.uid, 'projects', projectId, 'tasks', taskId);
+      batch.update(taskRef, { order: newOrder });
+    });
+    await batch.commit();
+  };
   const findTaskById = (taskId) => {
     // Search within projects
     for (const group of projectData) {
@@ -2013,547 +2374,6 @@ function App() {
     return null;
   };
 
-  const renderContent = () => {
-    if (isLoading) {
-      return <div style={{ padding: 20 }}><h2>Loading...</h2></div>;
-    }
-    switch (currentView) {
-      case 'projects':
-        return (
-          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Projects...</h2></div>}>
-            <ProjectsPage
-              projectData={projectData}
-              onSelectProject={(groupName, projectName) => {
-                setCurrentGroup(groupName);
-                setCurrentProject(projectName);
-                setCurrentView('board'); // <-- ADD THIS LINE
-              }}
-            />
-          </Suspense>
-        );
-      case 'settings':
-        return (
-          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Settings...</h2></div>}>
-            <SettingsPage
-              currentUser={user}
-              onUpdateName={handleUpdateName}
-              initialLabels={projectLabels}
-              initialGroups={projectData.map(g => g.name)}
-              onUpdateLabels={updateLabels}
-              onAddGroup={handleAddGroup}
-              onRenameGroup={handleRenameGroup}
-              onDeleteGroup={handleDeleteGroup}
-              currentTheme={theme}
-              onToggleTheme={toggleTheme}
-              showCompletedTasks={showCompletedTasks}
-              onToggleShowCompletedTasks={handleToggleShowCompletedTasks}
-            />
-          </Suspense>
-        );
-      case 'goals':
-        return (
-          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Page...</h2></div>}>
-            <GoalsPage />
-          </Suspense>
-        );
-      case 'journal':
-        return (
-          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Journals...</h2></div>}>
-            <JournalsPage
-              onSelectJournal={(journalId) => {
-                setSelectedJournalId(journalId);
-                setCurrentView('journalEntry');
-              }}
-            />
-          </Suspense>
-        );
-      case 'journalEntry':
-        return (
-          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Entry...</h2></div>}>
-            <JournalEntryPage journalId={selectedJournalId} user={user} />
-          </Suspense>
-        );
-      case 'today': {
-        const getDayName = () => {
-          const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-          return days[new Date().getDay()];
-        };
-        const today = new Date();
-        today.setUTCHours(0, 0, 0, 0); // Set to start of day for accurate comparison
-
-        const tasksByProject = {};
-
-        projectData.forEach(group => {
-          group.projects.forEach(project => {
-            const relevantTasks = Object.values(project.columns).flat().filter(task => {
-              if (!task.date || (task.completed && !showCompletedTasks)) {
-                return false;
-              }
-              const dueDate = new Date(`${task.date}T00:00:00Z`);
-              // Include task if it's due today OR if it's overdue and not completed
-              return dueDate.getTime() === today.getTime() || (dueDate < today && !task.completed);
-            }).map(task => ({ ...task, projectId: project.id })); // Add projectId for context
-
-            if (relevantTasks.length > 0) {
-              if (!tasksByProject[project.name]) {
-                tasksByProject[project.name] = [];
-              }
-              tasksByProject[project.name].push(...relevantTasks);
-            }
-          });
-        });
-
-        // Sort tasks within each project group by priority
-        Object.values(tasksByProject).forEach(list =>
-          list.sort((a, b) => a.priority - b.priority)
-        );
-
-        // This variable is now populated correctly for both list and board views
-        const allTasksForListView = Object.values(tasksByProject).flat();
-
-        return (
-          <div className="p-6 space-y-4 h-full flex flex-col">
-            <h1 className="text-2xl font-bold tracking-tight">
-              Happy {getDayName()}, {user?.displayName || 'Friend'}!
-            </h1>
-            {getViewMode('today') === 'board' ? (
-              <div className="flex gap-4 overflow-x-auto flex-1">
-                {Object.entries(tasksByProject).map(([projectName, tasks]) => (
-                  <Column
-                    key={projectName}
-                    column={{ id: projectName, name: projectName }}
-                    tasks={tasks}
-                    onAddTask={() => { }}
-                    onUpdateTask={(col, taskId, updatedTask) => {
-                      const task = tasks.find(t => t.id === taskId);
-                      if (task && task.projectId) {
-                        updateTask(task.projectId, taskId, updatedTask);
-                      }
-                    }}
-                    onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
-                    isEditable={false}
-                    availableLabels={projectLabels}
-                    allTags={allTags}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto">
-                <ListView
-                  tasksByProject={tasksByProject}
-                  onOpenTask={(task) => setModalTask(task)}
-                  availableLabels={projectLabels}
-                  onToggleComplete={(task) => {
-                    if (task && task.projectId) {
-                      updateTask(task.projectId, task.id, { completed: !task.completed });
-                    }
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        );
-      }
-      case 'tomorrow': {
-        const today = new Date();
-        const tomorrowDate = new Date(new Date().setDate(today.getDate() + 1)).toISOString().split('T')[0];
-        const tasksByProject = {};
-
-        projectData.forEach(group => {
-          group.projects.forEach(project => {
-            Object.values(project.columns).flat().filter(task => showCompletedTasks || !task.completed).forEach(task => {
-              if (task.date === tomorrowDate) {
-                const taskWithProjectId = { ...task, projectId: project.id };
-                if (!tasksByProject[project.name]) {
-                  tasksByProject[project.name] = [];
-                }
-                tasksByProject[project.name].push(taskWithProjectId);
-              }
-            });
-          });
-        });
-
-        Object.values(tasksByProject).forEach(list => list.sort((a, b) => a.priority - b.priority));
-
-        return (
-          <div className="today-view">
-            {getViewMode('tomorrow') === 'board' ? (
-              <div className="today-columns">
-                {Object.entries(tasksByProject).map(([projectName, tasks]) => (
-                  <Column
-                    key={projectName}
-                    column={{ id: projectName, name: projectName }}
-                    tasks={tasks}
-                    onAddTask={() => { }}
-                    onUpdateTask={(col, taskId, updatedTask) => {
-                      const task = tasks.find(t => t.id === taskId);
-                      if (task && task.projectId) {
-                        updateTask(task.projectId, taskId, updatedTask);
-                      }
-                    }}
-                    onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
-                    isEditable={false}
-                    availableLabels={projectLabels}
-                    allTags={allTags}
-                  />
-                ))}
-              </div>
-            ) : (
-              <ListView
-                tasksByProject={tasksByProject}
-                onOpenTask={(task) => setModalTask(task)}
-                availableLabels={projectLabels}
-                onToggleComplete={(task) => {
-                  if (task && task.projectId) {
-                    updateTask(task.projectId, task.id, { completed: !task.completed });
-                  }
-                }}
-              />
-            )}
-          </div>
-        );
-      }
-      case 'thisWeek': {
-        const now = new Date();
-        const day = now.getDay(); // Sunday = 0
-        const mondayOffset = day === 0 ? -6 : 1 - day;
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() + mondayOffset);
-        const weekStartStr = weekStart.toISOString().split('T')[0];
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        const weekEndStr = weekEnd.toISOString().split('T')[0];
-
-        const tasksByProject = {};
-
-        projectData.forEach(group => {
-          group.projects.forEach(project => {
-            Object.values(project.columns).flat().filter(task => showCompletedTasks || !task.completed).forEach(task => {
-              if (task.date >= weekStartStr && task.date <= weekEndStr) {
-                const taskWithProjectId = { ...task, projectId: project.id };
-                if (!tasksByProject[project.name]) {
-                  tasksByProject[project.name] = [];
-                }
-                tasksByProject[project.name].push(taskWithProjectId);
-              }
-            });
-          });
-        });
-
-        Object.values(tasksByProject).forEach(list => list.sort((a, b) => a.priority - b.priority));
-
-        return (
-          <div className="today-view">
-            {getViewMode('thisWeek') === 'board' ? (
-              <div className="today-columns">
-                {Object.entries(tasksByProject).map(([projectName, tasks]) => (
-                  <Column
-                    key={projectName}
-                    column={{ id: projectName, name: projectName }}
-                    tasks={tasks}
-                    onAddTask={() => { }}
-                    onUpdateTask={(col, taskId, updatedTask) => {
-                      const task = tasks.find(t => t.id === taskId);
-                      if (task && task.projectId) {
-                        updateTask(task.projectId, taskId, updatedTask);
-                      }
-                    }}
-                    onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
-                    isEditable={false}
-                    availableLabels={projectLabels}
-                    allTags={allTags}
-                  />
-                ))}
-              </div>
-            ) : (
-              <ListView
-                tasksByProject={tasksByProject}
-                onOpenTask={(task) => setModalTask(task)}
-                availableLabels={projectLabels}
-                onToggleComplete={(task) => {
-                  if (task && task.projectId) {
-                    updateTask(task.projectId, task.id, { completed: !task.completed });
-                  }
-                }}
-              />
-            )}
-          </div>
-        );
-      }
-      case 'nextWeek': {
-        const now = new Date();
-        const day = now.getDay();
-        const mondayOffset = day === 0 ? -6 : 1 - day;
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() + mondayOffset + 7); // next week Monday
-        const weekStartStr = weekStart.toISOString().split('T')[0];
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        const weekEndStr = weekEnd.toISOString().split('T')[0];
-
-        const tasksByProject = {};
-
-        projectData.forEach(group => {
-          group.projects.forEach(project => {
-            Object.values(project.columns).flat().filter(task => showCompletedTasks || !task.completed).forEach(task => {
-              if (task.date >= weekStartStr && task.date <= weekEndStr) {
-                const taskWithProjectId = { ...task, projectId: project.id };
-                if (!tasksByProject[project.name]) {
-                  tasksByProject[project.name] = [];
-                }
-                tasksByProject[project.name].push(taskWithProjectId);
-              }
-            });
-          });
-        });
-
-        Object.values(tasksByProject).forEach(list => list.sort((a, b) => a.priority - b.priority));
-
-        return (
-          <div className="today-view">
-            {getViewMode('nextWeek') === 'board' ? (
-              <div className="today-columns">
-                {Object.entries(tasksByProject).map(([projectName, tasks]) => (
-                  <Column
-                    key={projectName}
-                    column={{ id: projectName, name: projectName }}
-                    tasks={tasks}
-                    onAddTask={() => { }}
-                    onUpdateTask={(col, taskId, updatedTask) => {
-                      const task = tasks.find(t => t.id === taskId);
-                      if (task && task.projectId) {
-                        updateTask(task.projectId, taskId, updatedTask);
-                      }
-                    }}
-                    onOpenTask={(task) => setModalTask({ ...task, projectId: task.projectId })}
-                    isEditable={false}
-                    availableLabels={projectLabels}
-                    allTags={allTags}
-                  />
-                ))}
-              </div>
-            ) : (
-              <ListView
-                tasksByProject={tasksByProject}
-                onOpenTask={(task) => setModalTask(task)}
-                availableLabels={projectLabels}
-                onToggleComplete={(task) => {
-                  if (task && task.projectId) {
-                    updateTask(task.projectId, task.id, { completed: !task.completed });
-                  }
-                }}
-              />
-            )}
-          </div>
-        );
-      }
-      case 'inbox':
-        // The inbox now functions like a mini-project board.
-        // Add defensive checks to ensure inboxTasks has the required structure
-        const safeInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
-          ? inboxTasks
-          : {
-            columnOrder: ['Inbox'],
-            columns: { 'Inbox': [] }
-          };
-
-        return (
-          <DndContext
-            onDragStart={event => setActiveId(event.active.id)}
-            onDragEnd={handleInboxDragEnd}
-            onDragCancel={() => setActiveId(null)}
-          >
-            <div className="flex p-4 gap-4 overflow-x-auto overflow-y-hidden h-full">
-              {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
-                <Column
-                  key={column.id}
-                  column={column}
-                  tasks={(safeInboxTasks.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
-                  onAddTask={(taskData) => addInboxTask(taskData)}
-                  onUpdateTask={async (colId, taskId, updatedTask) => {
-                    const newInboxState = JSON.parse(JSON.stringify(safeInboxTasks));
-                    let taskUpdated = false;
-                    for (const col of newInboxState.columnOrder) {
-                      const taskIndex = newInboxState.columns[col.id].findIndex(t => t.id === taskId);
-                      if (taskIndex > -1) {
-                        newInboxState.columns[col.id][taskIndex] = {
-                          ...newInboxState.columns[col.id][taskIndex],
-                          ...updatedTask
-                        };
-                        taskUpdated = true;
-                        break;
-                      }
-                    }
-
-                    if (taskUpdated) {
-                      setInboxTasks(newInboxState);
-                      const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-                      await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
-                    }
-                  }}
-                  onOpenTask={(task) => {
-                    setModalTask({ ...task, isInbox: true });
-                  }}
-                  onRenameColumn={renameInboxColumn}
-                  onDeleteColumn={deleteInboxColumn}
-                  availableLabels={projectLabels}
-                  allTags={allTags}
-                />
-              ))}
-              {isAddingColumn.inbox ? (
-                <div className="shrink-0 w-72 md:w-80 p-1 space-y-2 bg-card rounded-lg border">
-                  <Input
-                    value={newColumnName}
-                    onChange={(e) => setNewColumnName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveNewColumn('inbox');
-                      if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, inbox: false });
-                    }}
-                    placeholder="Enter column name..."
-                    autoFocus
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button onClick={() => handleSaveNewColumn('inbox')}>Add column</Button>
-                    <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: false })}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-72 md:w-80 shrink-0">
-                  <Button
-                    variant="outline"
-                    className="w-full border-dashed"
-                    onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: true })}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Column
-                  </Button>
-                </div>
-              )}
-            </div>
-            <DragOverlay>
-              {activeId && findTaskById(activeId) ? (
-                <TaskItem
-                  task={findTaskById(activeId)}
-                  availableLabels={projectLabels}
-                  allTags={allTags}
-                />
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        );
-      default:
-        const activeTask = activeId ? findTaskById(activeId) : null;
-
-        if (!currentProjectData) {
-          // If no project is selected, show a welcome/instructional message.
-          return (
-            <div style={{ padding: 20 }}>
-              <h2>Welcome to Rocket Productivity!</h2>
-              <p>Select a project from the sidebar to get started, or create a new one.</p>
-            </div>
-          );
-        }
-
-        return getViewMode(currentProject) === 'board' ? (
-          <DndContext
-            onDragStart={event => setActiveId(event.active.id)}
-            onDragEnd={event => { handleDrop(event); setActiveId(null); }}
-            onDragCancel={() => setActiveId(null)}
-          >
-            <div className="flex p-4 gap-4 overflow-x-auto overflow-y-hidden h-full">
-              {currentProjectData?.columnOrder?.filter(Boolean).map((column) => (
-                <Column
-                  key={column.id}
-                  column={column}
-                  tasks={(currentProjectData.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
-                  onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
-                  onUpdateTask={(columnId, taskId, updatedTask) => {
-                    updateTask(currentProjectData.id, taskId, updatedTask);
-                  }}
-                  onOpenTask={(task) => {
-                    setModalTask({ ...task, projectId: currentProjectData.id });
-                  }}
-                  onRenameColumn={renameColumn}
-                  onDeleteColumn={deleteColumn}
-                  availableLabels={projectLabels}
-                  allTags={allTags}
-                />
-              ))}
-              {isAddingColumn.board ? (
-                <div className="shrink-0 w-72 md:w-80 p-1 space-y-2 bg-card rounded-lg border">
-                  <Input
-                    value={newColumnName}
-                    onChange={(e) => setNewColumnName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveNewColumn('board');
-                      if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, board: false });
-                    }}
-                    placeholder="Enter column name..."
-                    autoFocus
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button onClick={() => handleSaveNewColumn('board')}>Add column</Button>
-                    <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, board: false })}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-72 md:w-80 shrink-0">
-                  <Button
-                    variant="outline"
-                    className="w-full border-dashed"
-                    onClick={() => setIsAddingColumn({ ...isAddingColumn, board: true })}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Column
-                  </Button>
-                </div>
-              )}
-            </div>
-            <DragOverlay>
-              {activeTask ? (
-                <TaskItem
-                  task={activeTask}
-                  availableLabels={projectLabels}
-                  allTags={allTags}
-                />
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-
-        ) : (() => {
-          // Flatten all tasks and then sort them
-          const allTasks = Object.values(currentProjectData.columns || {}).flat().filter(task => showCompletedTasks || !task.completed)
-            .sort((a, b) => {
-              if (a.completed !== b.completed) {
-                return a.completed ? 1 : -1; // Moves completed tasks to the bottom
-              }
-              return a.priority - b.priority; // Then sort by priority
-            });
-
-          // Create the data structure that ListView expects
-          const tasksForListView = { [currentProject]: allTasks };
-
-          return (
-            <ListView
-              tasksByProject={tasksForListView}
-              onOpenTask={(task) => {
-                setModalTask({ ...task, projectId: currentProjectData?.id });
-              }}
-              availableLabels={projectLabels}
-              onToggleComplete={(task) => {
-                if (task && currentProjectData?.id) {
-                  updateTask(currentProjectData.id, task.id, { completed: !task.completed });
-                }
-              }}
-            />
-          );
-        })();
-    }
-  };
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
@@ -2704,20 +2524,51 @@ function App() {
               {canBeToggled && (
                 <div className="hidden md:flex items-center bg-muted p-1 rounded-md">
                   <button
-                    className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewMode(viewKey) === 'board' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
-                    onClick={() => setViewMode(viewKey, 'board')}
+                    className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewOption(viewKey, 'mode', 'board') === 'board' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
+                    onClick={() => setViewOption(viewKey, 'mode', 'board')}
                     title="Board View"
                   >
                     Board
                   </button>
                   <button
-                    className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewMode(viewKey) === 'list' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
-                    onClick={() => setViewMode(viewKey, 'list')}
+                    className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewOption(viewKey, 'mode', 'board') === 'list' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
+                    onClick={() => setViewOption(viewKey, 'mode', 'list')}
                     title="List View"
                   >
                     List
                   </button>
                 </div>
+              )}
+
+              {/* Conditionally render GROUP BY controls based on the current view */}
+              {getViewOption(viewKey, 'mode', 'board') === 'list' && (
+                <>
+                  {/* Controls for Global List Views (Today, This Week, etc.) */}
+                  {['today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView) && (
+                    <ViewControls
+                      groupByOptions={[
+                        { value: 'project', label: 'Project' },
+                        { value: 'priority', label: 'Priority' },
+                        { value: 'dueDate', label: 'Due Date' },
+                      ]}
+                      selectedGroupBy={getViewOption(viewKey, 'groupBy', 'project')}
+                      onGroupByChange={(value) => setViewOption(viewKey, 'groupBy', value)}
+                    />
+                  )}
+                  {/* Controls for Project-Specific List View */}
+                  {currentView === 'board' && (
+                    <ViewControls
+                      groupByOptions={[
+                        { value: 'manual', label: 'Manual' },
+                        { value: 'column', label: 'Column' },
+                        { value: 'priority', label: 'Priority' },
+                        { value: 'dueDate', label: 'Due Date' },
+                      ]}
+                      selectedGroupBy={getViewOption(viewKey, 'groupBy', 'manual')}
+                      onGroupByChange={(value) => setViewOption(viewKey, 'groupBy', value)}
+                    />
+                  )}
+                </>
               )}
 
               {/* Add Task Button */}
@@ -2793,14 +2644,14 @@ function App() {
                       <span>{timerIsRunning ? `Timer: ${formatTime(timerTime)}` : "Timer"}</span>
                     </DropdownMenuItem>
                     {canBeToggled && (
-                      getViewMode(viewKey) === 'board'
+                      getViewOption(viewKey, 'mode', 'board') === 'board'
                         ? (
-                          <DropdownMenuItem onClick={() => setViewMode(viewKey, 'list')}>
+                          <DropdownMenuItem onClick={() => setViewOption(viewKey, 'mode', 'list')}>
                             <span>Switch to List View</span>
                           </DropdownMenuItem>
                         )
                         : (
-                          <DropdownMenuItem onClick={() => setViewMode(viewKey, 'board')}>
+                          <DropdownMenuItem onClick={() => setViewOption(viewKey, 'mode', 'board')}>
                             <span>Switch to Board View</span>
                           </DropdownMenuItem>
                         )
@@ -2942,3 +2793,5 @@ function App() {
 }
 
 export default App;
+
+
