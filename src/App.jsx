@@ -184,7 +184,7 @@ function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRen
   }, [adding]);
 
   return (
-    <div className="flex flex-col w-72 md:w-80 shrink-0 bg-card rounded-lg h-full max-h-full" ref={setNodeRef}>
+    <div className="flex flex-col w-full shrink-0 md:w-80 bg-card rounded-lg h-full max-h-full snap-start p-3" ref={setNodeRef}>
       <div className="flex items-center justify-between p-3 border-b">
         <EditableTitle
           title={column.name} // Display the column's name
@@ -945,7 +945,7 @@ function App() {
         const safeInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns ? inboxTasks : { columnOrder: [{ id: 'Inbox', name: 'Inbox' }], columns: { 'Inbox': [] } };
         return (
           <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleInboxDragEnd} onDragCancel={() => setActiveId(null)}>
-            <div className="flex p-4 gap-4 overflow-x-auto overflow-y-hidden h-full">
+            <div className="flex md:p-4 md:gap-4 overflow-x-auto h-full snap-x snap-mandatory md:snap-none">
               {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
                 <Column key={column.id} column={column}
                   tasks={(safeInboxTasks.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
@@ -997,7 +997,7 @@ function App() {
 
         return getViewOption(currentProject, 'mode', 'board') === 'board' ? (
           <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={e => { handleDrop(e); setActiveId(null); }} onDragCancel={() => setActiveId(null)}>
-            <div className="flex p-4 gap-4 overflow-x-auto overflow-y-hidden h-full">
+            <div className="flex md:p-4 md:gap-4 overflow-x-auto h-full snap-x snap-mandatory md:snap-none">
               {currentProjectData?.columnOrder?.filter(Boolean).map((column) => (
                 <Column key={column.id} column={column}
                   tasks={(currentProjectData.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
@@ -1882,7 +1882,7 @@ function App() {
 
   const handleInboxTaskUpdate = async (columnId, taskId, updatedData) => {
     if (!user) return;
-    
+
 
     const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
     let taskUpdated = false;
