@@ -1882,6 +1882,7 @@ function App() {
 
   const handleInboxTaskUpdate = async (columnId, taskId, updatedData) => {
     if (!user) return;
+    
 
     const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
     let taskUpdated = false;
@@ -1902,6 +1903,15 @@ function App() {
       const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
       await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
     }
+  };
+
+  const handleTagUpdate = (projectId, updatedTag) => {
+    setAllTags(prevAllTags => ({
+      ...prevAllTags,
+      [projectId]: prevAllTags[projectId].map(tag =>
+        tag.id === updatedTag.id ? updatedTag : tag
+      ),
+    }));
   };
 
   const addInboxColumn = async (newColumn) => {
@@ -2732,6 +2742,7 @@ function App() {
               handleSaveProjectEdit(projectToEdit, updatedData)
             }}
             allGroups={(projectData || []).map(g => g.name)}
+            onTagUpdate={handleTagUpdate}
           />
         </Suspense>
       )}

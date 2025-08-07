@@ -1,68 +1,25 @@
-import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
-import { cn } from '@/lib/utils';
+import * as React from "react"
+import * as PopoverPrimitive from "@radix-ui/react-popover"
 
-const PopoverContext = createContext();
+import { cn } from "@/lib/utils"
 
-export function Popover({ children, open, onOpenChange }) {
-  const popoverRef = useRef(null);
+const Popover = PopoverPrimitive.Root
 
-  // Effect to handle clicking outside the popover to close it
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
-        onOpenChange?.(false);
-      }
-    };
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [open, onOpenChange]);
+const PopoverTrigger = PopoverPrimitive.Trigger
 
-  return (
-    <PopoverContext.Provider value={{ open, onOpenChange }}>
-      <div ref={popoverRef} className="relative inline-block text-left">
-        {children}
-      </div>
-    </PopoverContext.Provider>
-  );
-}
-
-export function PopoverTrigger({ children }) {
-  const { onOpenChange } = useContext(PopoverContext);
-  const child = React.Children.only(children);
-
-  // Clone the trigger element (e.g., a Button) and add our onClick handler
-  return React.cloneElement(child, {
-    onClick: (e) => {
-      onOpenChange?.(prev => !prev);
-      child.props.onClick?.(e);
-    },
-  });
-}
-
-export function PopoverContent({ children, className, align = 'center' }) {
-  const { open } = useContext(PopoverContext);
-
-  if (!open) return null;
-
-  const alignmentClasses = {
-    center: 'left-1/2 -translate-x-1/2',
-    start: 'left-0',
-    end: 'right-0',
-  };
-
-  return (
-    <div
+const PopoverContent = React.forwardRef(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
+  <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Content
+      ref={ref}
+      align={align}
+      sideOffset={sideOffset}
       className={cn(
-        "absolute z-50 mt-2 w-auto rounded-md border bg-popover text-popover-foreground shadow-lg outline-none",
-        alignmentClasses[align],
+        "z-50 w-auto rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
         className
       )}
-    >
-      {children}
-    </div>
-  );
-}
+      {...props} />
+  </PopoverPrimitive.Portal>
+))
+PopoverContent.displayName = PopoverPrimitive.Content.displayName
+
+export { Popover, PopoverTrigger, PopoverContent }

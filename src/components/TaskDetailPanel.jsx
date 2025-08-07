@@ -19,6 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { collection, getDocs } from "firebase/firestore";
 
+
 const generateUniqueId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 function SortableSubtask({ subtask, onToggle, onDelete }) {
@@ -204,12 +205,20 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, onMoveTask, a
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="task-priority">Priority</Label>
               <Select value={String(editedTask.priority || '4')} onValueChange={(value) => handleFieldChange('priority', parseInt(value))}>
-                <SelectTrigger id="task-priority"><SelectValue placeholder="Select priority" /></SelectTrigger>
+                <SelectTrigger id="task-priority">
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">1 - Urgent</SelectItem>
-                  <SelectItem value="2">2 - High</SelectItem>
-                  <SelectItem value="3">3 - Medium</SelectItem>
-                  <SelectItem value="4">4 - Low</SelectItem>
+                  {[
+                    { value: "1", label: "1 - Urgent", colorClass: "text-red-500 font-medium" },
+                    { value: "2", label: "2 - High", colorClass: "text-orange-400 font-medium" },
+                    { value: "3", label: "3 - Medium", colorClass: "text-yellow-500 font-medium" },
+                    { value: "4", label: "4 - Low", colorClass: "text-green-500 font-medium" }
+                  ].map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <span className={option.colorClass}>{option.label}</span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -227,7 +236,7 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, onMoveTask, a
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSubtaskDragEnd}>
               <ul className="space-y-1">
                 <SortableContext items={(editedTask.subtasks || []).map(s => s.id)} strategy={verticalListSortingStrategy}>
-                  {(editedTask.subtasks || []).map(subtask => (
+                  {(editedTask.subtasks || []).sort((a, b) => a.completed - b.completed).map(subtask => (
                     <SortableSubtask key={subtask.id} subtask={subtask} onToggle={handleToggleSubtask} onDelete={handleDeleteSubtask} />
                   ))}
                 </SortableContext>
@@ -248,7 +257,11 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, onMoveTask, a
                 <SelectTrigger id="task-label"><SelectValue placeholder="Select a label" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Label</SelectItem>
-                  {availableLabels.map(({ name }) => (<SelectItem key={name} value={name}>{name}</SelectItem>))}
+                  {availableLabels.map((label) => (
+                    <SelectItem key={label.name} value={label.name}>
+                      <span style={{ color: label.color }} className="font-medium">{label.name}</span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -258,7 +271,11 @@ export default function TaskDetailPanel({ task, onClose, onUpdate, onMoveTask, a
                 <SelectTrigger id="task-tag"><SelectValue placeholder="Select a tag" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Tag</SelectItem>
-                  {projectTags.map((tag) => (<SelectItem key={tag.id} value={tag.name}>{tag.name}</SelectItem>))}
+                  {projectTags.map((tag) => (
+                    <SelectItem key={tag.id} value={tag.name}>
+                      <span style={{ color: tag.color }} className="font-medium">{tag.name}</span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

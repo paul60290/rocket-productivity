@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pencil, Trash2, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ColorPicker } from "@/components/ui/ColorPicker";
 
 
 export default function SettingsPage({ currentUser, onUpdateName, initialLabels, initialGroups, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup, currentTheme, onToggleTheme, showCompletedTasks, onToggleShowCompletedTasks }) {
@@ -23,6 +25,7 @@ export default function SettingsPage({ currentUser, onUpdateName, initialLabels,
   const [newLabel, setNewLabel] = useState('');
   const [newGroupName, setNewGroupName] = useState('');
   const [editingGroup, setEditingGroup] = useState({ name: null, newName: '' });
+  const [editingLabelId, setEditingLabelId] = useState(null);
   const [groups, setGroups] = useState(initialGroups);
 
   // This effect ensures that if the groups are updated in App.jsx (e.g., a new project is created with a new group),
@@ -141,30 +144,47 @@ export default function SettingsPage({ currentUser, onUpdateName, initialLabels,
       </CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
-      <div className="space-y-2">
+      <div className="max-h-[300px] overflow-y-auto pr-2 space-y-3">
         {editedLabels.map((label, index) => (
-          <div key={index} className="flex items-center gap-2">
-            <Input
-              type="color"
-              value={label.color}
-              onChange={(e) => {
-                const updated = [...editedLabels];
-                updated[index].color = e.target.value;
-                setEditedLabels(updated);
-              }}
-              className="w-12 h-10 p-1"
-            />
-            <Input
-              placeholder="Label name"
-              value={label.name}
-              onChange={(e) => {
-                const updated = [...editedLabels];
-                updated[index].name = e.target.value;
-                setEditedLabels(updated);
-              }}
-            />
-            <Button variant="ghost" size="icon" onClick={() => removeLabel(label)}>
-              <X className="h-4 w-4" />
+          <div key={index} className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <Popover
+                open={editingLabelId === index}
+                onOpenChange={(isOpen) => setEditingLabelId(isOpen ? index : null)}
+              >
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="h-6 w-6 rounded-full border-2"
+                    style={{ backgroundColor: label.color, borderColor: label.color }}
+                    aria-label={`Change color for label ${label.name}`}
+                  />
+                </PopoverTrigger>
+                <PopoverContent className="w-auto">
+                  <ColorPicker
+                    value={label.color}
+                    onChange={(newColor) => {
+                      const updated = [...editedLabels];
+                      updated[index].color = newColor;
+                      setEditedLabels(updated);
+                      setEditingLabelId(null);
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+              <Input
+                placeholder="Label name"
+                value={label.name}
+                onChange={(e) => {
+                  const updated = [...editedLabels];
+                  updated[index].name = e.target.value;
+                  setEditedLabels(updated);
+                }}
+                className="flex-1"
+              />
+            </div>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLabel(label)}>
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         ))}

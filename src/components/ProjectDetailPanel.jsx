@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { ColorPicker } from "@/components/ui/ColorPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Trash2, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-export default function ProjectDetailPanel({ project, user, db, onClose, onUpdate, allGroups = [] }) {
+export default function ProjectDetailPanel({ project, user, db, onClose, onUpdate, allGroups = [], onTagUpdate }) {
   const [editedProject, setEditedProject] = useState({
     ...project,
     name: project?.name || '',
@@ -62,16 +64,28 @@ export default function ProjectDetailPanel({ project, user, db, onClose, onUpdat
     if (!project || !user) return;
 
     const tagRef = doc(db, 'users', user.uid, 'projects', project.id, 'tags', tagId);
-
+    
     try {
       await updateDoc(tagRef, { color: newColor });
 
-      // Optimistically update the local state
-      setTags(prevTags =>
-        prevTags.map(tag =>
-          tag.id === tagId ? { ...tag, color: newColor } : tag
-        )
-      );
+      // Create the new list of tags for the state update
+      let updatedTag;
+      const newTags = tags.map(tag => {
+        if (tag.id === tagId) {
+          updatedTag = { ...tag, color: newColor };
+          return updatedTag;
+        }
+        return tag;
+      });
+      
+      // Update the local state for this panel
+      setTags(newTags);
+
+      // Notify the parent App component of the change
+      if (updatedTag) {
+        onTagUpdate(project.id, updatedTag);
+      }
+
     } catch (error) {
       console.error("Error updating tag color: ", error);
       alert("Failed to update tag color.");
@@ -127,7 +141,7 @@ export default function ProjectDetailPanel({ project, user, db, onClose, onUpdat
 
   return (
     <Sheet open={!!project} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <SheetContent className="sm:max-w-[550px] sm:w-full w-[90vw] flex flex-col">
+      <SheetContent className="w-full h-full sm:max-w-[660px] sm:w-full sm:h-auto flex flex-col">
         <SheetHeader>
           <SheetTitle>Project Settings</SheetTitle>
           <SheetDescription>
@@ -171,21 +185,35 @@ export default function ProjectDetailPanel({ project, user, db, onClose, onUpdat
 
           <div className="space-y-2">
             <Label>Project Tags</Label>
-            <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2">
+            <div className="max-h-[200px] overflow-y-auto pr-2 space-y-3">
               {tags.map((tag) => (
-                <div key={tag.id} className="flex items-center gap-2">
-                  <Input
-                    type="color"
-                    value={tag.color}
-                    onChange={(e) => handleUpdateTagColor(tag.id, e.target.value)}
-                    className="w-12 h-10 p-1"
-                  />
-                  <Input
-                    value={tag.name}
-                    className="flex-1"
-                    readOnly
-                  />
-                  <Button variant="ghost" size="icon" onClick={() => handleDeleteTag(tag.id)}>
+                <div key={tag.id} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <Popover
+                      open={editingTagId === tag.id}
+                      onOpenChange={(isOpen) => setEditingTagId(isOpen ? tag.id : null)}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="h-6 w-6 rounded-full border-2"
+                          style={{ backgroundColor: tag.color, borderColor: tag.color }}
+                          aria-label={`Change color for tag ${tag.name}`}
+                        />
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto">
+                        <ColorPicker
+                          value={tag.color}
+                          onChange={(newColor) => {
+                            handleUpdateTagColor(tag.id, newColor);
+                            setEditingTagId(null); // Close popover after selection
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <span className="text-sm font-medium">{tag.name}</span>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteTag(tag.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
