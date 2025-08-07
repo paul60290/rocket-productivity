@@ -945,7 +945,7 @@ function App() {
         const safeInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns ? inboxTasks : { columnOrder: [{ id: 'Inbox', name: 'Inbox' }], columns: { 'Inbox': [] } };
         return (
           <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleInboxDragEnd} onDragCancel={() => setActiveId(null)}>
-            <div className="flex md:p-4 md:gap-4 overflow-x-auto h-full snap-x snap-mandatory md:snap-none">
+            <div className="flex md:p-4 md:gap-4 overflow-x-auto h-full snap-x snap-mandatory snap-stop-always md:snap-none">
               {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
                 <Column key={column.id} column={column}
                   tasks={(safeInboxTasks.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
@@ -997,7 +997,7 @@ function App() {
 
         return getViewOption(currentProject, 'mode', 'board') === 'board' ? (
           <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={e => { handleDrop(e); setActiveId(null); }} onDragCancel={() => setActiveId(null)}>
-            <div className="flex md:p-4 md:gap-4 overflow-x-auto h-full snap-x snap-mandatory md:snap-none">
+            <div className="flex md:p-4 md:gap-4 overflow-x-auto h-full snap-x snap-mandatory snap-stop-always md:snap-none">
               {currentProjectData?.columnOrder?.filter(Boolean).map((column) => (
                 <Column key={column.id} column={column}
                   tasks={(currentProjectData.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
