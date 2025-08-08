@@ -721,6 +721,37 @@ function App() {
   const [activeColumnIndex, setActiveColumnIndex] = useState({ inbox: 0, board: 0 });
   const inboxScrollRef = useRef(null);
   const boardScrollRef = useRef(null);
+  // Global paging state (Today/Tomorrow/This Week/Next Week)
+  const [activeGlobalIndex, setActiveGlobalIndex] = useState({
+    today: 0,
+    tomorrow: 0,
+    thisWeek: 0,
+    nextWeek: 0
+  });
+
+  // Global view scroller ref (used by snap + pager)
+  const globalScrollRef = useRef(null);
+
+  // Smoothly scroll Global views to a given page index
+  const goToGlobalPage = (index) => {
+    const el = globalScrollRef.current;
+    if (!el) return;
+    const pageWidth = el.clientWidth || 1;
+    el.scrollTo({ left: index * pageWidth, behavior: 'smooth' });
+  };
+
+  // Update active page for Global views based on scroll position
+  const handleGlobalScroll = () => {
+    const el = globalScrollRef.current;
+    if (!el) return;
+    const pageWidth = el.clientWidth || 1;
+    const i = Math.round(el.scrollLeft / pageWidth);
+    setActiveGlobalIndex(prev => ({
+      ...prev,
+      [currentView]: i
+    }));
+  };
+
 
 
   // State for Timer
@@ -730,12 +761,44 @@ function App() {
   const [timerIsRunning, setTimerIsRunning] = useState(false);
 
   const boardSwipeHandlers = useSwipeable({
-          onSwipedLeft: () => handleSwipe('left', 'board'),
-          onSwipedRight: () => handleSwipe('right', 'board'),
-          preventScrollOnSwipe: true,
-          trackMouse: true
-        });
-        
+    onSwipedLeft: () => handleSwipe('left', 'board'),
+    onSwipedRight: () => handleSwipe('right', 'board'),
+    preventScrollOnSwipe: true,
+    trackMouse: true
+  });
+
+  const inboxSwipeHandlers = useSwipeable({
+    onSwipedLeft: () => handleSwipe('left', 'inbox'),
+    onSwipedRight: () => handleSwipe('right', 'inbox'),
+    preventScrollOnSwipe: true,
+    trackMouse: true
+  });
+
+  // Global views (Today/Tomorrow/This Week/Next Week) page-swipe
+  const globalSwipeHandlers = useSwipeable({
+    onSwipedLeft: () => {
+      const el = globalScrollRef.current;
+      if (!el) return;
+      const w = el.clientWidth || 1;
+      const maxIndex = Math.max(0, Math.ceil(el.scrollWidth / w) - 1);
+      const i = Math.round(el.scrollLeft / w);
+      const next = Math.min(maxIndex, i + 1);
+      el.scrollTo({ left: next * w, behavior: 'smooth' });
+    },
+    onSwipedRight: () => {
+      const el = globalScrollRef.current;
+      if (!el) return;
+      const w = el.clientWidth || 1;
+      const i = Math.round(el.scrollLeft / w);
+      const prev = Math.max(0, i - 1);
+      el.scrollTo({ left: prev * w, behavior: 'smooth' });
+    },
+    preventScrollOnSwipe: true,
+    trackMouse: true
+  });
+
+
+
   const mainNavItems = [
     { view: 'goals', title: 'Goals', icon: Target },
     { view: 'journal', title: 'Journal', icon: BookText },
@@ -915,23 +978,39 @@ function App() {
         return (
           <div className="p-6 space-y-4 h-full flex flex-col">
             <h1 className="text-2xl font-bold tracking-tight">{viewTitle}</h1>
-            {getViewOption(currentView, 'mode', 'board') === 'board' ? (
-              <div className="flex gap-4 overflow-x-auto flex-1 p-1">
+            {getViewOption(currentView, 'mode', 'board') === 'board' ? (<>
+              <div
+                ref={globalScrollRef}
+                {...globalSwipeHandlers}
+                onScroll={handleGlobalScroll}
+                className="flex md:p-4 md:gap-4 overflow-x-auto h-full no-scrollbar snap-x snap-mandatory md:snap-none"
+              >
                 {Object.entries(tasksByProject).map(([groupName, tasks]) => (
-                  <Column
-                    key={groupName}
-                    column={{ id: groupName, name: groupName }}
-                    tasks={tasks}
-                    isEditable={false}
-                    onOpenTask={(task) => setModalTask({ ...task })}
-                    onUpdateTask={(col, taskId, updatedTask) => updateTask(tasks[0]?.projectId, taskId, updatedTask)}
-                    availableLabels={projectLabels}
-                    allTags={allTags}
-                    currentView={currentView}
-                  />
+                  <div key={groupName} className="w-full shrink-0 md:w-80 snap-start">
+                    <Column
+                      column={{ id: groupName, name: groupName }}
+                      tasks={tasks}
+                      isEditable={false}
+                      onOpenTask={(task) => setModalTask({ ...task })}
+                      onUpdateTask={(col, taskId, updatedTask) => updateTask(tasks[0]?.projectId, taskId, updatedTask)}
+                      availableLabels={projectLabels}
+                      allTags={allTags}
+                      currentView={currentView}
+                    />
+                  </div>
                 ))}
-              </div>
+                         </div>
+              {Object.keys(tasksByProject || {}).length > 1 && (
+                <BoardPager
+                  count={Object.keys(tasksByProject || {}).length}
+                  activeIndex={activeGlobalIndex[currentView] || 0}
+                  onDotClick={(index) => goToGlobalPage(index)}
+                />
+              )}
+            </>
             ) : (
+
+
               <div className="flex-1 overflow-y-auto">
                 <DndContext sensors={sensors} onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleListDragEnd} onDragCancel={() => setActiveId(null)}>
                   <ListView
@@ -955,11 +1034,16 @@ function App() {
           </div>
         );
       }
+
       case 'inbox':
         const safeInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns ? inboxTasks : { columnOrder: [{ id: 'Inbox', name: 'Inbox' }], columns: { 'Inbox': [] } };
-        return (
+        return (<>
           <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleInboxDragEnd} onDragCancel={() => setActiveId(null)}>
-            <div ref={inboxScrollRef} className="flex md:p-4 md:gap-4 overflow-x-auto h-full">
+            <div
+              ref={inboxScrollRef}
+              {...inboxSwipeHandlers}
+              className="flex md:p-4 md:gap-4 overflow-x-auto h-full no-scrollbar snap-x snap-mandatory md:snap-none"
+            >
               {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
                 <Column key={column.id} column={column}
                   tasks={(safeInboxTasks.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
@@ -972,7 +1056,7 @@ function App() {
                 />
               ))}
               {isAddingColumn.inbox ? (
-                <div className="shrink-0 w-72 md:w-80 p-1 space-y-2 bg-card rounded-lg border">
+                <div className="flex flex-col w-full shrink-0 md:w-80 p-3 space-y-2 bg-card rounded-lg border snap-start snap-always">
                   <Input
                     value={newColumnName}
                     onChange={(e) => setNewColumnName(e.target.value)}
@@ -989,7 +1073,7 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <div className="w-72 md:w-80 shrink-0">
+                <div className="w-full shrink-0 md:w-80 snap-start snap-always">
                   <Button variant="outline" className="w-full border-dashed" onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: true })}>
                     <Plus className="mr-2 h-4 w-4" /> Add Column
                   </Button>
@@ -998,7 +1082,15 @@ function App() {
             </div>
             <DragOverlay>{activeId && findTaskById(activeId) ? <TaskItem task={findTaskById(activeId)} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
           </DndContext>
+          <BoardPager
+            count={safeInboxTasks?.columnOrder?.length || 0}
+            activeIndex={activeColumnIndex.inbox}
+            onDotClick={(index) => handlePagerDotClick(index, 'inbox')}
+            onAddClick={() => handlePagerAddClick('inbox')}
+          />
+        </>
         );
+
       default:
         if (!currentProjectData) {
           return (
@@ -1009,7 +1101,7 @@ function App() {
           );
         }
 
-                return getViewOption(currentProject, 'mode', 'board') === 'board' ? (
+        return getViewOption(currentProject, 'mode', 'board') === 'board' ? (
           <>
             <div className="relative h-full w-full" {...boardSwipeHandlers}>
               <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={e => { handleDrop(e); setActiveId(null); }} onDragCancel={() => setActiveId(null)}>
@@ -2900,5 +2992,3 @@ function App() {
 }
 
 export default App;
-
-
