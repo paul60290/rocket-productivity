@@ -793,11 +793,10 @@ function App() {
       const prev = Math.max(0, i - 1);
       el.scrollTo({ left: prev * w, behavior: 'smooth' });
     },
-    preventScrollOnSwipe: true,
-    trackMouse: true
+    preventScrollOnSwipe: false,
+    trackMouse: false,
+    touchEventOptions: { passive: true }
   });
-
-
 
   const mainNavItems = [
     { view: 'goals', title: 'Goals', icon: Target },
@@ -979,37 +978,39 @@ function App() {
           <div className="p-6 space-y-4 h-full flex flex-col">
             <h1 className="text-2xl font-bold tracking-tight">{viewTitle}</h1>
             {getViewOption(currentView, 'mode', 'board') === 'board' ? (<>
-              <div
-                ref={globalScrollRef}
-                {...globalSwipeHandlers}
-                onScroll={handleGlobalScroll}
-                className="flex md:p-4 md:gap-4 overflow-x-auto h-full no-scrollbar snap-x snap-mandatory md:snap-none"
-              >
-                {Object.entries(tasksByProject).map(([groupName, tasks]) => (
-                  <div key={groupName} className="w-full shrink-0 md:w-80 snap-start">
-                    <Column
-                      column={{ id: groupName, name: groupName }}
-                      tasks={tasks}
-                      isEditable={false}
-                      onOpenTask={(task) => setModalTask({ ...task })}
-                      onUpdateTask={(col, taskId, updatedTask) => updateTask(tasks[0]?.projectId, taskId, updatedTask)}
-                      availableLabels={projectLabels}
-                      allTags={allTags}
-                      currentView={currentView}
-                    />
+              <div className="-mx-6 md:mx-0 flex-1 min-h-0">
+                <div className="relative h-full w-full" {...globalSwipeHandlers}>
+                  <div
+                    ref={globalScrollRef}
+                    onScroll={handleGlobalScroll}
+                      className="flex md:p-4 md:gap-4 overflow-x-auto h-full no-scrollbar snap-x snap-mandatory md:snap-none touch-pan-x overscroll-x-contain"
+                  >
+                    {Object.entries(tasksByProject).map(([groupName, tasks]) => (
+                      <div key={groupName} className="w-full shrink-0 md:w-80 snap-start">
+                        <Column
+                          column={{ id: groupName, name: groupName }}
+                          tasks={tasks}
+                          isEditable={false}
+                          onOpenTask={(task) => setModalTask({ ...task })}
+                          onUpdateTask={(col, taskId, updatedTask) => updateTask(tasks[0]?.projectId, taskId, updatedTask)}
+                          availableLabels={projectLabels}
+                          allTags={allTags}
+                          currentView={currentView}
+                        />
+                      </div>
+                                      ))}
                   </div>
-                ))}
-                         </div>
-              {Object.keys(tasksByProject || {}).length > 1 && (
-                <BoardPager
-                  count={Object.keys(tasksByProject || {}).length}
-                  activeIndex={activeGlobalIndex[currentView] || 0}
-                  onDotClick={(index) => goToGlobalPage(index)}
-                />
-              )}
+                  {Object.keys(tasksByProject || {}).length > 1 && (
+                    <BoardPager
+                      count={Object.keys(tasksByProject || {}).length}
+                      activeIndex={activeGlobalIndex[currentView] || 0}
+                      onDotClick={(index) => goToGlobalPage(index)}
+                    />
+                  )}
+                </div>
+              </div>
             </>
             ) : (
-
 
               <div className="flex-1 overflow-y-auto">
                 <DndContext sensors={sensors} onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleListDragEnd} onDragCancel={() => setActiveId(null)}>
@@ -1039,46 +1040,55 @@ function App() {
         const safeInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns ? inboxTasks : { columnOrder: [{ id: 'Inbox', name: 'Inbox' }], columns: { 'Inbox': [] } };
         return (<>
           <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleInboxDragEnd} onDragCancel={() => setActiveId(null)}>
-            <div
-              ref={inboxScrollRef}
-              {...inboxSwipeHandlers}
-              className="flex md:p-4 md:gap-4 overflow-x-auto h-full no-scrollbar snap-x snap-mandatory md:snap-none"
-            >
-              {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
-                <Column key={column.id} column={column}
-                  tasks={(safeInboxTasks.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
-                  onAddTask={(taskData) => addInboxTask(taskData)}
-                  onUpdateTask={handleInboxTaskUpdate}
-                  onOpenTask={(task) => setModalTask({ ...task, isInbox: true })}
-                  onRenameColumn={renameInboxColumn} onDeleteColumn={deleteInboxColumn}
-                  availableLabels={projectLabels} allTags={allTags}
-                  currentView={currentView}
-                />
-              ))}
-              {isAddingColumn.inbox ? (
-                <div className="flex flex-col w-full shrink-0 md:w-80 p-3 space-y-2 bg-card rounded-lg border snap-start snap-always">
-                  <Input
-                    value={newColumnName}
-                    onChange={(e) => setNewColumnName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveNewColumn('inbox');
-                      if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, inbox: false });
-                    }}
-                    placeholder="Enter column name..."
-                    autoFocus
+            <div className="relative h-full w-full" {...inboxSwipeHandlers}>
+              <div
+                ref={inboxScrollRef}
+                className="flex md:p-4 md:gap-4 overflow-x-auto h-full no-scrollbar snap-x snap-mandatory md:snap-none"
+              >
+                {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
+                  <Column
+                    key={column.id}
+                    column={column}
+                    tasks={(safeInboxTasks.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
+                    onAddTask={(taskData) => addInboxTask(taskData)}
+                    onUpdateTask={handleInboxTaskUpdate}
+                    onOpenTask={(task) => setModalTask({ ...task, isInbox: true })}
+                    onRenameColumn={renameInboxColumn}
+                    onDeleteColumn={deleteInboxColumn}
+                    availableLabels={projectLabels}
+                    allTags={allTags}
+                    currentView={currentView}
                   />
-                  <div className="flex items-center gap-2">
-                    <Button onClick={() => handleSaveNewColumn('inbox')}>Add column</Button>
-                    <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: false })}>Cancel</Button>
+                ))}
+                {isAddingColumn.inbox ? (
+                  <div className="flex flex-col w-full shrink-0 md:w-80 p-3 space-y-2 bg-card rounded-lg border snap-start">
+                    <Input
+                      value={newColumnName}
+                      onChange={(e) => setNewColumnName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveNewColumn('inbox');
+                        if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, inbox: false });
+                      }}
+                      placeholder="Enter column name..."
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button onClick={() => handleSaveNewColumn('inbox')}>Add column</Button>
+                      <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: false })}>Cancel</Button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="w-full shrink-0 md:w-80 snap-start snap-always">
-                  <Button variant="outline" className="w-full border-dashed" onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: true })}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Column
-                  </Button>
-                </div>
-              )}
+                ) : (
+                  <div className="w-full shrink-0 md:w-80 p-3 snap-start">
+                    <Button
+                      variant="outline"
+                      className="w-full border-dashed"
+                      onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: true })}
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Add Column
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
             <DragOverlay>{activeId && findTaskById(activeId) ? <TaskItem task={findTaskById(activeId)} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
           </DndContext>
