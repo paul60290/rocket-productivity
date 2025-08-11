@@ -2051,29 +2051,34 @@ function App() {
   };
 
   // --- Mobile Swipe Logic ---
-  const handleSwipe = (direction, viewType) => {
-    const isMobile = window.innerWidth < 768;
-    if (!isMobile) return;
+// Allow swiping to the last "Add Column" card by using the scroller's child count
+const getMaxSwipeIndex = (viewType) => {
+  const ref = viewType === 'inbox' ? inboxScrollRef : boardScrollRef;
+  const childCount = ref.current?.children?.length ?? 0;
+  return Math.max(0, childCount - 1);
+};
 
-    const columnOrder = viewType === 'inbox' ? inboxTasks.columnOrder : currentProjectData?.columnOrder;
-    if (!columnOrder || columnOrder.length <= 1) return;
+const handleSwipe = (direction, viewType) => {
+  const isMobile = window.innerWidth < 768;
+  if (!isMobile) return;
 
-    setActiveColumnIndex(prev => {
-      const currentIndex = prev[viewType];
-      let newIndex = currentIndex;
-      if (direction === 'left') { // Swiping left goes to the next column
-        newIndex = Math.min(currentIndex + 1, columnOrder.length - 1);
-      } else if (direction === 'right') { // Swiping right goes to the previous column
-        newIndex = Math.max(currentIndex - 1, 0);
-      }
+  const maxIndex = getMaxSwipeIndex(viewType);
+  if (maxIndex === 0) return;
 
-      // Only update if the index actually changes
-      if (newIndex !== currentIndex) {
-        return { ...prev, [viewType]: newIndex };
-      }
-      return prev;
-    });
-  };
+  setActiveColumnIndex(prev => {
+    const currentIndex = prev[viewType] ?? 0;
+    let newIndex = currentIndex;
+
+    if (direction === 'left') {
+      newIndex = Math.min(currentIndex + 1, maxIndex);
+    } else if (direction === 'right') {
+      newIndex = Math.max(currentIndex - 1, 0);
+    }
+
+    return newIndex !== currentIndex ? { ...prev, [viewType]: newIndex } : prev;
+  });
+};
+
 
   useEffect(() => {
     // This effect runs whenever the active column index changes, triggering the scroll.
