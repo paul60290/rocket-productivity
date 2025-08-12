@@ -33,6 +33,25 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+        <receiver
+    android:name="com.rocket.productivity.widgets.ProjectWidgetProvider"
+    android:enabled="true"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <!-- Our refresh broadcast -->
+        <action android:name="com.rocket.productivity.widgets.ACTION_REFRESH" />
+    </intent-filter>
+
+    <!-- Link to the provider XML we created in res/xml -->
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/widget_project_info" />
+</receiver>
+<activity
+    android:name=".widgets.ProjectWidgetConfigureActivity"
+    android:exported="true"
+    android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 
     <!-- Permissions -->

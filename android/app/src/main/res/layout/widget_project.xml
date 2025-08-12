@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/widget_bg">
+
+
+    <!-- Header row: title + refresh button (we’ll wire later) -->
+    <LinearLayout
+        android:id="@+id/header_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/txt_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Rocket Productivity"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <ImageButton
+            android:id="@+id/btn_refresh"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?android:selectableItemBackgroundBorderless"
+            android:contentDescription="Refresh"
+            android:src="@android:drawable/ic_popup_sync" />
+    </LinearLayout>
+
+    <!-- Selected view / project name -->
+    <TextView
+        android:id="@+id/txt_context"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Today"
+        android:textSize="14sp"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <!-- Simple list placeholder (RemoteViews doesn’t support RecyclerView) -->
+    <LinearLayout
+        android:id="@+id/list_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- We’ll replace these rows dynamically; these are just placeholders -->
+        <TextView
+            android:id="@+id/row1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• Example task A"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:paddingBottom="4dp" />
+
+        <TextView
+            android:id="@+id/row2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• Example task B"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:paddingBottom="4dp" />
+
+        <TextView
+            android:id="@+id/row3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• Example task C"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:paddingBottom="4dp" />
+    </LinearLayout>
+
+    <!-- Footer: tap to open app (we’ll wire later) -->
+    <TextView
+        android:id="@+id/txt_open_app"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Open app →"
+        android:textSize="12sp"
+        android:paddingTop="8dp" />
+
+</LinearLayout>

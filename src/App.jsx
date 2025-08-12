@@ -1,6 +1,7 @@
 // App.jsx
 
 import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
+import { Preferences } from "@capacitor/preferences";
 import { DndContext, DragOverlay, useDroppable, closestCenter, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -701,6 +702,39 @@ function App() {
 
   }, [currentView, projectData, showCompletedTasks, currentProjectData]);
   const { allTasksForListView } = viewData;
+  // === WIDGET SYNC: derive title + top 3 tasks for current view ===
+  const widgetViewTitle = React.useMemo(() => {
+    if (currentView === 'board' && currentProject) return currentProject;
+    return currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim();
+  }, [currentView, currentProject]);
+
+  const visibleTasks = React.useMemo(() => {
+    const list = Array.isArray(allTasksForListView) ? allTasksForListView : [];
+    const sorted = [...list].sort((a, b) => {
+      const ac = !!a.completed, bc = !!b.completed;
+      if (ac !== bc) return ac - bc;                 // incomplete first
+      return (a.priority ?? 999) - (b.priority ?? 999); // lowest priority number first
+    });
+    return sorted.slice(0, 3);
+  }, [allTasksForListView]);
+
+  useEffect(() => {
+    const top3 = visibleTasks.map(t => {
+      const title = (t.text ?? t.title ?? t.name ?? '').toString().trim();
+      return title ? `• ${title}` : '';
+    });
+
+    (async () => {
+      try {
+        await Preferences.set({ key: 'widget.title', value: 'Rocket Productivity' });
+        await Preferences.set({ key: 'widget.context', value: widgetViewTitle });
+        await Preferences.set({ key: 'widget.lines', value: JSON.stringify(top3) });
+      } catch (e) {
+        console.warn('Widget sync failed:', e);
+      }
+    })();
+  }, [widgetViewTitle, visibleTasks]);
+
 
   // This logic now lives at the top level, not inside renderContent, to follow the Rules of Hooks.
   const isGlobalView = ['today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView);
@@ -983,7 +1017,7 @@ function App() {
                   <div
                     ref={globalScrollRef}
                     onScroll={handleGlobalScroll}
-                      className="flex md:p-4 md:gap-4 overflow-x-auto h-full no-scrollbar snap-x snap-mandatory md:snap-none touch-pan-x overscroll-x-contain"
+                    className="flex md:p-4 md:gap-4 overflow-x-auto h-full mobile-no-scrollbar snap-x snap-mandatory md:snap-none touch-pan-x overscroll-x-contain"
                   >
                     {Object.entries(tasksByProject).map(([groupName, tasks]) => (
                       <div key={groupName} className="w-full shrink-0 md:w-80 snap-start">
@@ -998,7 +1032,7 @@ function App() {
                           currentView={currentView}
                         />
                       </div>
-                                      ))}
+                    ))}
                   </div>
                   {Object.keys(tasksByProject || {}).length > 1 && (
                     <BoardPager
@@ -1043,7 +1077,7 @@ function App() {
             <div className="relative h-full w-full" {...inboxSwipeHandlers}>
               <div
                 ref={inboxScrollRef}
-                className="flex md:p-4 md:gap-4 overflow-x-auto h-full no-scrollbar snap-x snap-mandatory md:snap-none"
+                className="flex md:p-4 md:gap-4 overflow-x-auto h-full mobile-no-scrollbar snap-x snap-mandatory md:snap-none"
               >
                 {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
                   <Column
@@ -1115,7 +1149,7 @@ function App() {
           <>
             <div className="relative h-full w-full" {...boardSwipeHandlers}>
               <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={e => { handleDrop(e); setActiveId(null); }} onDragCancel={() => setActiveId(null)}>
-                <div ref={boardScrollRef} className="flex md:p-4 md:gap-4 overflow-x-auto h-full no-scrollbar snap-x snap-mandatory md:snap-none">
+                <div ref={boardScrollRef} className="flex md:p-4 md:gap-4 overflow-x-auto h-full mobile-no-scrollbar snap-x snap-mandatory md:snap-none">
                   {currentProjectData?.columnOrder?.filter(Boolean).map((column) => (
                     <Column key={column.id} column={column}
                       tasks={(currentProjectData.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
@@ -2051,33 +2085,33 @@ function App() {
   };
 
   // --- Mobile Swipe Logic ---
-// Allow swiping to the last "Add Column" card by using the scroller's child count
-const getMaxSwipeIndex = (viewType) => {
-  const ref = viewType === 'inbox' ? inboxScrollRef : boardScrollRef;
-  const childCount = ref.current?.children?.length ?? 0;
-  return Math.max(0, childCount - 1);
-};
+  // Allow swiping to the last "Add Column" card by using the scroller's child count
+  const getMaxSwipeIndex = (viewType) => {
+    const ref = viewType === 'inbox' ? inboxScrollRef : boardScrollRef;
+    const childCount = ref.current?.children?.length ?? 0;
+    return Math.max(0, childCount - 1);
+  };
 
-const handleSwipe = (direction, viewType) => {
-  const isMobile = window.innerWidth < 768;
-  if (!isMobile) return;
+  const handleSwipe = (direction, viewType) => {
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile) return;
 
-  const maxIndex = getMaxSwipeIndex(viewType);
-  if (maxIndex === 0) return;
+    const maxIndex = getMaxSwipeIndex(viewType);
+    if (maxIndex === 0) return;
 
-  setActiveColumnIndex(prev => {
-    const currentIndex = prev[viewType] ?? 0;
-    let newIndex = currentIndex;
+    setActiveColumnIndex(prev => {
+      const currentIndex = prev[viewType] ?? 0;
+      let newIndex = currentIndex;
 
-    if (direction === 'left') {
-      newIndex = Math.min(currentIndex + 1, maxIndex);
-    } else if (direction === 'right') {
-      newIndex = Math.max(currentIndex - 1, 0);
-    }
+      if (direction === 'left') {
+        newIndex = Math.min(currentIndex + 1, maxIndex);
+      } else if (direction === 'right') {
+        newIndex = Math.max(currentIndex - 1, 0);
+      }
 
-    return newIndex !== currentIndex ? { ...prev, [viewType]: newIndex } : prev;
-  });
-};
+      return newIndex !== currentIndex ? { ...prev, [viewType]: newIndex } : prev;
+    });
+  };
 
 
   useEffect(() => {
