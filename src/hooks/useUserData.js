@@ -162,8 +162,8 @@ export default function useUserData() {
     return () => clearTimeout(debounce);
   }, [calendarEvents, user, isLoading]);
 
-  return {
-    user, isLoading,
+    return {
+    user, setUser, isLoading,
     projectData, setProjectData,
     projectLabels, setProjectLabels,
     inboxTasks, setInboxTasks,
@@ -172,4 +172,5 @@ export default function useUserData() {
     theme, setTheme,
     showCompletedTasks, setShowCompletedTasks,
   };
+
 }

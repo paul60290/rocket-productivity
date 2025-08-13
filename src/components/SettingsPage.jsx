@@ -12,7 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ColorPicker } from "@/components/ui/ColorPicker";
 
 
-export default function SettingsPage({ currentUser, onUpdateName, initialLabels, initialGroups, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup, currentTheme, onToggleTheme, showCompletedTasks, onToggleShowCompletedTasks }) {
+export default function SettingsPage({ currentUser, onUpdateName, initialLabels, initialGroups, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup, theme, onThemeChange, showCompletedTasks, onToggleShowCompletedTasks })
+ {
   const [activeTab, setActiveTab] = useState('profile');
   const [userName, setUserName] = useState(currentUser?.displayName || '');
 
@@ -115,9 +116,9 @@ export default function SettingsPage({ currentUser, onUpdateName, initialLabels,
             </CardDescription>
           </div>
           <Switch
-            checked={currentTheme === 'dark'}
-            onCheckedChange={onToggleTheme}
-          />
+  checked={theme === 'dark'}
+  onCheckedChange={onThemeChange}
+/>
         </div>
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div className="space-y-0.5">

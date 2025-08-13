@@ -61,6 +61,8 @@ function MainContent({
     handleRenameGroup,
     handleDeleteGroup,
     toggleTheme,
+    theme,
+    onThemeChange,
     handleToggleShowCompletedTasks,
     onSelectJournal,
     setModalTask,
@@ -128,6 +130,8 @@ function MainContent({
                         onDeleteGroup={handleDeleteGroup}
                         currentTheme={getViewOption('app', 'theme', 'light')}
                         onToggleTheme={toggleTheme}
+                        theme={theme}
+                        onThemeChange={onThemeChange}
                         showCompletedTasks={showCompletedTasks}
                         onToggleShowCompletedTasks={handleToggleShowCompletedTasks}
                     />

@@ -96,7 +96,7 @@ function App() {
   const [modalTask, setModalTask] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+
 
   const [showProjectDetailPanel, setShowProjectDetailPanel] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
@@ -126,7 +126,7 @@ function App() {
       distance: 5,
     },
   }));
-  
+
   const [viewOptions, setViewOptions] = useState({});
 
   const getViewOption = (viewKey, option, defaultValue) => {
@@ -147,17 +147,18 @@ function App() {
   // State for Data - Initialized as empty. Will be filled from Firestore.
   const [currentProjectTags, setCurrentProjectTags] = useState([]);
   const {
-  user, isLoading,
-  projectData, setProjectData,
-  projectLabels, setProjectLabels,
-  inboxTasks, setInboxTasks,
-  calendarEvents, setCalendarEvents,
-  allTags, setAllTags,
-  theme, setTheme,
-  showCompletedTasks, setShowCompletedTasks,
-} = useUserData();
+    user, setUser, isLoading,
+    projectData, setProjectData,
+    projectLabels, setProjectLabels,
+    inboxTasks, setInboxTasks,
+    calendarEvents, setCalendarEvents,
+    allTags, setAllTags,
+    theme, setTheme,
+    showCompletedTasks, setShowCompletedTasks,
+  } = useUserData();
 
-  
+
+
 
   const viewKey = currentView === 'board' ? currentProject : currentView;
 
@@ -386,7 +387,7 @@ function App() {
   }, [currentProjectData, user, db]); // Reruns when the active project changes
 
   // Listen to authentication state changes
-  
+
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -455,7 +456,7 @@ function App() {
       await setDoc(appDataRef, { showCompletedTasks: isChecked }, { merge: true });
     }
   };
-  
+
 
   // --- Authentication Handlers ---
   const handleSignUp = (email, password) => {
@@ -813,7 +814,7 @@ function App() {
         displayName: newName,
       });
       // Optimistically update the local user state to reflect the change immediately
-      setUser({ ...user, displayName: newName });
+      setUser(prev => ({ ...prev, displayName: newName }));
     } catch (error) {
       console.error("Error updating profile:", error);
       alert("Failed to update name.");
@@ -1751,7 +1752,17 @@ function App() {
                     handleAddGroup={handleAddGroup}
                     handleRenameGroup={handleRenameGroup}
                     handleDeleteGroup={handleDeleteGroup}
-                    toggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                    toggleTheme={toggleTheme}
+                    theme={theme}
+                    onThemeChange={async (checked) => {
+                      const newTheme = checked ? 'dark' : 'light';
+                      setTheme(newTheme);
+                      if (user) {
+                        const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
+                        await setDoc(appDataRef, { theme: newTheme }, { merge: true });
+                      }
+                    }}
+
                     handleToggleShowCompletedTasks={handleToggleShowCompletedTasks}
                     onSelectJournal={(id) => { setSelectedJournalId(id); setCurrentView('journalEntry'); }}
                     setModalTask={setModalTask}
