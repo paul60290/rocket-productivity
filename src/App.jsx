@@ -31,6 +31,7 @@ import TopBar from './components/TopBar';
 import DesktopSidebar from './components/DesktopSidebar';
 import { useSwipeable } from 'react-swipeable';
 import { useTimer } from './hooks/useTimer';
+import useUserData from './hooks/useUserData';
 import MainContent from './components/MainContent';
 import logoUrl from './assets/logo.svg';
 import useGroupedTasks from './hooks/useGroupedTasks';
@@ -67,9 +68,10 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged,
   updateProfile
 } from "firebase/auth";
+
+
 import {
   // Firestore
   collection,
@@ -94,7 +96,7 @@ function App() {
   const [modalTask, setModalTask] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState('light'); // Add this line for theme state
+  
 
   const [showProjectDetailPanel, setShowProjectDetailPanel] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
@@ -124,7 +126,7 @@ function App() {
       distance: 5,
     },
   }));
-  const [showCompletedTasks, setShowCompletedTasks] = useState(true);
+  
   const [viewOptions, setViewOptions] = useState({});
 
   const getViewOption = (viewKey, option, defaultValue) => {
@@ -143,17 +145,19 @@ function App() {
 
   const [listFilters, setListFilters] = useState({ labels: [] });
   // State for Data - Initialized as empty. Will be filled from Firestore.
-  const [projectData, setProjectData] = useState([]);
-  const [projectLabels, setProjectLabels] = useState([]);
-  const [inboxTasks, setInboxTasks] = useState({
-    columnOrder: [{ id: 'Inbox', name: 'Inbox' }],
-    columns: {
-      'Inbox': []
-    }
-  });
-  const [calendarEvents, setCalendarEvents] = useState([]);
   const [currentProjectTags, setCurrentProjectTags] = useState([]);
-  const [allTags, setAllTags] = useState({});
+  const {
+  user, isLoading,
+  projectData, setProjectData,
+  projectLabels, setProjectLabels,
+  inboxTasks, setInboxTasks,
+  calendarEvents, setCalendarEvents,
+  allTags, setAllTags,
+  theme, setTheme,
+  showCompletedTasks, setShowCompletedTasks,
+} = useUserData();
+
+  
 
   const viewKey = currentView === 'board' ? currentProject : currentView;
 
@@ -273,8 +277,6 @@ function App() {
 
 
   // State for App Logic
-  const [user, setUser] = useState(null); // Will hold the logged-in user object
-  const [isLoading, setIsLoading] = useState(true); // Used to show loading indicators
   const [activeId, setActiveId] = useState(null); // For drag-and-drop
   const [isCalendarMaximized, setIsCalendarMaximized] = useState(false);
   const [isAddingColumn, setIsAddingColumn] = useState({ inbox: false, board: false });
@@ -384,14 +386,7 @@ function App() {
   }, [currentProjectData, user, db]); // Reruns when the active project changes
 
   // Listen to authentication state changes
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser); // Set user to null if logged out, or user object if logged in
-    });
-
-    // Cleanup subscription on component unmount
-    return () => unsubscribe();
-  }, []);
+  
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -460,170 +455,7 @@ function App() {
       await setDoc(appDataRef, { showCompletedTasks: isChecked }, { merge: true });
     }
   };
-
-  // Fetch all user data when user logs in
-  useEffect(() => {
-    if (user) {
-      const fetchUserData = async () => {
-        setIsLoading(true);
-
-        const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-        const appDataSnap = await getDoc(appDataRef);
-        const appData = appDataSnap.exists() ? appDataSnap.data() : {};
-
-        // --- INBOX MIGRATION LOGIC ---
-        let inboxData = appData.inboxTasks || { columnOrder: [], columns: {} };
-        if (inboxData.columnOrder && inboxData.columnOrder.length > 0 && typeof inboxData.columnOrder[0] === 'string') {
-          const oldColumnNames = [...inboxData.columnOrder];
-          inboxData.columnOrder = oldColumnNames.map(name => ({ id: name, name: name }));
-          const newColumns = {};
-          inboxData.columnOrder.forEach(col => {
-            newColumns[col.id] = (inboxData.columns[col.name] || []).map(task => ({ ...task, column: col.id }));
-          });
-          inboxData.columns = newColumns;
-        }
-        setInboxTasks(inboxData);
-        // --- END INBOX MIGRATION ---
-
-        const calendarEventsRef = collection(db, 'users', user.uid, 'calendarEvents');
-        const calendarEventsSnap = await getDocs(calendarEventsRef);
-        const fetchedCalendarEvents = calendarEventsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setCalendarEvents(fetchedCalendarEvents);
-
-        setProjectLabels(appData.projectLabels || []);
-        const groupOrder = appData.groupOrder || [];
-
-        setTheme(appData.theme || 'light');
-        setShowCompletedTasks(appData.showCompletedTasks !== undefined ? appData.showCompletedTasks : true);
-
-        const projectsCollectionRef = collection(db, 'users', user.uid, 'projects');
-        const projectsSnapshot = await getDocs(projectsCollectionRef);
-        let allProjects = [];
-        const allTagsData = {};
-
-        const projectPromises = projectsSnapshot.docs.map(async (projectDoc) => {
-          const project = { id: projectDoc.id, ...projectDoc.data() };
-
-          // Fetch tasks for the project
-          const tasksCollectionRef = collection(db, 'users', user.uid, 'projects', project.id, 'tasks');
-          const tasksSnapshot = await getDocs(tasksCollectionRef);
-          // Add the projectId to every task object right here
-          const tasks = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), projectId: project.id }));
-
-          // Fetch tags for the project
-          const tagsCollectionRef = collection(db, 'users', user.uid, 'projects', project.id, 'tags');
-          const tagsSnapshot = await getDocs(tagsCollectionRef);
-          allTagsData[project.id] = tagsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-          // --- COLUMN MIGRATION & TASK SORTING ---
-          if (project.columnOrder && project.columnOrder.length > 0 && typeof project.columnOrder[0] === 'string') {
-            const oldColumnNames = [...project.columnOrder];
-            project.columnOrder = oldColumnNames.map(name => ({ id: name, name: name }));
-            const newColumns = {};
-            project.columnOrder.forEach(col => {
-              newColumns[col.id] = (tasks.filter(task => task.column === col.name)).map(task => ({ ...task, column: col.id }));
-            });
-            project.columns = newColumns;
-          } else {
-            const columns = {};
-            (project.columnOrder || []).forEach(col => {
-              columns[col.id] = tasks.filter(task => task.column === col.id);
-            });
-            project.columns = columns;
-          }
-          // --- END MIGRATION ---
-
-          allProjects.push(project);
-        });
-        await Promise.all(projectPromises);
-
-        setAllTags(allTagsData); // Set the new state with all fetched tags
-
-        const groupsMap = {};
-        groupOrder.forEach(groupName => {
-          if (!groupsMap[groupName]) {
-            groupsMap[groupName] = [];
-          }
-        });
-        allProjects.forEach(project => {
-          const groupName = project.group || 'Ungrouped';
-          if (!groupsMap[groupName]) {
-            groupsMap[groupName] = [];
-          }
-          groupsMap[groupName].push(project);
-        });
-        for (const groupName in groupsMap) {
-          groupsMap[groupName].sort((a, b) => (a.order || 0) - (b.order || 0));
-        }
-
-        const finalSortedData = groupOrder.map(groupName => ({
-          name: groupName,
-          projects: groupsMap[groupName] || []
-        }));
-        for (const groupName in groupsMap) {
-          if (!finalSortedData.some(g => g.name === groupName)) {
-            finalSortedData.push({
-              name: groupName,
-              projects: groupsMap[groupName]
-            });
-          }
-        }
-
-        setProjectData(finalSortedData);
-        setIsLoading(false);
-      };
-
-      fetchUserData();
-    } else {
-      setProjectData([]);
-      setProjectLabels([]);
-      setInboxTasks({ columnOrder: [], columns: {} });
-      setCalendarEvents([]);
-      setAllTags({});
-      setCurrentView('today');
-      setCurrentGroup(null);
-      setCurrentProject(null);
-      setIsLoading(false);
-    }
-  }, [user]);
-
-  // This effect syncs local calendar events state with Firestore
-  useEffect(() => {
-    // Don't run on initial load or if the user is not logged in
-    if (isLoading || !user) {
-      return;
-    }
-
-    const syncCalendarEvents = async () => {
-      const calendarEventsRef = collection(db, 'users', user.uid, 'calendarEvents');
-      const querySnapshot = await getDocs(calendarEventsRef);
-      const batch = writeBatch(db);
-
-      // Delete all existing events in Firestore for this user
-      querySnapshot.docs.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-
-      // Add all current local events to the batch
-      calendarEvents.forEach(event => {
-        // Ensure the event has an ID before trying to save it
-        const eventId = event.id || `${Date.now()}-${Math.random()}`;
-        const newEventRef = doc(calendarEventsRef, eventId);
-        batch.set(newEventRef, { ...event, id: eventId });
-      });
-
-      // Commit the batch
-      await batch.commit();
-    };
-
-    // Use a timeout to debounce the sync, preventing rapid writes
-    const debounceSync = setTimeout(() => {
-      syncCalendarEvents();
-    }, 1500); // Wait 1.5 seconds after the last change to sync
-
-    return () => clearTimeout(debounceSync); // Clean up the timeout
-
-  }, [calendarEvents, user, isLoading]);
+  
 
   // --- Authentication Handlers ---
   const handleSignUp = (email, password) => {
