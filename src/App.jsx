@@ -14,6 +14,10 @@ const TaskDetailPanel = lazy(() => import('./components/TaskDetailPanel'));
 const SettingsPage = lazy(() => import('./components/SettingsPage'));
 const ProjectsPage = lazy(() => import('./components/ProjectsPage'));
 import Auth from './Auth';
+import Column from './components/Column';
+import TaskItem from './components/TaskItem';
+import TimerModal from './components/TimerModal';
+import TimerCompleteModal from './components/TimerCompleteModal';
 import NewProjectModal from './components/NewProjectModal';
 import ProjectDetailPanel from './components/ProjectDetailPanel';
 import SortableProjectItem from './components/SortableProjectItem';
@@ -24,6 +28,7 @@ import MobileSidebar from './components/MobileSidebar';
 import ViewControls from './components/ViewControls';
 import BoardPager from './components/BoardPager';
 import { useSwipeable } from 'react-swipeable';
+import { useTimer } from './hooks/useTimer';
 import logoUrl from './assets/logo.svg';
 import useGroupedTasks from './hooks/useGroupedTasks';
 import { auth, db } from './firebase';
@@ -35,12 +40,7 @@ import {
   CalendarPlus, FolderKanban, Settings, LogOut, Clock, Pencil, Trash2,
   Pause, Play, Tag, Bookmark, Network
 } from "lucide-react";
-import { cn, formatDate } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn, formatDate, generateUniqueId } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Input } from "@/components/ui/input";
@@ -80,504 +80,6 @@ import {
   setDoc
 } from "firebase/firestore";
 
-// === SECTION: Utility Functions ===
-const generateUniqueId = () => {
-  // Use crypto.randomUUID if available (modern browsers)
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-
-  // Fallback to timestamp + random string
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${Math.random().toString(36).substr(2, 9)}`;
-};
-
-// === SECTION: Editable Title Component ===
-function EditableTitle({ title, onUpdate, className = "" }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(title);
-  const inputRef = useRef(null);
-
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  const handleSave = () => {
-    if (editValue.trim() && editValue.trim() !== title) {
-      onUpdate(editValue.trim());
-    } else {
-      setEditValue(title);
-    }
-    setIsEditing(false);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      handleSave();
-    } else if (e.key === 'Escape') {
-      setEditValue(title);
-      setIsEditing(false);
-    }
-  };
-
-  if (isEditing) {
-    return (
-      <Input
-        ref={inputRef}
-        type="text"
-        value={editValue}
-        onChange={(e) => setEditValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onBlur={handleSave}
-        className={cn("h-8 p-1", className)}
-      />
-    );
-  }
-
-  return (
-    <span
-      className={cn("cursor-pointer rounded-md px-2 -mx-2", className)}
-      onDoubleClick={() => setIsEditing(true)}
-      title="Double-click to edit"
-    >
-      {title}
-    </span>
-  );
-}
-function Column({ column, tasks = [], onAddTask, onUpdateTask, onOpenTask, onRenameColumn, onDeleteColumn, isEditable = true, availableLabels, allTags = {}, currentView }) {
-  // Safety check for column prop
-  if (!column) {
-    console.error("Column component received undefined column prop");
-    return null;
-  }
-  const [adding, setAdding] = useState(false);
-  const [newTask, setNewTask] = useState('');
-  const inputRef = useRef(null);
-
-  const sortedTasks = Array.isArray(tasks)
-    ? [...tasks].sort((a, b) => {
-      if (a.completed !== b.completed) {
-        return a.completed ? 1 : -1;
-      }
-      return a.priority - b.priority;
-    })
-    : [];
-
-  const { setNodeRef } = useDroppable({ id: column.id });
-
-  const handleAddTask = () => {
-    if (!newTask.trim()) return;
-    const taskData = {
-      text: newTask.trim(),
-      column: column.id, // Use the column's unique ID
-      completed: false,
-      priority: 4,
-    };
-    onAddTask(taskData);
-    setNewTask('');
-    setAdding(false);
-  };
-
-  useEffect(() => {
-    if (adding && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [adding]);
-
-  return (
-    <div className="flex flex-col w-full shrink-0 md:w-80 bg-card rounded-lg h-full max-h-full snap-start p-3" ref={setNodeRef}>
-      <div className="flex items-center justify-between p-3 border-b">
-        <EditableTitle
-          title={column.name} // Display the column's name
-          onUpdate={(newName) => onRenameColumn(column.id, newName)} // Pass the ID and new name on update
-          className="font-semibold"
-        />
-        {isEditable && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDeleteColumn(column.id)}>
-            <X className="h-4 w-4" />
-            <span className="sr-only">Delete column</span>
-          </Button>
-        )}
-      </div>
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        <SortableContext items={sortedTasks.map(task => task.id)} strategy={verticalListSortingStrategy}>
-          {sortedTasks.map((task) => (
-            <SortableTask
-              key={task.id}
-              task={task}
-              onComplete={() => onUpdateTask(column.id, task.id, { completed: !task.completed })}
-              onClick={() => onOpenTask(task)}
-              availableLabels={availableLabels}
-              allTags={allTags}
-              currentView={currentView}
-            />
-          ))}
-        </SortableContext>
-        {isEditable && (
-          adding ? (
-            <div className="p-1 space-y-2">
-              <Card>
-                <CardContent className="p-2">
-                  <Textarea
-                    ref={inputRef}
-                    value={newTask}
-                    onChange={(e) => setNewTask(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleAddTask();
-                      }
-                    }}
-                    placeholder="Task title..."
-                    className="w-full border-none focus-visible:ring-0 resize-none text-sm shadow-none p-1"
-                    autoFocus
-                  />
-                </CardContent>
-              </Card>
-              <div className="flex items-center gap-2">
-                <Button onClick={handleAddTask} className="w-full">Add Task</Button>
-                <Button variant="ghost" size="icon" onClick={() => setAdding(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <button
-              className="flex items-center justify-center w-full p-2 text-sm text-muted-foreground rounded-md hover:bg-accent"
-              onClick={() => setAdding(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              <span>Add Task</span>
-            </button>
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
-// === SECTION: Task Item Components ===
-
-// 1. Presentational Component (The Visuals)
-const TaskItem = React.forwardRef(({ task, availableLabels, allTags, onComplete, onClick, listeners, className, isDraggable = true, ...props }, ref) => {
-  const priorityBorderClasses = {
-    1: 'border-l-red-500',
-    2: 'border-l-orange-400',
-    3: 'border-l-yellow-400',
-    4: 'border-l-green-500',
-  };
-
-  const dateInfo = useMemo(() => {
-    if (!task.date) return { colorClass: '', isVisible: false };
-
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-
-    const tomorrow = new Date(today);
-    tomorrow.setUTCDate(today.getUTCDate() + 1);
-
-    const dueDate = new Date(`${task.date}T00:00:00Z`);
-
-    const isCompleted = task.completed;
-    const isOverdue = dueDate < today && !isCompleted;
-
-    let colorClass = 'text-muted-foreground'; // Default color
-    if (isOverdue) {
-      colorClass = 'text-red-500 font-semibold';
-    } else if (dueDate.getTime() === today.getTime()) {
-      colorClass = 'text-green-600 font-semibold';
-    } else if (dueDate.getTime() === tomorrow.getTime()) {
-      colorClass = 'text-yellow-600 font-semibold';
-    }
-
-    return { colorClass, isVisible: true };
-  }, [task.date, task.completed]);
-
-  const subtaskProgress = useMemo(() => {
-    const subtasks = task.subtasks || [];
-    if (subtasks.length === 0) {
-      return { isVisible: false, text: '' };
-    }
-    const total = subtasks.length;
-    const completed = subtasks.filter(st => st.completed).length;
-    return { isVisible: true, text: `${completed}/${total}` };
-  }, [task.subtasks]);
-
-  return (
-    <Card
-      ref={ref}
-      {...props}
-      data-completed={task.completed}
-      className={cn(
-        "p-3 data-[completed=true]:opacity-60 border-l-4 data-[completed=true]:border-l-border",
-        priorityBorderClasses[task.priority] || 'border-l-transparent',
-        className
-      )}
-    >
-      <div className="flex items-start gap-3">
-        {isDraggable && (
-          <div {...listeners} className="py-1 cursor-grab touch-none text-muted-foreground hover:text-foreground">
-            <GripVertical className="h-5 w-5" />
-          </div>
-        )}
-        <Checkbox
-          checked={task.completed}
-          onCheckedChange={onComplete}
-          onClick={(e) => e.stopPropagation()}
-          className="mt-1"
-        />
-        <div className="flex-1" onClick={onClick}>
-          <p className={`text-sm font-medium leading-tight ${task.completed ? 'line-through' : ''}`}>{task.text}</p>
-          <div className="mt-2 flex items-center flex-wrap gap-x-4 gap-y-2 text-xs">
-            {dateInfo.isVisible && (
-              <div className={cn("flex items-center gap-1.5", dateInfo.colorClass)}>
-                <CalendarDays className="h-4 w-4" />
-                <span>{formatDate(task.date)}</span>
-              </div>
-            )}
-            {subtaskProgress.isVisible && (
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Network className="h-4 w-4" />
-                <span>{subtaskProgress.text}</span>
-              </div>
-            )}
-            {task.label && (() => {
-              const labelInfo = availableLabels?.find(l => l.name === task.label);
-              return labelInfo ? (
-                <div className="flex items-center gap-1.5" style={{ color: labelInfo.color }}>
-                  <Bookmark className="h-4 w-4" />
-                  <span>{labelInfo.name}</span>
-                </div>
-              ) : null;
-            })()}
-            {task.tag && (() => {
-              const projectTags = allTags[task.projectId] || [];
-              const tagInfo = projectTags.find(t => t.name === task.tag);
-              return tagInfo ? (
-                <div className="flex items-center gap-1.5" style={{ color: tagInfo.color }}>
-                  <Tag className="h-4 w-4" />
-                  <span>{tagInfo.name}</span>
-                </div>
-              ) : null;
-            })()}
-            {task.comments?.length > 0 && (
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <MessageSquare className="h-4 w-4" />
-                <span>{task.comments.length}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-});
-
-// 2. Sortable Logic Component (The DnD Logic)
-function SortableTask({ task, onComplete, onClick, availableLabels, allTags, currentView }) {
-  // Determine if dragging should be enabled based on the current view.
-  const isDraggable = ['inbox', 'board'].includes(currentView);
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ id: task.id, disabled: !isDraggable }); // Disable hook based on view
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0 : 1,
-  };
-
-  return (
-    <TaskItem
-      ref={setNodeRef}
-      style={style}
-      className={isDragging ? 'z-10' : ''}
-      task={task}
-      availableLabels={availableLabels}
-      allTags={allTags}
-      onComplete={onComplete}
-      onClick={onClick}
-      listeners={listeners}
-      isDraggable={isDraggable} // Pass the flag down to show/hide the handle
-      {...attributes}
-    />
-  );
-}
-
-// === SECTION: Timer Component ===
-function Timer() {
-  const [time, setTime] = useState(25 * 60); // 25 minutes default
-  const [isRunning, setIsRunning] = useState(false);
-  const [inputTime, setInputTime] = useState(25);
-
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const startTimer = () => {
-    if (time === 0) {
-      setTime(inputTime * 60);
-    }
-    setIsRunning(true);
-  };
-
-  const pauseTimer = () => {
-    setIsRunning(false);
-  };
-
-  const resetTimer = () => {
-    setIsRunning(false);
-    setTime(inputTime * 60);
-  };
-
-  return (
-    <div className="timer">
-      <h3>Timer</h3>
-      <div className="timer-display">{formatTime(time)}</div>
-      <div className="timer-controls">
-        <input
-          type="number"
-          value={inputTime}
-          onChange={(e) => setInputTime(parseInt(e.target.value) || 1)}
-          min="1"
-          max="60"
-          disabled={isRunning}
-        />
-        <span>min</span>
-      </div>
-      <div className="timer-buttons">
-        {!isRunning ? (
-          <button onClick={startTimer}>Start</button>
-        ) : (
-          <button onClick={pauseTimer}>Pause</button>
-        )}
-        <button onClick={resetTimer}>Reset</button>
-      </div>
-    </div>
-  );
-}
-// === SECTION: Timer Modal ===
-function TimerModal({
-  onClose,
-  time,
-  setTime,
-  inputTime,
-  setInputTime,
-  isRunning,
-  onStart,
-  onPause,
-  onResume,
-  onReset,
-  formatTime
-}) {
-  const quickDurations = [5, 10, 15, 25, 30, 60];
-
-  const selectQuickDuration = (minutes) => {
-    if (!isRunning && minutes) {
-      const newTime = parseInt(minutes, 10);
-      setInputTime(newTime);
-      setTime(newTime * 60);
-    }
-  };
-
-  return (
-    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Focus Timer</DialogTitle>
-          <DialogDescription>
-            Select a duration or enter a custom time to begin a focus session.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col items-center justify-center py-8">
-          <p className="text-6xl font-bold font-mono tracking-tighter">
-            {formatTime(time)}
-          </p>
-        </div>
-        <div className="space-y-4">
-          <Label>Quick Select (minutes)</Label>
-          <ToggleGroup
-            type="single"
-            value={String(inputTime)}
-            onValueChange={selectQuickDuration}
-            className="grid grid-cols-6"
-            disabled={isRunning}
-          >
-            {quickDurations.map(duration => (
-              <ToggleGroupItem key={duration} value={String(duration)}>
-                {duration}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
-        <div className="flex items-center gap-2 pt-4">
-          <Label htmlFor="custom-time" className="whitespace-nowrap">
-            Custom:
-          </Label>
-          <Input
-            id="custom-time"
-            type="number"
-            value={inputTime}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10);
-              if (val > 0) {
-                setInputTime(val);
-                if (!isRunning) setTime(val * 60);
-              } else {
-                setInputTime('');
-              }
-            }}
-            min="1"
-            max="120"
-            disabled={isRunning}
-            className="w-24"
-          />
-          <span className="text-sm text-muted-foreground">min</span>
-        </div>
-        <div className="grid grid-cols-2 gap-4 pt-4">
-          {isRunning ? (
-            <Button onClick={onPause} variant="secondary" size="lg">Pause</Button>
-          ) : (
-            <Button onClick={time > 0 && time < inputTime * 60 ? onResume : onStart} size="lg">
-              {time > 0 && time < inputTime * 60 ? 'Resume' : 'Launch'}
-            </Button>
-          )}
-          <Button onClick={onReset} variant="outline" size="lg">Reset</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// === SECTION: Timer Completion Modal ===
-function TimerCompleteModal({ onClose }) {
-  return (
-    <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Time's Up!</DialogTitle>
-          <DialogDescription className="pt-2">
-            Great focus session. Keep up the momentum!
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button onClick={onClose} className="w-full">Done</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 // === SECTION: Main App Component ===
 function App() {
@@ -595,6 +97,30 @@ function App() {
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const {
+    time: timerTime,
+    setTime: setTimerTime,
+    inputTime: timerInputTime,
+    setInputTime: setTimerInputTime,
+    isRunning: timerIsRunning,
+    showTimerModal,
+    setShowTimerModal,
+    showTimerCompleteModal,
+    setShowTimerCompleteModal,
+    formatTime,
+    handleStartTimer,
+    handlePauseTimer,
+    handleResumeTimer,
+    handleResetTimer,
+    handleCancelTimer,
+  } = useTimer();
+  const sensors = useSensors(useSensor(PointerSensor, {
+    // Require the mouse to move by 5 pixels before activating a drag.
+    // This allows single-clicks to be registered correctly.
+    activationConstraint: {
+      distance: 5,
+    },
+  }));
   const [showCompletedTasks, setShowCompletedTasks] = useState(true);
   const [viewOptions, setViewOptions] = useState({});
 
@@ -748,7 +274,6 @@ function App() {
   const [isLoading, setIsLoading] = useState(true); // Used to show loading indicators
   const [activeId, setActiveId] = useState(null); // For drag-and-drop
   const [isCalendarMaximized, setIsCalendarMaximized] = useState(false);
-  const [showTimerCompleteModal, setShowTimerCompleteModal] = useState(false);
   const [isAddingColumn, setIsAddingColumn] = useState({ inbox: false, board: false });
   const [newColumnName, setNewColumnName] = useState('');
   // State and refs for mobile swipeable columns
@@ -789,11 +314,7 @@ function App() {
 
 
   // State for Timer
-  const [showTimerModal, setShowTimerModal] = useState(false);
-  const [timerTime, setTimerTime] = useState(25 * 60);
-  const [timerInputTime, setTimerInputTime] = useState(25);
-  const [timerIsRunning, setTimerIsRunning] = useState(false);
-
+  
   const boardSwipeHandlers = useSwipeable({
     onSwipedLeft: () => handleSwipe('left', 'board'),
     onSwipedRight: () => handleSwipe('right', 'board'),
@@ -858,93 +379,7 @@ function App() {
       setCurrentProjectTags([]);
     }
   }, [currentProjectData, user, db]); // Reruns when the active project changes
-  // --- Timer Logic & Effect ---
-  const timerIntervalRef = useRef(null);
-  const sensors = useSensors(useSensor(PointerSensor, {
-    // Require the mouse to move by 5 pixels before activating a drag.
-    // This allows single-clicks to be registered correctly.
-    activationConstraint: {
-      distance: 5,
-    },
-  }));
-
-  useEffect(() => {
-    if (!timerIsRunning) {
-      clearInterval(timerIntervalRef.current);
-      return;
-    }
-
-    timerIntervalRef.current = setInterval(() => {
-      setTimerTime(prev => {
-        if (prev <= 1) {
-          clearInterval(timerIntervalRef.current);
-          setTimerIsRunning(false);
-          // Call our new, unified handler
-          handleTimerCompletion();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timerIntervalRef.current);
-  }, [timerIsRunning]);
-
-  useEffect(() => {
-    if (showTimerCompleteModal) {
-      document.getElementById('timer-chime')?.play().catch(error => {
-        // This catch block helps diagnose issues if the browser blocks autoplay
-        console.error("Audio playback failed:", error);
-      });
-    }
-  }, [showTimerCompleteModal]);
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleStartTimer = () => {
-    // We use the input time directly to start or restart the timer
-    setTimerTime(timerInputTime * 60);
-    setTimerIsRunning(true);
-    setShowTimerModal(false); // Close modal when timer starts
-  };
-
-  const handlePauseTimer = () => {
-    setTimerIsRunning(false);
-  };
-
-  const handleResumeTimer = () => {
-    setTimerIsRunning(true);
-    setShowTimerModal(false); // Close modal when timer resumes
-  };
-
-  const handleResetTimer = () => {
-    // No need to ask for confirmation, just reset
-    setTimerIsRunning(false);
-    setTimerTime(timerInputTime * 60);
-  };
-
-  const handleCancelTimer = () => {
-    setTimerIsRunning(false);
-    // Reset to default 25 minutes
-    setTimerInputTime(25);
-    setTimerTime(25 * 60);
-  };
-
-  const handleTimerCompletion = () => {
-    // Play the chime
-    const chime = document.getElementById('timer-chime');
-    if (chime) {
-      chime.play().catch(error => {
-        console.error("Audio playback failed on completion:", error);
-      });
-    }
-    // Show the completion modal
-    setShowTimerCompleteModal(true);
-  };
+  
   const renderContent = () => {
     if (isLoading) {
       return <div style={{ padding: 20 }}><h2>Loading...</h2></div>;

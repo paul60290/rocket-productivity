@@ -14,3 +14,13 @@ export const formatDate = (dateStr) => {
     timeZone: 'UTC' // Specify UTC here as well for consistency in formatting.
   });
 };
+
+export const generateUniqueId = () => {
+  // Use crypto.randomUUID if available (modern browsers)
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  // Fallback to timestamp + random string
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${Math.random().toString(36).substr(2, 9)}`;
+};
