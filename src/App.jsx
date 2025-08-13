@@ -27,6 +27,7 @@ import ListView from './components/ListView';
 import MobileSidebar from './components/MobileSidebar';
 import ViewControls from './components/ViewControls';
 import BoardPager from './components/BoardPager';
+import TopBar from './components/TopBar';
 import DesktopSidebar from './components/DesktopSidebar';
 import { useSwipeable } from 'react-swipeable';
 import { useTimer } from './hooks/useTimer';
@@ -1704,7 +1705,7 @@ function App() {
     const projectId = activeTask.projectId;
     const project = projectData.flatMap(g => g.projects).find(p => p.id === projectId);
     if (!project) return;
-    
+
     // Get all tasks for this project, sorted by their current order.
     const allProjectTasks = Object.values(project.columns || {})
       .flat()
@@ -1734,27 +1735,27 @@ function App() {
     // Only update state and Firestore if there are actual changes.
     if (updates.length > 0) {
       // Optimistically update the UI by rebuilding the columns with the newly sorted tasks.
-setProjectData(prevData => {
-    const newData = JSON.parse(JSON.stringify(prevData));
-    const projectToUpdate = newData.flatMap(g => g.projects).find(p => p.id === projectId);
+      setProjectData(prevData => {
+        const newData = JSON.parse(JSON.stringify(prevData));
+        const projectToUpdate = newData.flatMap(g => g.projects).find(p => p.id === projectId);
 
-    if (projectToUpdate) {
-        // Clear out the existing columns
-        for (const colId in projectToUpdate.columns) {
+        if (projectToUpdate) {
+          // Clear out the existing columns
+          for (const colId in projectToUpdate.columns) {
             projectToUpdate.columns[colId] = [];
-        }
+          }
 
-        // Repopulate the columns based on the newly reordered list
-        reorderedTasks.forEach((task, index) => {
+          // Repopulate the columns based on the newly reordered list
+          reorderedTasks.forEach((task, index) => {
             task.order = index * 1000; // Ensure order property is updated
             if (projectToUpdate.columns[task.column]) {
-                projectToUpdate.columns[task.column].push(task);
+              projectToUpdate.columns[task.column].push(task);
             }
-        });
-    }
+          });
+        }
 
-    return newData;
-});
+        return newData;
+      });
 
       // Commit all changes to Firestore at once.
       await batch.commit().catch(err => {
@@ -1835,140 +1836,51 @@ setProjectData(prevData => {
         {/* --- Main Layout: Sidebar + Content --- */}
         <div className="flex flex-1 min-h-0">
           <DesktopSidebar
-  isSidebarCollapsed={isSidebarCollapsed}
-  setIsSidebarCollapsed={setIsSidebarCollapsed}
-  currentView={currentView}
-  setCurrentView={setCurrentView}
-  mainNavItems={mainNavItems}
-  projectData={projectData}
-  currentGroup={currentGroup}
-  currentProject={currentProject}
-  onSelectProject={(groupName, projectName) => {
-    setCurrentGroup(groupName);
-    setCurrentProject(projectName);
-    setCurrentView('board');
-  }}
-  onEditProject={(project) => {
-    setProjectToEdit(project);
-    setShowProjectDetailPanel(true);
-  }}
-  onAddProject={handleAddProject}
-  onLogout={handleLogout}
-/>
+            isSidebarCollapsed={isSidebarCollapsed}
+            setIsSidebarCollapsed={setIsSidebarCollapsed}
+            currentView={currentView}
+            setCurrentView={setCurrentView}
+            mainNavItems={mainNavItems}
+            projectData={projectData}
+            currentGroup={currentGroup}
+            currentProject={currentProject}
+            onSelectProject={(groupName, projectName) => {
+              setCurrentGroup(groupName);
+              setCurrentProject(projectName);
+              setCurrentView('board');
+            }}
+            onEditProject={(project) => {
+              setProjectToEdit(project);
+              setShowProjectDetailPanel(true);
+            }}
+            onAddProject={handleAddProject}
+            onLogout={handleLogout}
+          />
 
           <div className="flex-1 flex flex-col min-h-0 min-w-0">
             {isMobileMenuOpen && <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
-            <div className="w-full shrink-0 px-6 py-4 border-b bg-card flex items-center justify-between">
-              <button className="md:hidden rounded-md p-2 hover:bg-muted" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></svg>}
-              </button>
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const Icon = viewIcons[currentView];
-                  return Icon ? <Icon className="h-6 w-6 text-muted-foreground" /> : null;
-                })()}
-                <h1 className="text-xl font-bold tracking-tight">
-                  {currentView === 'board' && currentProject
-                    ? currentProject
-                    : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim()
-                  }
-                </h1>
-              </div>
-              <div className="flex items-center gap-2">
-                {canBeToggled && (
-                  <div className="hidden md:flex items-center bg-muted p-1 rounded-md">
-                    <button
-                      className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewOption(viewKey, 'mode', 'board') === 'board' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
-                      onClick={() => setViewOption(viewKey, 'mode', 'board')}
-                      title="Board View"
-                    >
-                      Board
-                    </button>
-                    <button
-                      className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewOption(viewKey, 'mode', 'board') === 'list' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
-                      onClick={() => setViewOption(viewKey, 'mode', 'list')}
-                      title="List View"
-                    >
-                      List
-                    </button>
-                  </div>
-                )}
-                {getViewOption(viewKey, 'mode', 'board') === 'list' && (
-                  <>
-                    {['today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView) && (
-                      <ViewControls
-                        groupByOptions={[{ value: 'project', label: 'Project' }, { value: 'priority', label: 'Priority' }, { value: 'dueDate', label: 'Due Date' }]}
-                        selectedGroupBy={getViewOption(viewKey, 'groupBy', 'project')}
-                        onGroupByChange={(value) => setViewOption(viewKey, 'groupBy', value)}
-                      />
-                    )}
-                    {currentView === 'board' && (
-                      <ViewControls
-                        groupByOptions={[{ value: 'manual', label: 'Manual' }, { value: 'column', label: 'Column' }, { value: 'priority', label: 'Priority' }, { value: 'dueDate', label: 'Due Date' }]}
-                        selectedGroupBy={getViewOption(viewKey, 'groupBy', 'manual')}
-                        onGroupByChange={(value) => setViewOption(viewKey, 'groupBy', value)}
-                      />
-                    )}
-                  </>
-                )}
-                {currentView === 'board' && currentProjectData && (
-                  <Button className="hidden md:flex items-center gap-2" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
-                    <Plus className="h-4 w-4" />
-                    <span>Add Task</span>
-                  </Button>
-                )}
-                {!timerIsRunning && timerTime === timerInputTime * 60 ? (
-                  <Button variant="outline" className="hidden md:flex items-center gap-2" onClick={() => setShowTimerModal(true)}>
-                    <Clock className="h-4 w-4" />
-                    <span>Timer</span>
-                  </Button>
-                ) : (
-                  <div className="hidden md:flex items-center gap-1 bg-muted text-muted-foreground px-3 py-1 rounded-md text-sm font-mono">
-                    <span>{formatTime(timerTime)}</span>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={timerIsRunning ? handlePauseTimer : handleResumeTimer}>
-                      {timerIsRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowTimerModal(true)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelTimer}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-                <Button variant="outline" className="hidden md:flex items-center gap-2" onClick={() => {setShowCalendar(!showCalendar);}}>
-                  <Calendar className="h-4 w-4" />
-                  <span>Calendar</span>
-                </Button>
-                <div className="md:hidden">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-5 w-5" />
-                        <span className="sr-only">Open menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {currentView === 'board' && currentProjectData && (
-                        <DropdownMenuItem onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          <span>Add Task</span>
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem onClick={() => setShowTimerModal(true)}>
-                        <Clock className="h-4 w-4 mr-2" />
-                        <span>{timerIsRunning ? `Timer: ${formatTime(timerTime)}` : "Timer"}</span>
-                      </DropdownMenuItem>
-                      {canBeToggled && (
-                        getViewOption(viewKey, 'mode', 'board') === 'board'
-                          ? (<DropdownMenuItem onClick={() => setViewOption(viewKey, 'mode', 'list')}><span>Switch to List View</span></DropdownMenuItem>)
-                          : (<DropdownMenuItem onClick={() => setViewOption(viewKey, 'mode', 'board')}><span>Switch to Board View</span></DropdownMenuItem>)
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </div>
+            <TopBar
+              isMobileMenuOpen={isMobileMenuOpen}
+              setIsMobileMenuOpen={setIsMobileMenuOpen}
+              currentView={currentView}
+              currentProject={currentProject}
+              ViewIcon={viewIcons[currentView]}
+              canBeToggled={canBeToggled}
+              viewKey={viewKey}
+              getViewOption={getViewOption}
+              setViewOption={setViewOption}
+              currentProjectData={currentProjectData}
+              onAddTask={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}
+              timerIsRunning={timerIsRunning}
+              timerTime={timerTime}
+              timerInputTime={timerInputTime}
+              formatTime={formatTime}
+              handlePauseTimer={handlePauseTimer}
+              handleResumeTimer={handleResumeTimer}
+              handleCancelTimer={handleCancelTimer}
+              setShowTimerModal={setShowTimerModal}
+            />
+
             <div className="flex-1 flex min-h-0 min-w-0">
               {!isCalendarMaximized && (
                 <div className="flex-1 overflow-auto min-h-0">
@@ -2044,7 +1956,7 @@ setProjectData(prevData => {
                   <Suspense fallback={<div className="p-4"><h2>Loading Calendar...</h2></div>}>
                     <CalendarPanel
                       isMaximized={isCalendarMaximized}
-                      onToggleMaximize={() => {setIsCalendarMaximized(!isCalendarMaximized);}}
+                      onToggleMaximize={() => { setIsCalendarMaximized(!isCalendarMaximized); }}
                       calendarEvents={calendarEvents}
                       setCalendarEvents={setCalendarEvents}
                     />
@@ -2057,11 +1969,11 @@ setProjectData(prevData => {
         <BottomNav currentView={currentView} onNavigate={handleNavigation} onShowCalendar={() => handleNavigation('calendar')} />
         {isFabVisible && <FAB onClick={handleFabClick} />}
         {modalTask && (<Suspense fallback={<div>Loading...</div>}><TaskDetailPanel task={modalTask} onClose={() => setModalTask(null)} onUpdate={handleTaskUpdate} onMoveTask={moveTask} availableLabels={projectLabels} user={user} db={db} projectColumns={currentProjectData?.columnOrder || []} allProjects={projectData} /></Suspense>)}
-        {showProjectDetailPanel && projectToEdit && (<Suspense fallback={<div>Loading...</div>}><ProjectDetailPanel project={projectToEdit} user={user} db={db} onClose={() => setShowProjectDetailPanel(false)} onUpdate={(updatedData) => {handleSaveProjectEdit(projectToEdit, updatedData)}} allGroups={(projectData || []).map(g => g.name)} onTagUpdate={handleTagUpdate} /></Suspense>)}
+        {showProjectDetailPanel && projectToEdit && (<Suspense fallback={<div>Loading...</div>}><ProjectDetailPanel project={projectToEdit} user={user} db={db} onClose={() => setShowProjectDetailPanel(false)} onUpdate={(updatedData) => { handleSaveProjectEdit(projectToEdit, updatedData) }} allGroups={(projectData || []).map(g => g.name)} onTagUpdate={handleTagUpdate} /></Suspense>)}
         <NewProjectModal show={showNewProjectModal} onClose={() => setShowNewProjectModal(false)} onSave={handleCreateProject} groups={(projectData || []).map(g => g.name)} />
         {showTimerModal && (<TimerModal onClose={() => setShowTimerModal(false)} time={timerTime} setTime={setTimerTime} inputTime={timerInputTime} setInputTime={setTimerInputTime} isRunning={timerIsRunning} onStart={handleStartTimer} onPause={handlePauseTimer} onResume={handleResumeTimer} onReset={handleResetTimer} formatTime={formatTime} />)}
-        {showTimerCompleteModal && (<TimerCompleteModal onClose={() => {const chime = document.getElementById('timer-chime'); if (chime) {chime.pause(); chime.currentTime = 0;} setShowTimerCompleteModal(false); handleResetTimer();}} />)}
-        <MobileSidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} projectData={projectData} onSelectProject={(groupName, projectName) => {setCurrentView('board'); setCurrentGroup(groupName); setCurrentProject(projectName);}} onEditProject={(project) => {setProjectToEdit(project); setShowProjectDetailPanel(true);}} onAddProject={() => setShowNewProjectModal(true)} />
+        {showTimerCompleteModal && (<TimerCompleteModal onClose={() => { const chime = document.getElementById('timer-chime'); if (chime) { chime.pause(); chime.currentTime = 0; } setShowTimerCompleteModal(false); handleResetTimer(); }} />)}
+        <MobileSidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} projectData={projectData} onSelectProject={(groupName, projectName) => { setCurrentView('board'); setCurrentGroup(groupName); setCurrentProject(projectName); }} onEditProject={(project) => { setProjectToEdit(project); setShowProjectDetailPanel(true); }} onAddProject={() => setShowNewProjectModal(true)} />
         <audio id="timer-chime" src={timerChime} preload="auto"></audio>
       </div>
       <DragOverlay>
