@@ -13,7 +13,12 @@ export default function SortableProjectItem(props) {
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ id: props.id });
+  } = useSortable({
+    id: props.id,
+    data: {
+      type: 'project',
+    }
+  });
 
   // This applies the CSS transforms needed to show the item moving.
   const style = {

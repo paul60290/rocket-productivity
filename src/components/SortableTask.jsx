@@ -15,7 +15,14 @@ function SortableTask({ task, onComplete, onClick, availableLabels, allTags, cur
     transform,
     transition,
     isDragging
-  } = useSortable({ id: task.id, disabled: !isDraggable }); // Disable hook based on view
+  } = useSortable({
+    id: task.id,
+    disabled: !isDraggable,
+    data: {
+      type: 'task',
+      task: task,
+    }
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),

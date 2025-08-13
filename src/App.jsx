@@ -29,6 +29,7 @@ import ViewControls from './components/ViewControls';
 import BoardPager from './components/BoardPager';
 import { useSwipeable } from 'react-swipeable';
 import { useTimer } from './hooks/useTimer';
+import MainContent from './components/MainContent';
 import logoUrl from './assets/logo.svg';
 import useGroupedTasks from './hooks/useGroupedTasks';
 import { auth, db } from './firebase';
@@ -314,7 +315,7 @@ function App() {
 
 
   // State for Timer
-  
+
   const boardSwipeHandlers = useSwipeable({
     onSwipedLeft: () => handleSwipe('left', 'board'),
     onSwipedRight: () => handleSwipe('right', 'board'),
@@ -379,288 +380,7 @@ function App() {
       setCurrentProjectTags([]);
     }
   }, [currentProjectData, user, db]); // Reruns when the active project changes
-  
-  const renderContent = () => {
-    if (isLoading) {
-      return <div style={{ padding: 20 }}><h2>Loading...</h2></div>;
-    }
 
-    // Get all pre-processed data from our centralized viewData hook
-    const { allTasksForListView } = viewData;
-    const activeTask = activeId ? findTaskById(activeId) : null;
-
-    switch (currentView) {
-      case 'projects':
-        return (
-          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Projects...</h2></div>}>
-            <ProjectsPage
-              projectData={projectData}
-              onSelectProject={(groupName, projectName) => {
-                setCurrentGroup(groupName);
-                setCurrentProject(projectName);
-                setCurrentView('board');
-              }}
-            />
-          </Suspense>
-        );
-      case 'settings':
-        return (
-          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Settings...</h2></div>}>
-            <SettingsPage
-              currentUser={user}
-              onUpdateName={handleUpdateName}
-              initialLabels={projectLabels}
-              initialGroups={projectData.map(g => g.name)}
-              onUpdateLabels={updateLabels}
-              onAddGroup={handleAddGroup}
-              onRenameGroup={handleRenameGroup}
-              onDeleteGroup={handleDeleteGroup}
-              currentTheme={theme}
-              onToggleTheme={toggleTheme}
-              showCompletedTasks={showCompletedTasks}
-              onToggleShowCompletedTasks={handleToggleShowCompletedTasks}
-            />
-          </Suspense>
-        );
-      case 'goals':
-        return <Suspense fallback={<div>Loading...</div>}><GoalsPage /></Suspense>;
-      case 'journal':
-        return (
-          <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Journals...</h2></div>}>
-            <JournalsPage onSelectJournal={(id) => { setSelectedJournalId(id); setCurrentView('journalEntry'); }} />
-          </Suspense>
-        );
-      case 'journalEntry':
-        return <Suspense fallback={<div>Loading...</div>}><JournalEntryPage journalId={selectedJournalId} user={user} /></Suspense>;
-
-      case 'today':
-      case 'tomorrow':
-      case 'thisWeek':
-      case 'nextWeek': {
-        const viewTitle = currentView === 'today'
-          ? `Happy ${new Date().toLocaleDateString('en-us', { weekday: 'long' })}, ${user?.displayName || 'Friend'}!`
-          : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim();
-
-
-
-        return (
-          <div className="p-6 space-y-4 h-full flex flex-col">
-            <h1 className="text-2xl font-bold tracking-tight">{viewTitle}</h1>
-            {getViewOption(currentView, 'mode', 'board') === 'board' ? (<>
-              <div className="-mx-6 md:mx-0 flex-1 min-h-0">
-                <div className="relative h-full w-full" {...globalSwipeHandlers}>
-                  <div
-                    ref={globalScrollRef}
-                    onScroll={handleGlobalScroll}
-                    className="flex md:p-4 md:gap-4 overflow-x-auto h-full mobile-no-scrollbar snap-x snap-mandatory md:snap-none touch-pan-x overscroll-x-contain"
-                  >
-                    {Object.entries(tasksByProject).map(([groupName, tasks]) => (
-                      <div key={groupName} className="w-full shrink-0 md:w-80 snap-start">
-                        <Column
-                          column={{ id: groupName, name: groupName }}
-                          tasks={tasks}
-                          isEditable={false}
-                          onOpenTask={(task) => setModalTask({ ...task })}
-                          onUpdateTask={(col, taskId, updatedTask) => updateTask(tasks[0]?.projectId, taskId, updatedTask)}
-                          availableLabels={projectLabels}
-                          allTags={allTags}
-                          currentView={currentView}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  {Object.keys(tasksByProject || {}).length > 1 && (
-                    <BoardPager
-                      count={Object.keys(tasksByProject || {}).length}
-                      activeIndex={activeGlobalIndex[currentView] || 0}
-                      onDotClick={(index) => goToGlobalPage(index)}
-                    />
-                  )}
-                </div>
-              </div>
-            </>
-            ) : (
-
-              <div className="flex-1 overflow-y-auto">
-                <DndContext sensors={sensors} onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleListDragEnd} onDragCancel={() => setActiveId(null)}>
-                  <ListView
-                    tasks={allTasksForListView}
-                    groupBy={getViewOption(viewKey, 'groupBy', 'project')}
-                    projectData={projectData}
-                    availableLabels={projectLabels}
-                    allTags={allTags}
-                    onOpenTask={(task) => setModalTask({ ...task })}
-                    onToggleComplete={(task) => updateTask(task.projectId, task.id, { completed: !task.completed })}
-                    onToggleSubtask={(taskId, subtaskId) => {
-                      const task = allTasksForListView.find(t => t.id === taskId);
-                      if (task) handleToggleSubtask(task.projectId, taskId, subtaskId);
-                    }}
-                    isDraggable={false}
-                  />
-                  <DragOverlay>{activeTask ? <TaskItem task={activeTask} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
-                </DndContext>
-              </div>
-            )}
-          </div>
-        );
-      }
-
-      case 'inbox':
-        const safeInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns ? inboxTasks : { columnOrder: [{ id: 'Inbox', name: 'Inbox' }], columns: { 'Inbox': [] } };
-        return (<>
-          <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleInboxDragEnd} onDragCancel={() => setActiveId(null)}>
-            <div className="relative h-full w-full" {...inboxSwipeHandlers}>
-              <div
-                ref={inboxScrollRef}
-                className="flex md:p-4 md:gap-4 overflow-x-auto h-full mobile-no-scrollbar snap-x snap-mandatory md:snap-none"
-              >
-                {safeInboxTasks.columnOrder.filter(Boolean).map((column) => (
-                  <Column
-                    key={column.id}
-                    column={column}
-                    tasks={(safeInboxTasks.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
-                    onAddTask={(taskData) => addInboxTask(taskData)}
-                    onUpdateTask={handleInboxTaskUpdate}
-                    onOpenTask={(task) => setModalTask({ ...task, isInbox: true })}
-                    onRenameColumn={renameInboxColumn}
-                    onDeleteColumn={deleteInboxColumn}
-                    availableLabels={projectLabels}
-                    allTags={allTags}
-                    currentView={currentView}
-                  />
-                ))}
-                {isAddingColumn.inbox ? (
-                  <div className="flex flex-col w-full shrink-0 md:w-80 p-3 space-y-2 bg-card rounded-lg border snap-start">
-                    <Input
-                      value={newColumnName}
-                      onChange={(e) => setNewColumnName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSaveNewColumn('inbox');
-                        if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, inbox: false });
-                      }}
-                      placeholder="Enter column name..."
-                      autoFocus
-                    />
-                    <div className="flex items-center gap-2">
-                      <Button onClick={() => handleSaveNewColumn('inbox')}>Add column</Button>
-                      <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: false })}>Cancel</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-full shrink-0 md:w-80 p-3 snap-start">
-                    <Button
-                      variant="outline"
-                      className="w-full border-dashed"
-                      onClick={() => setIsAddingColumn({ ...isAddingColumn, inbox: true })}
-                    >
-                      <Plus className="mr-2 h-4 w-4" /> Add Column
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-            <DragOverlay>{activeId && findTaskById(activeId) ? <TaskItem task={findTaskById(activeId)} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
-          </DndContext>
-          <BoardPager
-            count={safeInboxTasks?.columnOrder?.length || 0}
-            activeIndex={activeColumnIndex.inbox}
-            onDotClick={(index) => handlePagerDotClick(index, 'inbox')}
-            onAddClick={() => handlePagerAddClick('inbox')}
-          />
-        </>
-        );
-
-      default:
-        if (!currentProjectData) {
-          return (
-            <div className="p-6 text-center">
-              <h2 className="text-xl font-semibold">Welcome to Rocket Productivity!</h2>
-              <p className="text-muted-foreground mt-2">Select a project from the sidebar to get started, or create a new one.</p>
-            </div>
-          );
-        }
-
-        return getViewOption(currentProject, 'mode', 'board') === 'board' ? (
-          <>
-            <div className="relative h-full w-full" {...boardSwipeHandlers}>
-              <DndContext onDragStart={e => setActiveId(e.active.id)} onDragEnd={e => { handleDrop(e); setActiveId(null); }} onDragCancel={() => setActiveId(null)}>
-                <div ref={boardScrollRef} className="flex md:p-4 md:gap-4 overflow-x-auto h-full mobile-no-scrollbar snap-x snap-mandatory md:snap-none">
-                  {currentProjectData?.columnOrder?.filter(Boolean).map((column) => (
-                    <Column key={column.id} column={column}
-                      tasks={(currentProjectData.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
-                      onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
-                      onUpdateTask={(colId, taskId, updatedData) => updateTask(currentProjectData.id, taskId, updatedData)}
-                      onOpenTask={(task) => setModalTask({ ...task, projectId: currentProjectData.id })}
-                      onRenameColumn={renameColumn} onDeleteColumn={deleteColumn}
-                      availableLabels={projectLabels} allTags={allTags}
-                      currentView={currentView}
-                    />
-                  ))}
-                  {isAddingColumn.board ? (
-                    <div className="flex flex-col w-full shrink-0 md:w-80 p-3 space-y-2 bg-card rounded-lg border snap-start">
-                      <Input
-                        value={newColumnName}
-                        onChange={(e) => setNewColumnName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleSaveNewColumn('board');
-                          if (e.key === 'Escape') setIsAddingColumn({ ...isAddingColumn, board: false });
-                        }}
-                        placeholder="Enter column name..."
-                        autoFocus
-                      />
-                      <div className="flex items-center gap-2">
-                        <Button onClick={() => handleSaveNewColumn('board')}>Add column</Button>
-                        <Button variant="ghost" onClick={() => setIsAddingColumn({ ...isAddingColumn, board: false })}>Cancel</Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="w-full shrink-0 md:w-80 p-3 snap-start">
-                      <Button variant="outline" className="w-full border-dashed" onClick={() => setIsAddingColumn({ ...isAddingColumn, board: true })}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Column
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                <DragOverlay>{activeTask ? <TaskItem task={activeTask} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
-              </DndContext>
-            </div>
-            <BoardPager
-              count={currentProjectData?.columnOrder?.length || 0}
-              activeIndex={activeColumnIndex.board}
-              onDotClick={(index) => handlePagerDotClick(index, 'board')}
-              onAddClick={() => handlePagerAddClick('board')}
-            />
-          </>
-        ) : (
-          <div className="flex-1 overflow-y-auto">
-            <ViewControls
-              groupByOptions={[
-                { value: 'manual', label: 'Manual' },
-                { value: 'column', label: 'Column' },
-                { value: 'priority', label: 'Priority' },
-                { value: 'dueDate', label: 'Due Date' },
-              ]}
-              selectedGroupBy={getViewOption(viewKey, 'groupBy', 'manual')}
-              onGroupByChange={(value) => setViewOption(viewKey, 'groupBy', value)}
-            />
-            <DndContext sensors={sensors} onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleListDragEnd} onDragCancel={() => setActiveId(null)}>
-              <ListView
-                tasks={allTasksForListView}
-                groupBy={getViewOption(viewKey, 'groupBy', 'manual')}
-                projectData={projectData}
-                availableLabels={projectLabels}
-                allTags={allTags}
-                onOpenTask={(task) => setModalTask({ ...task, projectId: currentProjectData?.id })}
-                onToggleComplete={(task) => updateTask(currentProjectData.id, task.id, { completed: !task.completed })}
-                onToggleSubtask={(taskId, subtaskId) => handleToggleSubtask(currentProjectData.id, taskId, subtaskId)}
-                isDraggable={true}
-              />
-              <DragOverlay>{activeTask ? <TaskItem task={activeTask} availableLabels={projectLabels} allTags={allTags} /> : null}</DragOverlay>
-            </DndContext>
-          </div>
-        );
-    }
-  };
   // Listen to authentication state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -1976,15 +1696,15 @@ function App() {
     const activeTask = findTaskById(active.id);
     const overTask = findTaskById(over.id);
 
-    if (!activeTask || !overTask || !activeTask.projectId || activeTask.projectId !== overTask.projectId) {
-      return; // Abort if tasks are invalid or in different projects
+    if (!activeTask || !overTask || activeTask.projectId !== overTask.projectId) {
+      return;
     }
 
     const projectId = activeTask.projectId;
     const project = projectData.flatMap(g => g.projects).find(p => p.id === projectId);
     if (!project) return;
-
-    // Get all tasks for this project in a single, sorted array
+    
+    // Get all tasks for this project, sorted by their current order.
     const allProjectTasks = Object.values(project.columns || {})
       .flat()
       .sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -1994,46 +1714,49 @@ function App() {
 
     if (oldIndex === -1 || newIndex === -1) return;
 
+    // Create the new, correctly ordered array.
     const reorderedTasks = arrayMove(allProjectTasks, oldIndex, newIndex);
 
-    // Identify which tasks need their 'order' property updated
-    const updates = [];
-    reorderedTasks.forEach((task, index) => {
-      const newOrder = index * 1000; // Use stable, spaced-out integer ordering
-      if (task.order !== newOrder) {
-        updates.push({ taskId: task.id, newOrder: newOrder });
-      }
-    });
-
-    // Only proceed if there are actual changes to save
-    if (updates.length === 0) return;
-
-    // Optimistically update the UI
-    setProjectData(prevData => {
-      const newData = JSON.parse(JSON.stringify(prevData));
-      const projectToUpdate = newData.flatMap(g => g.projects).find(p => p.id === projectId);
-      if (projectToUpdate) {
-        updates.forEach(({ taskId, newOrder }) => {
-          for (const colId in projectToUpdate.columns) {
-            const task = projectToUpdate.columns[colId].find(t => t.id === taskId);
-            if (task) {
-              task.order = newOrder;
-              break;
-            }
-          }
-        });
-      }
-      return newData;
-    });
-
-    // Update Firestore in a single batch
     const batch = writeBatch(db);
-    updates.forEach(({ taskId, newOrder }) => {
-      const taskRef = doc(db, 'users', user.uid, 'projects', projectId, 'tasks', taskId);
-      batch.update(taskRef, { order: newOrder });
+    const updates = [];
+
+    // Go through the newly ordered list and assign a new, sequential order value.
+    reorderedTasks.forEach((task, index) => {
+      const newOrder = index * 1000; // Using spaced integers is a robust practice.
+      if (task.order !== newOrder) {
+        updates.push({ id: task.id, newOrder: newOrder });
+        const taskRef = doc(db, 'users', user.uid, 'projects', projectId, 'tasks', task.id);
+        batch.update(taskRef, { order: newOrder });
+      }
     });
-    await batch.commit();
+
+    // Only update state and Firestore if there are actual changes.
+    if (updates.length > 0) {
+      // Optimistically update the UI with the new order values.
+      setProjectData(prevData => {
+        const newData = JSON.parse(JSON.stringify(prevData));
+        const projectToUpdate = newData.flatMap(g => g.projects).find(p => p.id === projectId);
+        if (projectToUpdate) {
+          updates.forEach(({ id, newOrder }) => {
+            for (const colId in projectToUpdate.columns) {
+              const task = projectToUpdate.columns[colId].find(t => t.id === id);
+              if (task) {
+                task.order = newOrder;
+                break;
+              }
+            }
+          });
+        }
+        return newData;
+      });
+
+      // Commit all changes to Firestore at once.
+      await batch.commit().catch(err => {
+        console.error("Failed to save new task order:", err);
+      });
+    }
   };
+
   const findTaskById = (taskId) => {
     // Search within projects
     for (const group of projectData) {
@@ -2056,10 +1779,41 @@ function App() {
     return null;
   };
 
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    // If the item is dropped over nothing, reset and exit.
+    if (!over) {
+      setActiveId(null);
+      return;
+    }
+
+    // Use the 'type' data we added in the last step to determine what was dragged.
+    const activeType = active.data.current?.type;
+
+    if (activeType === 'project') {
+      // This was a project being reordered in the sidebar.
+      handleSidebarDragEnd(event);
+    } else if (activeType === 'task') {
+      // This was a task card. Now, figure out which view we're in.
+      if (currentView === 'inbox') {
+        handleInboxDragEnd(event);
+      } else if (currentView === 'board' && getViewOption(viewKey, 'mode', 'board') === 'board') {
+        // This handles dragging tasks between columns on a project board.
+        handleDrop(event);
+      } else {
+        // This handles reordering tasks in any of the "List" views.
+        handleListDragEnd(event);
+      }
+    } else {
+      // If it's an unknown type, just reset the state.
+      setActiveId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
-        {/* Optional: Add a spinner here later */}
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
@@ -2070,408 +1824,328 @@ function App() {
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-background text-foreground overflow-hidden">
-      {/* Main content area that will grow and scroll internally */}
-      <div className="flex flex-1 min-h-0">
+    <DndContext sensors={sensors} onDragStart={e => setActiveId(e.active.id)} onDragEnd={handleDragEnd} onDragCancel={() => setActiveId(null)}>
+      <div className="fixed inset-0 flex flex-col bg-background text-foreground overflow-hidden">
         {/* --- Main Layout: Sidebar + Content --- */}
-        <div className={`hidden md:flex bg-card text-card-foreground border-r flex-col h-full transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
-          {/* Sidebar Content */}
-          <div className="flex items-center justify-between p-4 border-b">
-            <img src={logoUrl} alt="Rocket Productivity" className={`h-8 w-auto transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`} />
-            <button
-              className="p-1 rounded-md hover:bg-muted"
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              title="Toggle Sidebar"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-6 w-6 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}><path d="M15 18l-6-6 6-6" /></svg>
-            </button>
-          </div>
-          <nav className="flex-1 space-y-1 p-2">
-            {mainNavItems.map(item => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.view}
-                  title={item.title}
-                  className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${currentView === item.view ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                  onClick={() => setCurrentView(item.view)}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>{item.title}</span>
-                </button>
-              );
-            })}
-          </nav>
-          <div
-            className={`flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors ${currentView === 'projects' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-            onClick={() => setCurrentView('projects')}
-          >
-            <div className="flex items-center">
-              <FolderKanban className="h-5 w-5" />
-              <h3 className={`ml-3 text-sm font-medium whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Projects</h3>
+        <div className="flex flex-1 min-h-0">
+          <div className={`hidden md:flex bg-card text-card-foreground border-r flex-col h-full transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+            {/* Sidebar Content */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <img src={logoUrl} alt="Rocket Productivity" className={`h-8 w-auto transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`} />
+              <button
+                className="p-1 rounded-md hover:bg-muted"
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                title="Toggle Sidebar"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-6 w-6 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
             </div>
-            <button
-              className={`p-1 rounded-md hover:bg-muted transition-all duration-200 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}
-              onClick={(e) => { e.stopPropagation(); handleAddProject(); }}
-              title="Add New Project"
+            <nav className="flex-1 space-y-1 p-2">
+              {mainNavItems.map(item => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.view}
+                    title={item.title}
+                    className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${currentView === item.view ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                    onClick={() => setCurrentView(item.view)}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>{item.title}</span>
+                  </button>
+                );
+              })}
+            </nav>
+            <div
+              className={`flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors ${currentView === 'projects' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+              onClick={() => setCurrentView('projects')}
             >
-              <Plus className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-4">
-            {!isSidebarCollapsed && (
-              <DndContext sensors={sensors} onDragEnd={handleSidebarDragEnd}>
-                {(projectData || []).map((group) => (
-                  <div key={group.name}>
-                    <h4 className="px-3 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      {group.name}
-                    </h4>
-                    <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                      {group.projects.map(project => (
-                        <SortableProjectItem
-                          key={project.id}
-                          id={project.id}
-                        >
-                          <div
-                            className={`flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm ${currentView === 'board' && currentProject === project.name && currentGroup === group.name ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                            onClick={() => {
-                              setCurrentView('board');
-                              setCurrentGroup(group.name);
-                              setCurrentProject(project.name);
-                            }}
+              <div className="flex items-center">
+                <FolderKanban className="h-5 w-5" />
+                <h3 className={`ml-3 text-sm font-medium whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Projects</h3>
+              </div>
+              <button
+                className={`p-1 rounded-md hover:bg-muted transition-all duration-200 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}
+                onClick={(e) => { e.stopPropagation(); handleAddProject(); }}
+                title="Add New Project"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-4">
+              {!isSidebarCollapsed && (
+                  (projectData || []).map((group) => (
+                    <div key={group.name}>
+                      <h4 className="px-3 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {group.name}
+                      </h4>
+                      <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                        {group.projects.map(project => (
+                          <SortableProjectItem
+                            key={project.id}
+                            id={project.id}
                           >
-                            <span className="whitespace-nowrap">
-                              {project.name}
-                            </span>
-                            <button
-                              className="p-1 rounded-md hover:bg-muted"
-                              title="Edit Project"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setProjectToEdit(project);
-                                setShowProjectDetailPanel(true);
+                            <div
+                              className={`flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm ${currentView === 'board' && currentProject === project.name && currentGroup === group.name ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                              onClick={() => {
+                                setCurrentView('board');
+                                setCurrentGroup(group.name);
+                                setCurrentProject(project.name);
                               }}
                             >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </SortableProjectItem>
-                      ))}
-                    </SortableContext>
-                  </div>
-                ))}
-              </DndContext>
-            )}
-          </div>
-          <div className="mt-auto p-2">
-            <button
-              title="Settings"
-              className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${currentView === 'settings' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-              onClick={() => setCurrentView('settings')}
-            >
-              <Settings className="h-5 w-5" />
-              <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Settings</span>
-            </button>
-            <button
-              title="Logout"
-              className="flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-5 w-5" />
-              <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Logout</span>
-            </button>
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col min-h-0 min-w-0">
-          {isMobileMenuOpen && <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
-          <div className="w-full shrink-0 px-6 py-4 border-b bg-card flex items-center justify-between">
-            <button className="md:hidden rounded-md p-2 hover:bg-muted" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></svg>}
-            </button>
-            <div className="flex items-center gap-3">
-              {(() => {
-                const Icon = viewIcons[currentView];
-                return Icon ? <Icon className="h-6 w-6 text-muted-foreground" /> : null;
-              })()}
-              <h1 className="text-xl font-bold tracking-tight">
-                {currentView === 'board' && currentProject
-                  ? currentProject
-                  : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim()
-                }
-              </h1>
-
+                              <span className="whitespace-nowrap">
+                                {project.name}
+                              </span>
+                              <button
+                                className="p-1 rounded-md hover:bg-muted"
+                                title="Edit Project"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setProjectToEdit(project);
+                                  setShowProjectDetailPanel(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </SortableProjectItem>
+                        ))}
+                      </SortableContext>
+                    </div>
+                  ))
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              {/* Universal View Switcher */}
-              {canBeToggled && (
-                <div className="hidden md:flex items-center bg-muted p-1 rounded-md">
-                  <button
-                    className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewOption(viewKey, 'mode', 'board') === 'board' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
-                    onClick={() => setViewOption(viewKey, 'mode', 'board')}
-                    title="Board View"
-                  >
-                    Board
-                  </button>
-                  <button
-                    className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewOption(viewKey, 'mode', 'board') === 'list' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
-                    onClick={() => setViewOption(viewKey, 'mode', 'list')}
-                    title="List View"
-                  >
-                    List
-                  </button>
-                </div>
-              )}
-
-              {/* Conditionally render GROUP BY controls based on the current view */}
-              {getViewOption(viewKey, 'mode', 'board') === 'list' && (
-                <>
-                  {/* Controls for Global List Views (Today, This Week, etc.) */}
-                  {['today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView) && (
-                    <ViewControls
-                      groupByOptions={[
-                        { value: 'project', label: 'Project' },
-                        { value: 'priority', label: 'Priority' },
-                        { value: 'dueDate', label: 'Due Date' },
-                      ]}
-                      selectedGroupBy={getViewOption(viewKey, 'groupBy', 'project')}
-                      onGroupByChange={(value) => setViewOption(viewKey, 'groupBy', value)}
-                    />
-                  )}
-                  {/* Controls for Project-Specific List View */}
-                  {currentView === 'board' && (
-                    <ViewControls
-                      groupByOptions={[
-                        { value: 'manual', label: 'Manual' },
-                        { value: 'column', label: 'Column' },
-                        { value: 'priority', label: 'Priority' },
-                        { value: 'dueDate', label: 'Due Date' },
-                      ]}
-                      selectedGroupBy={getViewOption(viewKey, 'groupBy', 'manual')}
-                      onGroupByChange={(value) => setViewOption(viewKey, 'groupBy', value)}
-                    />
-                  )}
-                </>
-              )}
-
-              {/* Add Task Button */}
-              {currentView === 'board' && currentProjectData && (
-                <Button className="hidden md:flex items-center gap-2" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
-                  <Plus className="h-4 w-4" />
-                  <span>Add Task</span>
-                </Button>
-              )}
-
-              {/* Timer Section */}
-              {!timerIsRunning && timerTime === timerInputTime * 60 ? (
-                <Button variant="outline" className="hidden md:flex items-center gap-2" onClick={() => setShowTimerModal(true)}>
-                  <Clock className="h-4 w-4" />
-                  <span>Timer</span>
-                </Button>
-              ) : (
-                <div className="hidden md:flex items-center gap-1 bg-muted text-muted-foreground px-3 py-1 rounded-md text-sm font-mono">
-                  <span>{formatTime(timerTime)}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={timerIsRunning ? handlePauseTimer : handleResumeTimer}
-                  >
-                    {timerIsRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowTimerModal(true)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelTimer}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-
-              {/* Calendar Button */}
-              <Button
-                variant="outline"
-                className="hidden md:flex items-center gap-2"
-                onClick={() => {
-                  const isMobile = window.innerWidth < 768;
-                  if (isMobile) {
-                    setShowCalendar(true);
-                    setIsCalendarMaximized(true);
-                  } else {
-                    setShowCalendar(!showCalendar);
-                  }
-                }}
+            <div className="mt-auto p-2">
+              <button
+                title="Settings"
+                className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${currentView === 'settings' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
+                onClick={() => setCurrentView('settings')}
               >
-                <Calendar className="h-4 w-4" />
-                <span>Calendar</span>
-              </Button>
-
-              {/* Mobile Dropdown */}
-              <div className="md:hidden">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="h-5 w-5" />
-                      <span className="sr-only">Open menu</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {currentView === 'board' && currentProjectData && (
-                      <DropdownMenuItem onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        <span>Add Task</span>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => setShowTimerModal(true)}>
-                      <Clock className="h-4 w-4 mr-2" />
-                      <span>{timerIsRunning ? `Timer: ${formatTime(timerTime)}` : "Timer"}</span>
-                    </DropdownMenuItem>
-                    {canBeToggled && (
-                      getViewOption(viewKey, 'mode', 'board') === 'board'
-                        ? (
-                          <DropdownMenuItem onClick={() => setViewOption(viewKey, 'mode', 'list')}>
-                            <span>Switch to List View</span>
-                          </DropdownMenuItem>
-                        )
-                        : (
-                          <DropdownMenuItem onClick={() => setViewOption(viewKey, 'mode', 'board')}>
-                            <span>Switch to Board View</span>
-                          </DropdownMenuItem>
-                        )
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                <Settings className="h-5 w-5" />
+                <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Settings</span>
+              </button>
+              <button
+                title="Logout"
+                className="flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-5 w-5" />
+                <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Logout</span>
+              </button>
             </div>
           </div>
-          <div className="flex-1 flex min-h-0 min-w-0">
-            {/* Conditionally render the main content ONLY if calendar is not maximized */}
-            {!isCalendarMaximized && (
-              <div className="flex-1 overflow-auto min-h-0">
-                {renderContent()}
+          <div className="flex-1 flex flex-col min-h-0 min-w-0">
+            {isMobileMenuOpen && <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
+            <div className="w-full shrink-0 px-6 py-4 border-b bg-card flex items-center justify-between">
+              <button className="md:hidden rounded-md p-2 hover:bg-muted" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" /></svg>}
+              </button>
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const Icon = viewIcons[currentView];
+                  return Icon ? <Icon className="h-6 w-6 text-muted-foreground" /> : null;
+                })()}
+                <h1 className="text-xl font-bold tracking-tight">
+                  {currentView === 'board' && currentProject
+                    ? currentProject
+                    : currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim()
+                  }
+                </h1>
               </div>
-            )}
-
-            {/* The Calendar Panel */}
-            {showCalendar && (
-              <div className={cn(
-                "transition-all duration-300 bg-card border-l",
-                isCalendarMaximized ? "flex-1" : "shrink-0 w-[32rem]"
-              )}>
-                <Suspense fallback={<div className="p-4"><h2>Loading Calendar...</h2></div>}>
-                  <CalendarPanel
-                    isMaximized={isCalendarMaximized}
-                    onToggleMaximize={() => {
-                      const isMobile = window.innerWidth < 768;
-                      if (isMobile) {
-                        setShowCalendar(false);
-                        setIsCalendarMaximized(false);
-                      } else {
-                        setIsCalendarMaximized(!isCalendarMaximized);
-                      }
+              <div className="flex items-center gap-2">
+                {canBeToggled && (
+                  <div className="hidden md:flex items-center bg-muted p-1 rounded-md">
+                    <button
+                      className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewOption(viewKey, 'mode', 'board') === 'board' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
+                      onClick={() => setViewOption(viewKey, 'mode', 'board')}
+                      title="Board View"
+                    >
+                      Board
+                    </button>
+                    <button
+                      className={`px-3 py-1 text-sm font-medium rounded-sm transition-all ${getViewOption(viewKey, 'mode', 'board') === 'list' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50'}`}
+                      onClick={() => setViewOption(viewKey, 'mode', 'list')}
+                      title="List View"
+                    >
+                      List
+                    </button>
+                  </div>
+                )}
+                {getViewOption(viewKey, 'mode', 'board') === 'list' && (
+                  <>
+                    {['today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView) && (
+                      <ViewControls
+                        groupByOptions={[{ value: 'project', label: 'Project' }, { value: 'priority', label: 'Priority' }, { value: 'dueDate', label: 'Due Date' }]}
+                        selectedGroupBy={getViewOption(viewKey, 'groupBy', 'project')}
+                        onGroupByChange={(value) => setViewOption(viewKey, 'groupBy', value)}
+                      />
+                    )}
+                    {currentView === 'board' && (
+                      <ViewControls
+                        groupByOptions={[{ value: 'manual', label: 'Manual' }, { value: 'column', label: 'Column' }, { value: 'priority', label: 'Priority' }, { value: 'dueDate', label: 'Due Date' }]}
+                        selectedGroupBy={getViewOption(viewKey, 'groupBy', 'manual')}
+                        onGroupByChange={(value) => setViewOption(viewKey, 'groupBy', value)}
+                      />
+                    )}
+                  </>
+                )}
+                {currentView === 'board' && currentProjectData && (
+                  <Button className="hidden md:flex items-center gap-2" onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
+                    <Plus className="h-4 w-4" />
+                    <span>Add Task</span>
+                  </Button>
+                )}
+                {!timerIsRunning && timerTime === timerInputTime * 60 ? (
+                  <Button variant="outline" className="hidden md:flex items-center gap-2" onClick={() => setShowTimerModal(true)}>
+                    <Clock className="h-4 w-4" />
+                    <span>Timer</span>
+                  </Button>
+                ) : (
+                  <div className="hidden md:flex items-center gap-1 bg-muted text-muted-foreground px-3 py-1 rounded-md text-sm font-mono">
+                    <span>{formatTime(timerTime)}</span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={timerIsRunning ? handlePauseTimer : handleResumeTimer}>
+                      {timerIsRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowTimerModal(true)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelTimer}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                <Button variant="outline" className="hidden md:flex items-center gap-2" onClick={() => {setShowCalendar(!showCalendar);}}>
+                  <Calendar className="h-4 w-4" />
+                  <span>Calendar</span>
+                </Button>
+                <div className="md:hidden">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-5 w-5" />
+                        <span className="sr-only">Open menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {currentView === 'board' && currentProjectData && (
+                        <DropdownMenuItem onClick={() => setModalTask({ isNew: true, projectId: currentProjectData.id })}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          <span>Add Task</span>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => setShowTimerModal(true)}>
+                        <Clock className="h-4 w-4 mr-2" />
+                        <span>{timerIsRunning ? `Timer: ${formatTime(timerTime)}` : "Timer"}</span>
+                      </DropdownMenuItem>
+                      {canBeToggled && (
+                        getViewOption(viewKey, 'mode', 'board') === 'board'
+                          ? (<DropdownMenuItem onClick={() => setViewOption(viewKey, 'mode', 'list')}><span>Switch to List View</span></DropdownMenuItem>)
+                          : (<DropdownMenuItem onClick={() => setViewOption(viewKey, 'mode', 'board')}><span>Switch to Board View</span></DropdownMenuItem>)
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 flex min-h-0 min-w-0">
+              {!isCalendarMaximized && (
+                <div className="flex-1 overflow-auto min-h-0">
+                  <MainContent
+                    sensors={sensors}
+                    currentView={currentView}
+                    currentProject={currentProject}
+                    currentProjectData={currentProjectData}
+                    selectedJournalId={selectedJournalId}
+                    viewOptions={viewOptions}
+                    getViewOption={getViewOption}
+                    user={user}
+                    projectData={projectData}
+                    projectLabels={projectLabels}
+                    inboxTasks={inboxTasks}
+                    allTags={allTags}
+                    tasksByProject={tasksByProject}
+                    allTasksForListView={allTasksForListView}
+                    isLoading={isLoading}
+                    activeId={activeId}
+                    showCompletedTasks={showCompletedTasks}
+                    activeColumnIndex={activeColumnIndex}
+                    activeGlobalIndex={activeGlobalIndex}
+                    isAddingColumn={isAddingColumn}
+                    newColumnName={newColumnName}
+                    inboxScrollRef={inboxScrollRef}
+                    boardScrollRef={boardScrollRef}
+                    globalScrollRef={globalScrollRef}
+                    onSelectProject={(groupName, projectName) => {
+                      setCurrentGroup(groupName);
+                      setCurrentProject(projectName);
+                      setCurrentView('board');
                     }}
-                    calendarEvents={calendarEvents}
-                    setCalendarEvents={setCalendarEvents}
+                    onUpdateName={handleUpdateName}
+                    updateLabels={updateLabels}
+                    handleAddGroup={handleAddGroup}
+                    handleRenameGroup={handleRenameGroup}
+                    handleDeleteGroup={handleDeleteGroup}
+                    toggleTheme={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                    handleToggleShowCompletedTasks={handleToggleShowCompletedTasks}
+                    onSelectJournal={(id) => { setSelectedJournalId(id); setCurrentView('journalEntry'); }}
+                    setModalTask={setModalTask}
+                    updateTask={updateTask}
+                    handleListDragEnd={handleListDragEnd}
+                    handleInboxDragEnd={handleInboxDragEnd}
+                    addInboxTask={addInboxTask}
+                    handleInboxTaskUpdate={handleInboxTaskUpdate}
+                    renameInboxColumn={renameInboxColumn}
+                    deleteInboxColumn={deleteInboxColumn}
+                    handleSaveNewColumn={handleSaveNewColumn}
+                    setIsAddingColumn={setIsAddingColumn}
+                    setNewColumnName={setNewColumnName}
+                    handleDrop={handleDrop}
+                    addTask={addTask}
+                    renameColumn={renameColumn}
+                    deleteColumn={deleteColumn}
+                    handleToggleSubtask={handleToggleSubtask}
+                    findTaskById={findTaskById}
+                    setActiveId={setActiveId}
+                    inboxSwipeHandlers={inboxSwipeHandlers}
+                    boardSwipeHandlers={boardSwipeHandlers}
+                    globalSwipeHandlers={globalSwipeHandlers}
+                    handlePagerDotClick={handlePagerDotClick}
+                    handlePagerAddClick={handlePagerAddClick}
+                    goToGlobalPage={goToGlobalPage}
+                    handleGlobalScroll={handleGlobalScroll}
+                    setViewOption={setViewOption}
                   />
-                </Suspense>
-              </div>
-            )}
+                </div>
+              )}
+              {showCalendar && (
+                <div className={cn("transition-all duration-300 bg-card border-l", isCalendarMaximized ? "flex-1" : "shrink-0 w-[32rem]")}>
+                  <Suspense fallback={<div className="p-4"><h2>Loading Calendar...</h2></div>}>
+                    <CalendarPanel
+                      isMaximized={isCalendarMaximized}
+                      onToggleMaximize={() => {setIsCalendarMaximized(!isCalendarMaximized);}}
+                      calendarEvents={calendarEvents}
+                      setCalendarEvents={setCalendarEvents}
+                    />
+                  </Suspense>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+        <BottomNav currentView={currentView} onNavigate={handleNavigation} onShowCalendar={() => handleNavigation('calendar')} />
+        {isFabVisible && <FAB onClick={handleFabClick} />}
+        {modalTask && (<Suspense fallback={<div>Loading...</div>}><TaskDetailPanel task={modalTask} onClose={() => setModalTask(null)} onUpdate={handleTaskUpdate} onMoveTask={moveTask} availableLabels={projectLabels} user={user} db={db} projectColumns={currentProjectData?.columnOrder || []} allProjects={projectData} /></Suspense>)}
+        {showProjectDetailPanel && projectToEdit && (<Suspense fallback={<div>Loading...</div>}><ProjectDetailPanel project={projectToEdit} user={user} db={db} onClose={() => setShowProjectDetailPanel(false)} onUpdate={(updatedData) => {handleSaveProjectEdit(projectToEdit, updatedData)}} allGroups={(projectData || []).map(g => g.name)} onTagUpdate={handleTagUpdate} /></Suspense>)}
+        <NewProjectModal show={showNewProjectModal} onClose={() => setShowNewProjectModal(false)} onSave={handleCreateProject} groups={(projectData || []).map(g => g.name)} />
+        {showTimerModal && (<TimerModal onClose={() => setShowTimerModal(false)} time={timerTime} setTime={setTimerTime} inputTime={timerInputTime} setInputTime={setTimerInputTime} isRunning={timerIsRunning} onStart={handleStartTimer} onPause={handlePauseTimer} onResume={handleResumeTimer} onReset={handleResetTimer} formatTime={formatTime} />)}
+        {showTimerCompleteModal && (<TimerCompleteModal onClose={() => {const chime = document.getElementById('timer-chime'); if (chime) {chime.pause(); chime.currentTime = 0;} setShowTimerCompleteModal(false); handleResetTimer();}} />)}
+        <MobileSidebar isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} projectData={projectData} onSelectProject={(groupName, projectName) => {setCurrentView('board'); setCurrentGroup(groupName); setCurrentProject(projectName);}} onEditProject={(project) => {setProjectToEdit(project); setShowProjectDetailPanel(true);}} onAddProject={() => setShowNewProjectModal(true)} />
+        <audio id="timer-chime" src={timerChime} preload="auto"></audio>
       </div>
-
-      {/* The BottomNav is part of the main vertical flex container */}
-      <BottomNav
-        currentView={currentView}
-        onNavigate={handleNavigation}
-        onShowCalendar={() => handleNavigation('calendar')}
-      />
-
-      {/* MODALS AND OVERLAYS are now at the top level to float over everything */}
-      {isFabVisible && <FAB onClick={handleFabClick} />}
-      {modalTask && (
-        <Suspense fallback={<div>Loading...</div>}>
-          <TaskDetailPanel
-            task={modalTask}
-            onClose={() => setModalTask(null)}
-            onUpdate={handleTaskUpdate}
-            onMoveTask={moveTask}
-            availableLabels={projectLabels}
-            user={user}
-            db={db}
-            projectColumns={currentProjectData?.columnOrder || []}
-            allProjects={projectData}
-          />
-        </Suspense>
-      )}
-      {showProjectDetailPanel && projectToEdit && (
-        <Suspense fallback={<div>Loading...</div>}>
-          <ProjectDetailPanel
-            project={projectToEdit}
-            user={user}
-            db={db}
-            onClose={() => setShowProjectDetailPanel(false)}
-            onUpdate={(updatedData) => {
-              handleSaveProjectEdit(projectToEdit, updatedData)
-            }}
-            allGroups={(projectData || []).map(g => g.name)}
-            onTagUpdate={handleTagUpdate}
-          />
-        </Suspense>
-      )}
-      <NewProjectModal
-        show={showNewProjectModal}
-        onClose={() => setShowNewProjectModal(false)}
-        onSave={handleCreateProject}
-        groups={(projectData || []).map(g => g.name)}
-      />
-      {showTimerModal && (
-        <TimerModal
-          onClose={() => setShowTimerModal(false)}
-          time={timerTime}
-          setTime={setTimerTime}
-          inputTime={timerInputTime}
-          setInputTime={setTimerInputTime}
-          isRunning={timerIsRunning}
-          onStart={handleStartTimer}
-          onPause={handlePauseTimer}
-          onResume={handleResumeTimer}
-          onReset={handleResetTimer}
-          formatTime={formatTime}
-        />
-      )}
-      {showTimerCompleteModal && (
-        <TimerCompleteModal
-          onClose={() => {
-            const chime = document.getElementById('timer-chime');
-            if (chime) {
-              chime.pause();
-              chime.currentTime = 0;
-            }
-            setShowTimerCompleteModal(false);
-            handleResetTimer();
-          }}
-        />
-      )}
-      <MobileSidebar
-        isOpen={isMobileMenuOpen}
-        onClose={() => setIsMobileMenuOpen(false)}
-        currentView={currentView}
-        onNavigate={setCurrentView}
-        onLogout={handleLogout}
-        projectData={projectData}
-        onSelectProject={(groupName, projectName) => {
-          setCurrentView('board');
-          setCurrentGroup(groupName);
-          setCurrentProject(projectName);
-        }}
-        onEditProject={(project) => {
-          setProjectToEdit(project);
-          setShowProjectDetailPanel(true);
-        }}
-        onAddProject={() => setShowNewProjectModal(true)}
-      />
-      <audio id="timer-chime" src={timerChime} preload="auto"></audio>
-    </div>
+      <DragOverlay>
+        {activeId ? <TaskItem task={findTaskById(activeId)} availableLabels={projectLabels} allTags={allTags} /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
