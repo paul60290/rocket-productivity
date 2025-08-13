@@ -119,7 +119,7 @@ function MainContent({
                 <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Settings...</h2></div>}>
                     <SettingsPage
                         currentUser={user}
-                        onUpdateName={handleUpdateName}
+                        onUpdateName={onUpdateName}
                         initialLabels={projectLabels}
                         initialGroups={projectData.map(g => g.name)}
                         onUpdateLabels={updateLabels}

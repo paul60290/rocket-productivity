@@ -27,6 +27,7 @@ import ListView from './components/ListView';
 import MobileSidebar from './components/MobileSidebar';
 import ViewControls from './components/ViewControls';
 import BoardPager from './components/BoardPager';
+import DesktopSidebar from './components/DesktopSidebar';
 import { useSwipeable } from 'react-swipeable';
 import { useTimer } from './hooks/useTimer';
 import MainContent from './components/MainContent';
@@ -1732,23 +1733,28 @@ function App() {
 
     // Only update state and Firestore if there are actual changes.
     if (updates.length > 0) {
-      // Optimistically update the UI with the new order values.
-      setProjectData(prevData => {
-        const newData = JSON.parse(JSON.stringify(prevData));
-        const projectToUpdate = newData.flatMap(g => g.projects).find(p => p.id === projectId);
-        if (projectToUpdate) {
-          updates.forEach(({ id, newOrder }) => {
-            for (const colId in projectToUpdate.columns) {
-              const task = projectToUpdate.columns[colId].find(t => t.id === id);
-              if (task) {
-                task.order = newOrder;
-                break;
-              }
-            }
-          });
+      // Optimistically update the UI by rebuilding the columns with the newly sorted tasks.
+setProjectData(prevData => {
+    const newData = JSON.parse(JSON.stringify(prevData));
+    const projectToUpdate = newData.flatMap(g => g.projects).find(p => p.id === projectId);
+
+    if (projectToUpdate) {
+        // Clear out the existing columns
+        for (const colId in projectToUpdate.columns) {
+            projectToUpdate.columns[colId] = [];
         }
-        return newData;
-      });
+
+        // Repopulate the columns based on the newly reordered list
+        reorderedTasks.forEach((task, index) => {
+            task.order = index * 1000; // Ensure order property is updated
+            if (projectToUpdate.columns[task.column]) {
+                projectToUpdate.columns[task.column].push(task);
+            }
+        });
+    }
+
+    return newData;
+});
 
       // Commit all changes to Firestore at once.
       await batch.commit().catch(err => {
@@ -1828,112 +1834,28 @@ function App() {
       <div className="fixed inset-0 flex flex-col bg-background text-foreground overflow-hidden">
         {/* --- Main Layout: Sidebar + Content --- */}
         <div className="flex flex-1 min-h-0">
-          <div className={`hidden md:flex bg-card text-card-foreground border-r flex-col h-full transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
-            {/* Sidebar Content */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <img src={logoUrl} alt="Rocket Productivity" className={`h-8 w-auto transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`} />
-              <button
-                className="p-1 rounded-md hover:bg-muted"
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                title="Toggle Sidebar"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`h-6 w-6 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}><path d="M15 18l-6-6 6-6" /></svg>
-              </button>
-            </div>
-            <nav className="flex-1 space-y-1 p-2">
-              {mainNavItems.map(item => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.view}
-                    title={item.title}
-                    className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${currentView === item.view ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                    onClick={() => setCurrentView(item.view)}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>{item.title}</span>
-                  </button>
-                );
-              })}
-            </nav>
-            <div
-              className={`flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors ${currentView === 'projects' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-              onClick={() => setCurrentView('projects')}
-            >
-              <div className="flex items-center">
-                <FolderKanban className="h-5 w-5" />
-                <h3 className={`ml-3 text-sm font-medium whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Projects</h3>
-              </div>
-              <button
-                className={`p-1 rounded-md hover:bg-muted transition-all duration-200 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}
-                onClick={(e) => { e.stopPropagation(); handleAddProject(); }}
-                title="Add New Project"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-4">
-              {!isSidebarCollapsed && (
-                  (projectData || []).map((group) => (
-                    <div key={group.name}>
-                      <h4 className="px-3 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        {group.name}
-                      </h4>
-                      <SortableContext items={group.projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                        {group.projects.map(project => (
-                          <SortableProjectItem
-                            key={project.id}
-                            id={project.id}
-                          >
-                            <div
-                              className={`flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm ${currentView === 'board' && currentProject === project.name && currentGroup === group.name ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                              onClick={() => {
-                                setCurrentView('board');
-                                setCurrentGroup(group.name);
-                                setCurrentProject(project.name);
-                              }}
-                            >
-                              <span className="whitespace-nowrap">
-                                {project.name}
-                              </span>
-                              <button
-                                className="p-1 rounded-md hover:bg-muted"
-                                title="Edit Project"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setProjectToEdit(project);
-                                  setShowProjectDetailPanel(true);
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </SortableProjectItem>
-                        ))}
-                      </SortableContext>
-                    </div>
-                  ))
-              )}
-            </div>
-            <div className="mt-auto p-2">
-              <button
-                title="Settings"
-                className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${currentView === 'settings' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                onClick={() => setCurrentView('settings')}
-              >
-                <Settings className="h-5 w-5" />
-                <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Settings</span>
-              </button>
-              <button
-                title="Logout"
-                className="flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                onClick={handleLogout}
-              >
-                <LogOut className="h-5 w-5" />
-                <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Logout</span>
-              </button>
-            </div>
-          </div>
+          <DesktopSidebar
+  isSidebarCollapsed={isSidebarCollapsed}
+  setIsSidebarCollapsed={setIsSidebarCollapsed}
+  currentView={currentView}
+  setCurrentView={setCurrentView}
+  mainNavItems={mainNavItems}
+  projectData={projectData}
+  currentGroup={currentGroup}
+  currentProject={currentProject}
+  onSelectProject={(groupName, projectName) => {
+    setCurrentGroup(groupName);
+    setCurrentProject(projectName);
+    setCurrentView('board');
+  }}
+  onEditProject={(project) => {
+    setProjectToEdit(project);
+    setShowProjectDetailPanel(true);
+  }}
+  onAddProject={handleAddProject}
+  onLogout={handleLogout}
+/>
+
           <div className="flex-1 flex flex-col min-h-0 min-w-0">
             {isMobileMenuOpen && <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}></div>}
             <div className="w-full shrink-0 px-6 py-4 border-b bg-card flex items-center justify-between">

@@ -16,9 +16,9 @@ export default function ListView({
   onToggleSubtask,
   isDraggable
 }) {
+
   // Use the hook to process the raw task list
   const groupedTasks = useGroupedTasks(tasks, groupBy, projectData);
-
   if (!tasks || tasks.length === 0) {
     return (
       <div className="p-4">
@@ -27,14 +27,16 @@ export default function ListView({
     );
   }
 
+  const allTaskIds = Object.values(groupedTasks).flat().map(task => task.id);
+
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {Object.entries(groupedTasks).map(([groupName, tasksInGroup]) => (
-        <div key={groupName}>
-          <h3 className="text-lg font-semibold mb-2 px-1">{groupName}</h3>
-          <Card>
-            <div className="divide-y">
-              <SortableContext items={tasksInGroup.map(t => t.id)} strategy={verticalListSortingStrategy}>
+    <SortableContext items={allTaskIds} strategy={verticalListSortingStrategy}>
+      <div className="p-4 md:p-6 space-y-6">
+        {Object.entries(groupedTasks).map(([groupName, tasksInGroup]) => (
+          <div key={groupName}>
+            <h3 className="text-lg font-semibold mb-2 px-1">{groupName}</h3>
+            <Card>
+              <div className="divide-y">
                 {tasksInGroup.map(task => (
                   <SortableTaskListItem
                     key={task.id}
@@ -43,15 +45,14 @@ export default function ListView({
                     allTags={allTags}
                     onOpenTask={onOpenTask}
                     onToggleComplete={onToggleComplete}
-                    onToggleSubtask={onToggleSubtask}
-                    isDraggable={isDraggable}
+                    _isDraggable={isDraggable}
                   />
                 ))}
-              </SortableContext>
-            </div>
-          </Card>
-        </div>
-      ))}
-    </div>
+              </div>
+            </Card>
+          </div>
+        ))}
+      </div>
+    </SortableContext>
   );
 }
