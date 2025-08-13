@@ -5,6 +5,7 @@ import { Preferences } from "@capacitor/preferences";
 import { DndContext, DragOverlay, useDroppable, closestCenter, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import useAuthActions from './hooks/useAuthActions';
 
 const GoalsPage = lazy(() => import('./components/GoalsPage'));
 const CalendarPanel = lazy(() => import('./components/CalendarPanel'));
@@ -32,6 +33,8 @@ import DesktopSidebar from './components/DesktopSidebar';
 import { useSwipeable } from 'react-swipeable';
 import { useTimer } from './hooks/useTimer';
 import useUserData from './hooks/useUserData';
+import useProjectTags from './hooks/useProjectTags';
+import useInbox from './hooks/useInbox';
 import MainContent from './components/MainContent';
 import logoUrl from './assets/logo.svg';
 import useGroupedTasks from './hooks/useGroupedTasks';
@@ -66,10 +69,9 @@ const viewIcons = {
 import {
   // Authentication
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile
+  signInWithEmailAndPassword
 } from "firebase/auth";
+
 
 
 import {
@@ -145,7 +147,8 @@ function App() {
 
   const [listFilters, setListFilters] = useState({ labels: [] });
   // State for Data - Initialized as empty. Will be filled from Firestore.
-  const [currentProjectTags, setCurrentProjectTags] = useState([]);
+
+
   const {
     user, setUser, isLoading,
     projectData, setProjectData,
@@ -157,7 +160,7 @@ function App() {
     showCompletedTasks, setShowCompletedTasks,
   } = useUserData();
 
-
+  const { updateDisplayName, logout } = useAuthActions(setUser);
 
 
   const viewKey = currentView === 'board' ? currentProject : currentView;
@@ -170,6 +173,12 @@ function App() {
     }
     return (projectData || []).find(g => g.name === currentGroup)?.projects.find(p => p.name === currentProject);
   }, [projectData, currentGroup, currentProject]);
+  const {
+    tags: currentProjectTags,
+    setTags: setCurrentProjectTags,
+    refresh: refreshCurrentProjectTags
+  } = useProjectTags(user, currentProjectData?.id);
+
 
   const viewData = useMemo(() => {
     const today = new Date();
@@ -281,6 +290,14 @@ function App() {
   const [activeId, setActiveId] = useState(null); // For drag-and-drop
   const [isCalendarMaximized, setIsCalendarMaximized] = useState(false);
   const [isAddingColumn, setIsAddingColumn] = useState({ inbox: false, board: false });
+  const {
+    addInboxTask,
+    handleInboxTaskUpdate,
+    addInboxColumn,
+    renameInboxColumn,
+    deleteInboxColumn,
+    handleInboxDragEnd,
+  } = useInbox(user, inboxTasks, setInboxTasks, setActiveId);
   const [newColumnName, setNewColumnName] = useState('');
   // State and refs for mobile swipeable columns
   const [activeColumnIndex, setActiveColumnIndex] = useState({ inbox: 0, board: 0 });
@@ -371,20 +388,7 @@ function App() {
 
   const canBeToggled = ['board', 'today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(currentView);
 
-  useEffect(() => {
-    if (currentProjectData && user) {
-      const fetchTags = async () => {
-        const tagsCollectionRef = collection(db, 'users', user.uid, 'projects', currentProjectData.id, 'tags');
-        const tagsSnapshot = await getDocs(tagsCollectionRef);
-        const fetchedTags = tagsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setCurrentProjectTags(fetchedTags);
-      };
-      fetchTags();
-    } else {
-      // Clear tags if no project is selected
-      setCurrentProjectTags([]);
-    }
-  }, [currentProjectData, user, db]); // Reruns when the active project changes
+
 
   // Listen to authentication state changes
 
@@ -467,9 +471,8 @@ function App() {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  const handleLogout = () => {
-    return signOut(auth);
-  };
+  const handleLogout = () => logout();
+
   const handleSidebarDragEnd = (event) => {
     const { active, over } = event;
 
@@ -803,23 +806,8 @@ function App() {
     }
   };
 
-  const handleUpdateName = async (newName) => {
-    if (!user) {
-      alert("You must be logged in to update your name.");
-      return;
-    }
-    try {
-      // Import updateProfile from 'firebase/auth' at the top of the file
-      await updateProfile(auth.currentUser, {
-        displayName: newName,
-      });
-      // Optimistically update the local user state to reflect the change immediately
-      setUser(prev => ({ ...prev, displayName: newName }));
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      alert("Failed to update name.");
-    }
-  };
+  const handleUpdateName = (newName) => updateDisplayName(newName);
+
 
   const addTask = async (taskData, projectId) => {
     if (!user || !projectId) {
@@ -994,77 +982,6 @@ function App() {
     }
   };
 
-  const addInboxTask = async (taskData) => {
-    if (!user) {
-      alert("You must be logged in to add tasks.");
-      return;
-    }
-
-    // Ensure inboxTasks has the proper structure
-    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
-      ? inboxTasks
-      : { columnOrder: ['Inbox'], columns: { 'Inbox': [] } };
-
-    const newTask = {
-      id: generateUniqueId(),
-      text: taskData.text || 'Untitled Task',
-      description: taskData.description || '',
-      date: taskData.date || '',
-      priority: taskData.priority || 4,
-      label: taskData.label || '',
-      tag: '',
-      comments: [],
-      subtasks: [],
-      completed: false,
-      column: taskData.column,
-    };
-
-    try {
-      // Create a deep copy of the current inbox state to avoid mutation issues
-      const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
-
-      // Add the new task to the 'Inbox' column's array
-      newInboxState.columns[taskData.column].push(newTask);
-
-      setInboxTasks(newInboxState); // Optimistically update the UI
-
-      // Save the entire updated inbox object to Firestore
-      const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-      await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
-
-    } catch (error) {
-      console.error("Error saving inbox task:", error);
-      alert("Failed to save task to inbox.");
-      // If the save fails, we can revert to the previous state.
-      // For simplicity, we'll log the error, but a production app might revert.
-    }
-  };
-
-  const handleInboxTaskUpdate = async (columnId, taskId, updatedData) => {
-    if (!user) return;
-
-
-    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
-    let taskUpdated = false;
-
-    const taskIndex = newInboxState.columns[columnId]?.findIndex(t => t.id === taskId);
-
-    if (taskIndex > -1) {
-      // Update the task with the new data
-      newInboxState.columns[columnId][taskIndex] = {
-        ...newInboxState.columns[columnId][taskIndex],
-        ...updatedData
-      };
-      taskUpdated = true;
-    }
-
-    if (taskUpdated) {
-      setInboxTasks(newInboxState);
-      const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-      await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
-    }
-  };
-
   const handleTagUpdate = (projectId, updatedTag) => {
     setAllTags(prevAllTags => ({
       ...prevAllTags,
@@ -1141,115 +1058,6 @@ function App() {
     }
   };
 
-  const addInboxColumn = async (newColumn) => {
-    if (!user || !newColumn.name.trim()) return;
-
-    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
-      ? inboxTasks
-      : { columnOrder: [], columns: {} };
-
-    const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
-
-    newInboxState.columnOrder.push(newColumn); // Add the new column object
-    newInboxState.columns[newColumn.id] = [];  // Use the new ID as the key
-
-    setInboxTasks(newInboxState);
-
-    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-    await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
-  };
-
-  const renameInboxColumn = async (columnId, newName) => {
-    if (!user || !newName.trim()) return;
-
-    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
-    const columnToUpdate = newInboxState.columnOrder.find(c => c.id === columnId);
-
-    if (columnToUpdate) {
-      columnToUpdate.name = newName.trim();
-    }
-
-    setInboxTasks(newInboxState);
-    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-    await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
-  };
-
-  const deleteInboxColumn = async (columnId) => {
-    if (!user) return;
-
-    const currentInboxTasks = inboxTasks && inboxTasks.columnOrder && inboxTasks.columns
-      ? inboxTasks
-      : { columnOrder: [], columns: {} };
-
-    if (currentInboxTasks.columnOrder.length <= 1) {
-      alert("You must have at least one column in the inbox.");
-      return;
-    }
-
-    const newInboxState = JSON.parse(JSON.stringify(currentInboxTasks));
-    newInboxState.columnOrder = newInboxState.columnOrder.filter(c => c.id !== columnId);
-    delete newInboxState.columns[columnId];
-
-    setInboxTasks(newInboxState);
-    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-    await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
-  };
-
-  const handleInboxDragEnd = async (event) => {
-    const { active, over } = event;
-    setActiveId(null);
-    if (!over || !user || !active || active.id === over.id) return;
-
-    const newInboxState = JSON.parse(JSON.stringify(inboxTasks));
-    const { columns, columnOrder } = newInboxState;
-
-    if (!columns || !columnOrder) return; // Added safety check
-
-    let sourceColumnId;
-    for (const col of columnOrder) {
-      if (columns[col.id]?.some(task => task.id === active.id)) {
-        sourceColumnId = col.id;
-        break;
-      }
-    }
-
-    let destColumnId = over.id;
-    if (columns[destColumnId] === undefined) {
-      for (const col of columnOrder) {
-        if (columns[col.id]?.some(task => task.id === over.id)) {
-          destColumnId = col.id;
-          break;
-        }
-      }
-    }
-
-    if (!sourceColumnId || !destColumnId) return;
-
-    const sourceTaskIndex = columns[sourceColumnId]?.findIndex(task => task.id === active.id);
-
-    if (sourceTaskIndex === -1 || sourceTaskIndex === undefined) return; // Added safety check
-
-    const [movedTask] = columns[sourceColumnId].splice(sourceTaskIndex, 1);
-
-    if (sourceColumnId !== destColumnId) {
-      movedTask.column = destColumnId;
-    }
-
-    if (!columns[destColumnId]) {
-      columns[destColumnId] = []; // Added safety check
-    }
-
-    const destTaskIndex = columns[destColumnId].findIndex(task => task.id === over.id);
-    if (destTaskIndex >= 0) {
-      columns[destColumnId].splice(destTaskIndex, 0, movedTask);
-    } else {
-      columns[destColumnId].push(movedTask);
-    }
-
-    setInboxTasks(newInboxState);
-    const appDataRef = doc(db, 'users', user.uid, 'appData', 'data');
-    await setDoc(appDataRef, { inboxTasks: newInboxState }, { merge: true });
-  };
 
   const moveTask = async (originalTask, editedTask) => {
     const sourceProjectId = originalTask.projectId;
