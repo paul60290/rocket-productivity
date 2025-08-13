@@ -75,11 +75,13 @@ export const useTimer = (initialMinutes = 25) => {
     setTime(inputTime * 60);
   };
   
-  const handleCancelTimer = () => {
-    setTimerIsRunning(false);
-    setTimerInputTime(25);
-    setTimerTime(25 * 60);
+   const handleCancelTimer = () => {
+    setIsRunning(false);
+    setInputTime(25);
+    setTime(25 * 60);
+    setShowTimerModal(false);
   };
+
 
   return {
     time,
