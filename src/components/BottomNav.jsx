@@ -1,12 +1,13 @@
 // src/components/BottomNav.jsx
 import React from 'react';
-import { Calendar, Inbox, BookText, FolderKanban, CalendarDays } from 'lucide-react';
+import { Calendar, Inbox, BookText, FolderKanban, CalendarDays, StickyNote } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { view: 'today', icon: Calendar, label: 'Today' },
   { view: 'inbox', icon: Inbox, label: 'Inbox' },
   { view: 'journal', icon: BookText, label: 'Journal' },
+  { view: 'notes', icon: StickyNote, label: 'Notes' },
   { view: 'projects', icon: FolderKanban, label: 'Projects' },
   { view: 'calendar', icon: CalendarDays, label: 'Calendar' },
 ];

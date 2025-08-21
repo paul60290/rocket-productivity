@@ -45,7 +45,7 @@ import {
   MoreVertical, GripVertical, MessageSquare, Plus, X,
   Target, BookText, Calendar, Inbox, Sunrise, CalendarDays,
   CalendarPlus, FolderKanban, Settings, LogOut, Clock, Pencil, Trash2,
-  Pause, Play, Tag, Bookmark, Network
+  Pause, Play, Tag, Bookmark, Network, StickyNote
 } from "lucide-react";
 import { cn, formatDate, generateUniqueId } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -379,6 +379,7 @@ function App() {
   const mainNavItems = [
     { view: 'goals', title: 'Goals', icon: Target },
     { view: 'journal', title: 'Journal', icon: BookText },
+    { view: 'notes', title: 'Notes', icon: StickyNote },
     { view: 'today', title: 'Today', icon: Calendar },
     { view: 'inbox', title: 'Inbox', icon: Inbox },
     { view: 'tomorrow', title: 'Tomorrow', icon: Sunrise },
@@ -401,26 +402,29 @@ function App() {
 
   // Effect to apply the theme class to the root element for Tailwind
   const handleNavigation = (view) => {
-    const isMobile = window.innerWidth < 768;
+  const isMobile = window.innerWidth < 768;
 
-    if (view === 'calendar') {
-      if (isMobile) {
-        // On mobile, tapping calendar maximizes it and sets the view
-        setShowCalendar(true);
-        setIsCalendarMaximized(true);
-      } else {
-        // On desktop, it's just a toggle
-        setShowCalendar(!showCalendar);
-      }
+  if (view === 'calendar') {
+    if (isMobile) {
+      // MOBILE: keep current behavior (open maximized, do not toggle on repeat tap)
+      setShowCalendar(true);
+      setIsCalendarMaximized(true);
+      // fall through to setCurrentView(view) below (unchanged on mobile)
     } else {
-      // For any other view, set the view and ensure the calendar is closed
-      setShowCalendar(false);
-      setIsCalendarMaximized(false);
+      // DESKTOP: toggle the calendar panel WITHOUT changing the current view
+      setShowCalendar(v => !v);
+      return; // critical: DO NOT set current view to 'calendar' on desktop
     }
+  } else {
+    // Navigating to any other view closes the calendar (all devices)
+    setShowCalendar(false);
+    setIsCalendarMaximized(false);
+  }
 
-    // Always update the current view so the correct nav item is highlighted
-    setCurrentView(view);
-  };
+  // Keep current behavior for mobile; unchanged for non-calendar views
+  setCurrentView(view);
+};
+
 
   const handleFabClick = () => {
     switch (currentView) {
@@ -1520,11 +1524,12 @@ function App() {
               handleResumeTimer={handleResumeTimer}
               handleCancelTimer={handleCancelTimer}
               setShowTimerModal={setShowTimerModal}
+              onShowCalendar={() => handleNavigation('calendar')}
             />
 
             <div className="flex-1 flex min-h-0 min-w-0">
               {!isCalendarMaximized && (
-                <div className="flex-1 overflow-auto min-h-0">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
                   <MainContent
                     sensors={sensors}
                     currentView={currentView}

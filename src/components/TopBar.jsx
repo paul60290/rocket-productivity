@@ -3,7 +3,8 @@ import React from 'react';
 import ViewControls from './ViewControls';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { X, MoreVertical, Plus, Clock, Pause, Play, Trash2 } from "lucide-react";
+import { X, MoreVertical, Plus, Clock, Pause, Play, Trash2, Calendar } from "lucide-react";
+
 
 export default function TopBar({
   isMobileMenuOpen,
@@ -25,7 +26,9 @@ export default function TopBar({
   handleResumeTimer,
   handleCancelTimer,
   setShowTimerModal,
+  onShowCalendar,
 }) {
+
   const computedTitle = currentView === 'board' && currentProject
     ? currentProject
     : (currentView.charAt(0).toUpperCase() + currentView.slice(1).replace(/([A-Z])/g, ' $1').trim());
@@ -54,9 +57,9 @@ export default function TopBar({
           <X className="h-5 w-5" />
         ) : (
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-               viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-               className="h-5 w-5">
+            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            className="h-5 w-5">
             <line x1="4" x2="20" y1="12" y2="12" />
             <line x1="4" x2="20" y1="6" y2="6" />
             <line x1="4" x2="20" y1="18" y2="18" />
@@ -117,6 +120,17 @@ export default function TopBar({
             <span>Add Task</span>
           </Button>
         )}
+
+        <Button
+          variant="outline"
+          className="hidden md:flex items-center gap-2"
+          onClick={() => onShowCalendar?.()}
+          title="Calendar"
+        >
+          <Calendar className="h-4 w-4" />
+          <span>Calendar</span>
+        </Button>
+
 
         {!timerIsRunning && timerTime === timerInputTime * 60 ? (
           <Button

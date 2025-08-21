@@ -2,7 +2,7 @@
 import React from 'react';
 import {
   Target, BookText, Calendar, Inbox, Sunrise, CalendarDays,
-  CalendarPlus, FolderKanban, Settings, LogOut, Pencil, Plus
+  CalendarPlus, FolderKanban, Settings, LogOut, Pencil, Plus, StickyNote
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,7 @@ export default function MobileSidebar({
   const mainNavItems = [
     { view: 'goals', title: 'Goals', icon: Target },
     { view: 'journal', title: 'Journal', icon: BookText },
+    { view: 'notes', title: 'Notes', icon: StickyNote },
     { view: 'today', title: 'Today', icon: Calendar },
     { view: 'inbox', title: 'Inbox', icon: Inbox },
     { view: 'tomorrow', title: 'Tomorrow', icon: Sunrise },
@@ -108,17 +109,17 @@ export default function MobileSidebar({
             <div className="space-y-1 mt-2">
               {(projectData || []).map((group) => (
                 <div key={group.name} className="pl-4">
-                   <h4 className="px-3 my-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <h4 className="px-3 my-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     {group.name}
                   </h4>
                   {(group.projects || []).map(project => (
                     <div
                       key={project.id}
                       className="flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                       onClick={() => handleProjectSelect(group.name, project.name)}
+                      onClick={() => handleProjectSelect(group.name, project.name)}
                     >
                       <span className="truncate">{project.name}</span>
-                       <button
+                      <button
                         className="p-1 rounded-md hover:bg-muted shrink-0"
                         title="Edit Project"
                         onClick={(e) => {
@@ -143,7 +144,7 @@ export default function MobileSidebar({
             title="Settings"
             className={cn(
               "flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors",
-               currentView === 'settings'
+              currentView === 'settings'
                 ? 'bg-accent text-accent-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
             )}

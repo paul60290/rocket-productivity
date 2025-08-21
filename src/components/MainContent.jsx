@@ -7,6 +7,8 @@ const JournalsPage = React.lazy(() => import('./JournalsPage'));
 const JournalEntryPage = React.lazy(() => import('./JournalEntryPage'));
 const SettingsPage = React.lazy(() => import('./SettingsPage'));
 const ProjectsPage = React.lazy(() => import('./ProjectsPage'));
+const NotesPage = React.lazy(() => import('./NotesPage'));
+
 
 import Column from './Column';
 import ListView from './ListView';
@@ -137,6 +139,15 @@ function MainContent({
                     />
                 </Suspense>
             );
+
+        case 'notes':
+            return (
+                <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Notes...</h2></div>}>
+                    <NotesPage />
+                </Suspense>
+            );
+
+
         case 'goals':
             return <Suspense fallback={<div>Loading...</div>}><GoalsPage /></Suspense>;
         case 'journal':
@@ -160,7 +171,7 @@ function MainContent({
                 <div className="p-6 space-y-4 h-full flex flex-col">
                     <h1 className="text-2xl font-bold tracking-tight">{viewTitle}</h1>
                     {getViewOption(currentView, 'mode', 'board') === 'board' ? (<>
-                        <div className="-mx-6 md:mx-0 flex-1 min-h-0">
+                        <div className="-mx-6 md:mx-0 flex-1 min-h-0 overflow-x-hidden">
                             <div className="relative h-full w-full" {...globalSwipeHandlers}>
                                 <div
                                     ref={globalScrollRef}
@@ -290,18 +301,32 @@ function MainContent({
             return getViewOption(currentProject, 'mode', 'board') === 'board' ? (
                 <>
                     <div className="relative h-full w-full" {...boardSwipeHandlers}>
-                        <div ref={boardScrollRef} className="flex md:p-4 md:gap-4 overflow-x-auto h-full mobile-no-scrollbar snap-x snap-mandatory md:snap-none">
+                        <div
+                            ref={boardScrollRef}
+                            className="flex md:p-4 md:gap-4 overflow-x-auto h-full mobile-no-scrollbar snap-x snap-mandatory md:snap-none"
+                        >
                             {currentProjectData?.columnOrder?.filter(Boolean).map((column) => (
-                                <Column key={column.id} column={column}
-                                    tasks={(currentProjectData.columns[column.id] || []).filter(task => showCompletedTasks || !task.completed)}
+                                <Column
+                                    key={column.id}
+                                    column={column}
+                                    tasks={(currentProjectData.columns[column.id] || []).filter(
+                                        (task) => showCompletedTasks || !task.completed
+                                    )}
                                     onAddTask={(taskData) => addTask(taskData, currentProjectData.id)}
-                                    onUpdateTask={(colId, taskId, updatedData) => updateTask(currentProjectData.id, taskId, updatedData)}
-                                    onOpenTask={(task) => setModalTask({ ...task, projectId: currentProjectData.id })}
-                                    onRenameColumn={renameColumn} onDeleteColumn={deleteColumn}
-                                    availableLabels={projectLabels} allTags={allTags}
+                                    onUpdateTask={(colId, taskId, updatedData) =>
+                                        updateTask(currentProjectData.id, taskId, updatedData)
+                                    }
+                                    onOpenTask={(task) =>
+                                        setModalTask({ ...task, projectId: currentProjectData.id })
+                                    }
+                                    onRenameColumn={renameColumn}
+                                    onDeleteColumn={deleteColumn}
+                                    availableLabels={projectLabels}
+                                    allTags={allTags}
                                     currentView={currentView}
                                 />
                             ))}
+
                             {isAddingColumn.board ? (
                                 <div className="flex flex-col w-full shrink-0 md:w-80 p-3 space-y-2 bg-card rounded-lg border snap-start">
                                     <Input
@@ -321,13 +346,18 @@ function MainContent({
                                 </div>
                             ) : (
                                 <div className="w-full shrink-0 md:w-80 p-3 snap-start">
-                                    <Button variant="outline" className="w-full border-dashed" onClick={() => setIsAddingColumn({ ...isAddingColumn, board: true })}>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full border-dashed"
+                                        onClick={() => setIsAddingColumn({ ...isAddingColumn, board: true })}
+                                    >
                                         <Plus className="mr-2 h-4 w-4" /> Add Column
                                     </Button>
                                 </div>
                             )}
                         </div>
                     </div>
+
                     <BoardPager
                         count={currentProjectData?.columnOrder?.length || 0}
                         activeIndex={activeColumnIndex.board}
@@ -360,6 +390,7 @@ function MainContent({
                     />
                 </div>
             );
+
     }
 }
 
