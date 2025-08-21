@@ -5,11 +5,11 @@ import { Node } from '@tiptap/core';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus } from "lucide-react";
+import { X } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { listPortfolios, listNotebooksByPortfolio, createPortfolio, createNotebook } from "@/lib/portfolios";
+import { listPortfolios, listNotebooksByPortfolio } from "@/lib/portfolios";
+
 import { observeRecentNotes, observeBacklinks } from "@/lib/notes";
 import { normalizeTags, tagLabelFromSlug } from "@/lib/utils";
 
@@ -53,11 +53,7 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
     // Containers
     const [portfolios, setPortfolios] = useState([]);
     const [notebooks, setNotebooks] = useState([]);
-    // Name modals
-    const [showNewPortfolio, setShowNewPortfolio] = useState(false);
-    const [newPortfolioName, setNewPortfolioName] = useState('');
-    const [showNewNotebook, setShowNewNotebook] = useState(false);
-    const [newNotebookName, setNewNotebookName] = useState('');
+
     const [portfolioId, setPortfolioId] = useState(note?.portfolioId ?? null);
     const [notebookId, setNotebookId] = useState(note?.notebookId ?? null);
 
@@ -224,15 +220,6 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
                             {portfolios.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
                         </SelectContent>
                     </Select>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => { setNewPortfolioName(''); setShowNewPortfolio(true); }}
-                        title="Create Portfolio"
-                    >
-                        <Plus className="h-4 w-4" />
-                    </Button>
-
                 </div>
 
                 {/* Notebook */}
@@ -253,15 +240,6 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
                             {notebooks.map((n) => (<SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>))}
                         </SelectContent>
                     </Select>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => { setNewNotebookName(''); setShowNewNotebook(true); }}
-                        title="Create Notebook"
-                    >
-                        <Plus className="h-4 w-4" />
-                    </Button>
-
                 </div>
             </div>
 
@@ -389,85 +367,6 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
 
                 )}
             </div>
-            {/* New Portfolio dialog */}
-            <Dialog open={showNewPortfolio} onOpenChange={setShowNewPortfolio}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>New Portfolio</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-2">
-                        <Input
-                            autoFocus
-                            value={newPortfolioName}
-                            onChange={(e) => setNewPortfolioName(e.target.value)}
-                            placeholder="Portfolio name"
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setShowNewPortfolio(false)}>Cancel</Button>
-                        <Button
-                            onClick={async () => {
-                                const name = (newPortfolioName || '').trim() || 'Untitled Portfolio';
-                                const { id } = await createPortfolio({ name });
-
-                                // Refresh portfolios and select the new one
-                                const list = await listPortfolios({});
-                                setPortfolios(list);
-                                setPortfolioId(id);
-                                setNotebookId(null);
-                                onChange?.({ ...(note || {}), portfolioId: id, notebookId: null });
-
-                                setShowNewPortfolio(false);
-                            }}
-                        >
-                            Create
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* New Notebook dialog */}
-            <Dialog open={showNewNotebook} onOpenChange={setShowNewNotebook}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>New Notebook</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-2">
-                        <Input
-                            autoFocus
-                            value={newNotebookName}
-                            onChange={(e) => setNewNotebookName(e.target.value)}
-                            placeholder="Notebook name"
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setShowNewNotebook(false)}>Cancel</Button>
-                        <Button
-                            onClick={async () => {
-                                const name = (newNotebookName || '').trim() || 'Untitled Notebook';
-                                const { id } = await createNotebook({ name, portfolioId: portfolioId || null });
-
-                                // Reload notebooks for the currently selected portfolio
-                                let list = await listNotebooksByPortfolio({ portfolioId: portfolioId || null });
-
-                                // If the freshly-created notebook isn’t in the list yet, insert it optimistically
-                                if (!list.some(n => n.id === id)) {
-                                    list = [{ id, name, portfolioId: portfolioId || null, updatedAt: null, createdAt: null }, ...list];
-                                }
-
-                                setNotebooks(list);
-                                setNotebookId(id);
-                                onChange?.({ ...(note || {}), notebookId: id, portfolioId: portfolioId || null });
-
-                                setShowNewNotebook(false);
-                            }}
-                        >
-                            Create
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
         </div>
     );
 }
