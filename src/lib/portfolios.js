@@ -93,11 +93,17 @@ export const listNotebooks = async ({ userId }) => {
 export const listNotebooksByPortfolio = async ({ userId, portfolioId }) => {
   userId = userId || uid();
   if (!userId) return [];
+
+  // Use only equality — no orderBy — so we don't depend on composite indexes.
   const q = query(
     collection(db, 'users', userId, 'notebooks'),
-    where('portfolioId', '==', portfolioId || null),
-    orderBy('updatedAt', 'desc')
+    where('portfolioId', '==', portfolioId || null)
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // Sort newest first using updatedAt if present (Timestamp), fallback to 0.
+  rows.sort((a, b) => (b?.updatedAt?.toMillis?.() ?? 0) - (a?.updatedAt?.toMillis?.() ?? 0));
+  return rows;
 };
+

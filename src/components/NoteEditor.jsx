@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { listPortfolios, listNotebooksByPortfolio, createPortfolio, createNotebook } from "@/lib/portfolios";
 import { observeRecentNotes, observeBacklinks } from "@/lib/notes";
 import { normalizeTags, tagLabelFromSlug } from "@/lib/utils";
@@ -52,6 +53,11 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
     // Containers
     const [portfolios, setPortfolios] = useState([]);
     const [notebooks, setNotebooks] = useState([]);
+    // Name modals
+    const [showNewPortfolio, setShowNewPortfolio] = useState(false);
+    const [newPortfolioName, setNewPortfolioName] = useState('');
+    const [showNewNotebook, setShowNewNotebook] = useState(false);
+    const [newNotebookName, setNewNotebookName] = useState('');
     const [portfolioId, setPortfolioId] = useState(note?.portfolioId ?? null);
     const [notebookId, setNotebookId] = useState(note?.notebookId ?? null);
 
@@ -172,33 +178,33 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
     }, [editor, onSave, title, tags, portfolioId, notebookId]);
 
     // Save on ⌘/Ctrl+S
-React.useEffect(() => {
-  const onKey = (e) => {
-    const isSave = (e.key === 's' || e.key === 'S') && (e.metaKey || e.ctrlKey);
-    if (isSave) {
-      e.preventDefault();
-      handleSave();
-    }
-  };
-  window.addEventListener('keydown', onKey);
-  return () => window.removeEventListener('keydown', onKey);
-}, [handleSave]);
+    React.useEffect(() => {
+        const onKey = (e) => {
+            const isSave = (e.key === 's' || e.key === 'S') && (e.metaKey || e.ctrlKey);
+            if (isSave) {
+                e.preventDefault();
+                handleSave();
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [handleSave]);
 
 
 
     return (
         <div className="space-y-4">
             {/* Title (moved up) */}
-<Input
-  value={title}
-  onChange={(e) => {
-    const v = e.target.value;
-    setTitle(v);
-    onChange?.({ ...(note || {}), title: v });
-  }}
-  placeholder="Title"
-  className="text-2xl font-semibold h-12"
-/>
+            <Input
+                value={title}
+                onChange={(e) => {
+                    const v = e.target.value;
+                    setTitle(v);
+                    onChange?.({ ...(note || {}), title: v });
+                }}
+                placeholder="Title"
+                className="text-2xl font-semibold h-12"
+            />
             {/* Portfolio / Notebook picker */}
             <div className="flex flex-wrap items-center gap-2">
                 {/* Portfolio */}
@@ -221,19 +227,12 @@ React.useEffect(() => {
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={async () => {
-                            const name = window.prompt('New Portfolio name:', 'Untitled Portfolio');
-                            if (!name) return;
-                            const { id } = await createPortfolio({ name });
-                            setPortfolios(await listPortfolios({}));
-                            setPortfolioId(id);
-                            setNotebookId(null);
-                            onChange?.({ ...(note || {}), portfolioId: id, notebookId: null });
-                        }}
+                        onClick={() => { setNewPortfolioName(''); setShowNewPortfolio(true); }}
                         title="Create Portfolio"
                     >
                         <Plus className="h-4 w-4" />
                     </Button>
+
                 </div>
 
                 {/* Notebook */}
@@ -257,22 +256,16 @@ React.useEffect(() => {
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={async () => {
-                            const name = window.prompt('New Notebook name:', 'Untitled Notebook');
-                            if (!name) return;
-                            const { id } = await createNotebook({ name, portfolioId: portfolioId || null });
-                            setNotebooks(await listNotebooksByPortfolio({ portfolioId: portfolioId || null }));
-                            setNotebookId(id);
-                            onChange?.({ ...(note || {}), notebookId: id, portfolioId: portfolioId || null });
-                        }}
+                        onClick={() => { setNewNotebookName(''); setShowNewNotebook(true); }}
                         title="Create Notebook"
                     >
                         <Plus className="h-4 w-4" />
                     </Button>
+
                 </div>
             </div>
 
-            
+
             {/* Tag strip */}
             <div className="flex flex-wrap items-center gap-2">
                 {(tags || []).map((slug) => (
@@ -359,8 +352,8 @@ React.useEffect(() => {
                     <Button type="button" variant="outline" onClick={() => editor?.chain().focus().undo().run()}>Undo</Button>
                     <Button type="button" variant="outline" onClick={() => editor?.chain().focus().redo().run()}>Redo</Button>
                     <Button type="button" onClick={handleSave} disabled={!note?.id} title="Save (⌘/Ctrl+S)">
-  Save
-</Button>
+                        Save
+                    </Button>
 
                 </div>
             </div>
@@ -396,6 +389,85 @@ React.useEffect(() => {
 
                 )}
             </div>
+            {/* New Portfolio dialog */}
+            <Dialog open={showNewPortfolio} onOpenChange={setShowNewPortfolio}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>New Portfolio</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Input
+                            autoFocus
+                            value={newPortfolioName}
+                            onChange={(e) => setNewPortfolioName(e.target.value)}
+                            placeholder="Portfolio name"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowNewPortfolio(false)}>Cancel</Button>
+                        <Button
+                            onClick={async () => {
+                                const name = (newPortfolioName || '').trim() || 'Untitled Portfolio';
+                                const { id } = await createPortfolio({ name });
+
+                                // Refresh portfolios and select the new one
+                                const list = await listPortfolios({});
+                                setPortfolios(list);
+                                setPortfolioId(id);
+                                setNotebookId(null);
+                                onChange?.({ ...(note || {}), portfolioId: id, notebookId: null });
+
+                                setShowNewPortfolio(false);
+                            }}
+                        >
+                            Create
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* New Notebook dialog */}
+            <Dialog open={showNewNotebook} onOpenChange={setShowNewNotebook}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>New Notebook</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Input
+                            autoFocus
+                            value={newNotebookName}
+                            onChange={(e) => setNewNotebookName(e.target.value)}
+                            placeholder="Notebook name"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setShowNewNotebook(false)}>Cancel</Button>
+                        <Button
+                            onClick={async () => {
+                                const name = (newNotebookName || '').trim() || 'Untitled Notebook';
+                                const { id } = await createNotebook({ name, portfolioId: portfolioId || null });
+
+                                // Reload notebooks for the currently selected portfolio
+                                let list = await listNotebooksByPortfolio({ portfolioId: portfolioId || null });
+
+                                // If the freshly-created notebook isn’t in the list yet, insert it optimistically
+                                if (!list.some(n => n.id === id)) {
+                                    list = [{ id, name, portfolioId: portfolioId || null, updatedAt: null, createdAt: null }, ...list];
+                                }
+
+                                setNotebooks(list);
+                                setNotebookId(id);
+                                onChange?.({ ...(note || {}), notebookId: id, portfolioId: portfolioId || null });
+
+                                setShowNewNotebook(false);
+                            }}
+                        >
+                            Create
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 }
