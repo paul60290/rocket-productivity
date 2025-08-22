@@ -1,16 +1,23 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { Toggle } from "@/components/ui/toggle";
+import { Separator } from "@/components/ui/separator";
+import { Bold, Italic, Heading1, Heading2, Heading3, List, ListOrdered, Minus, Undo, Redo } from "lucide-react";
+import TipTapLink from '@tiptap/extension-link';
 import { Node } from '@tiptap/core';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, Tag as TagIcon, Folder, Book, Plus, Trash2, Pencil } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { listAllTags, ensureMasterTags, renameTagEverywhere, deleteTagEverywhere } from "@/lib/tags";
+import { Checkbox } from "@/components/ui/checkbox";
 import { listPortfolios, listNotebooksByPortfolio } from "@/lib/portfolios";
 
 import { observeRecentNotes, observeBacklinks } from "@/lib/notes";
+import { uploadAttachment, listAttachments, deleteAttachment } from "@/lib/attachments";
 import { normalizeTags, tagLabelFromSlug } from "@/lib/utils";
 
 /** Minimal inline [[wikilink]] node */
@@ -44,7 +51,7 @@ const Wikilink = Node.create({
     },
 });
 
-export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
+export default function NoteEditor({ note, onChange, onSave, onOpenNote, onDelete }) {
     // Title & tags
     const [title, setTitle] = useState('');
     const [tagInput, setTagInput] = useState('');
@@ -53,9 +60,29 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
     // Containers
     const [portfolios, setPortfolios] = useState([]);
     const [notebooks, setNotebooks] = useState([]);
+    // Small pickers open state
+    const [portfolioPickerOpen, setPortfolioPickerOpen] = useState(false);
+    const [notebookPickerOpen, setNotebookPickerOpen] = useState(false);
+    const [tagPickerOpen, setTagPickerOpen] = useState(false);
+    const [manageTagsOpen, setManageTagsOpen] = useState(false);
+    const [manageList, setManageList] = useState([]);
+    const [manageEditingSlug, setManageEditingSlug] = useState(null);
+    const [manageEditingValue, setManageEditingValue] = useState('');
+
+
+
 
     const [portfolioId, setPortfolioId] = useState(note?.portfolioId ?? null);
     const [notebookId, setNotebookId] = useState(note?.notebookId ?? null);
+    const currentPortfolioName = React.useMemo(
+        () => (portfolios.find(p => p.id === portfolioId)?.name) || 'No portfolio',
+        [portfolios, portfolioId]
+    );
+    const currentNotebookName = React.useMemo(
+        () => (notebooks.find(n => n.id === notebookId)?.name) || 'No notebook',
+        [notebooks, notebookId]
+    );
+
 
     // Wikilink picker
     const [linkOpen, setLinkOpen] = useState(false);
@@ -66,6 +93,33 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
     const [backlinks, setBacklinks] = useState([]);
     const [loadingBacklinks, setLoadingBacklinks] = useState(false);
 
+    // Autosave timer (debounced)
+    const saveTimerRef = React.useRef(null);
+
+    const scheduleAutoSave = React.useCallback(() => {
+        if (!note?.id) return;
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+            const content = editor?.getJSON() || { type: 'doc', content: [] };
+            onSave?.({ title, tags, content, portfolioId, notebookId });
+        }, 700);
+        // Note: do NOT include `editor` in deps to avoid TDZ; it's read at call time.
+    }, [note?.id, title, tags, portfolioId, notebookId, onSave]);
+
+    React.useEffect(() => {
+        return () => {
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        };
+    }, []);
+
+
+
+    // Attachments
+    const [attachments, setAttachments] = useState([]);
+    const [uploadPct, setUploadPct] = useState(0);
+    const fileInputRef = React.useRef(null);
+
+
     // Editor
     const editor = useEditor({
         extensions: [
@@ -74,29 +128,55 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
                 bulletList: { keepMarks: true },
                 orderedList: { keepMarks: true },
             }),
+            TipTapLink.configure({
+                autolink: true,
+                linkOnPaste: true,
+                openOnClick: true,
+                HTMLAttributes: {
+                    rel: 'noreferrer noopener',
+                    target: '_blank',
+                    class: 'text-primary underline underline-offset-2 hover:opacity-80',
+                },
+            }),
             Wikilink,
         ],
+
         content: note?.content || { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Start writing…' }] }] },
         onUpdate: ({ editor }) => {
-            const payload = { ...(note || {}), content: editor.getJSON() };
-            onChange?.(payload);
+            scheduleAutoSave();
         },
+
         editorProps: {
             attributes: { class: 'tiptap prose prose-sm max-w-none focus:outline-none min-h-[280px] py-3' },
             handleClickOn(view, pos, node, nodePos, event) {
+                // 1) Node-level click (when ProseMirror gives us the wikilink node)
                 try {
                     if (node?.type?.name === 'wikilink') {
                         const targetId = node?.attrs?.noteId || null;
-                        if (targetId) { onOpenNote?.(targetId); return true; }
+                        if (targetId) {
+                            event?.preventDefault?.();
+                            onOpenNote?.(targetId);
+                            return true;
+                        }
                     }
                 } catch (_) { }
-                const el = event?.target;
-                if (el && el.dataset && el.dataset.wikilink === 'true') {
-                    const targetId = el.dataset.noteId || null;
-                    if (targetId) { onOpenNote?.(targetId); return true; }
+
+                // 2) DOM-level fallback (works even if a child span/text is clicked)
+                const el = (event?.target instanceof Element)
+                    ? event.target.closest('[data-wikilink="true"]')
+                    : null;
+
+                if (el) {
+                    const targetId = el.getAttribute('data-note-id');
+                    if (targetId) {
+                        event.preventDefault();
+                        onOpenNote?.(targetId);
+                        return true;
+                    }
                 }
                 return false;
             },
+
         },
     });
 
@@ -141,23 +221,124 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
         return () => unsub && unsub();
     }, [note?.id]);
 
+    React.useEffect(() => {
+        if (!manageTagsOpen) return;
+        (async () => {
+            const list = await listAllTags({});
+            setManageList(Array.isArray(list) ? list : []);
+        })();
+    }, [manageTagsOpen, tags]);
+
+
+    // Load all tags when the "Manage Tags" dialog opens
+    React.useEffect(() => {
+        if (!manageTagsOpen) return;
+        (async () => {
+            const list = await listAllTags({});
+            setManageList(Array.isArray(list) ? list : []);
+        })();
+    }, [manageTagsOpen]);
+
+
+    // Load attachments for current note
+    React.useEffect(() => {
+        (async () => {
+            if (!note?.id) { setAttachments([]); return; }
+            try {
+                const list = await listAttachments({ noteId: note.id });
+                setAttachments(list);
+            } catch { }
+        })();
+    }, [note?.id]);
+
+    const refreshAttachments = React.useCallback(async () => {
+        if (!note?.id) return;
+        const list = await listAttachments({ noteId: note.id });
+        setAttachments(list);
+    }, [note?.id]);
+
+    const onPickFile = () => fileInputRef.current?.click();
+
+    const onFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !note?.id) return;
+        setUploadPct(1);
+        try {
+            await uploadAttachment({ noteId: note.id, file, onProgress: setUploadPct });
+            await refreshAttachments();
+        } finally {
+            setUploadPct(0);
+            e.target.value = '';
+        }
+    };
+
+    const handleDeleteAttachment = async (path) => {
+        const ok = window.confirm('Delete this attachment?');
+        if (!ok) return;
+        await deleteAttachment({ path });
+        await refreshAttachments();
+    };
+
+    // Persistent tag list for the "Add tags" popover (comes from /users/{uid}/tags)
+    const [pickerTags, setPickerTags] = React.useState([]);
+
+    // Load tags when either the Add-tags popover or Manage-tags dialog opens
+    React.useEffect(() => {
+        if (!tagPickerOpen && !manageTagsOpen) return;
+        (async () => {
+            const list = await listAllTags({});
+            const safe = Array.isArray(list) ? list : [];
+            if (tagPickerOpen) setPickerTags(safe);
+            if (manageTagsOpen) setManageList(safe);
+        })();
+    }, [tagPickerOpen, manageTagsOpen]);
+
+
+
+
+    const toggleTag = (slug, checked) => {
+        if (checked) addTags(slug);
+        else removeTag(slug);
+    };
+
+
+
     // Tag helpers
     const addTags = useCallback((raw) => {
         const next = normalizeTags(raw);
+        // Persist newly created tags into the master list so they don’t “disappear”
+        ensureMasterTags({ tags: next }).catch(() => { });
+        setPickerTags(prev => Array.from(new Set([...(prev || []), ...next])).sort());
         if (!next.length) return;
+
         const merged = normalizeTags([...(tags || []), ...next]);
         setTags(merged);
         setTagInput('');
+        // Reflect in parent immediately
         onChange?.({ ...(note || {}), tags: merged });
-    }, [tags, note, onChange]);
+        scheduleAutoSave();
+
+
+        // PERSIST so tags survive reload & appear in pickers/managers
+        const content = editor?.getJSON() || { type: 'doc', content: [] };
+        onSave?.({ title, tags: merged, content, portfolioId, notebookId });
+    }, [tags, note, onChange, editor, title, portfolioId, notebookId, onSave]);
+
 
     const removeTag = useCallback((slug) => {
         setTags((t) => {
             const next = (t || []).filter((x) => x !== slug);
+            // Reflect in parent
             onChange?.({ ...(note || {}), tags: next });
+
+            // PERSIST change so it’s durable and pickers/managers stay in sync
+            const content = editor?.getJSON() || { type: 'doc', content: [] };
+            onSave?.({ title, tags: next, content, portfolioId, notebookId });
+
             return next;
         });
-    }, [note, onChange]);
+    }, [note, onChange, editor, title, portfolioId, notebookId, onSave]);
+
 
     const onTagKeyDown = (e) => {
         if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
@@ -190,61 +371,117 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
 
     return (
         <div className="space-y-4">
-            {/* Title (moved up) */}
+            {/* Title (plain, bigger) */}
             <Input
                 value={title}
                 onChange={(e) => {
                     const v = e.target.value;
                     setTitle(v);
                     onChange?.({ ...(note || {}), title: v });
+                    scheduleAutoSave();
                 }}
                 placeholder="Title"
-                className="text-2xl font-semibold h-12"
+                className="w-full bg-transparent border-none shadow-none px-0
+             text-3xl md:text-4xl font-bold leading-tight tracking-tight
+             focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-none"
             />
-            {/* Portfolio / Notebook picker */}
-            <div className="flex flex-wrap items-center gap-2">
-                {/* Portfolio */}
-                <div className="flex items-center gap-2">
-                    <Select
-                        value={portfolioId ?? "__none__"}
-                        onValueChange={(val) => {
-                            const pid = val === "__none__" ? null : val;
-                            setPortfolioId(pid);
-                            setNotebookId(null);
-                            onChange?.({ ...(note || {}), portfolioId: pid, notebookId: null });
-                        }}
-                    >
-                        <SelectTrigger className="w-56"><SelectValue placeholder="Select Portfolio" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__none__">Select Portfolio</SelectItem>
-                            {portfolios.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                </div>
 
-                {/* Notebook */}
-                <div className="flex items-center gap-2">
-                    <Select
-                        value={notebookId ?? "__none__"}
-                        onValueChange={(val) => {
-                            const nid = val === "__none__" ? null : val;
-                            setNotebookId(nid);
-                            onChange?.({ ...(note || {}), notebookId: nid });
-                        }}
-                    >
-                        <SelectTrigger className="w-56">
-                            <SelectValue placeholder="Select Notebook" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="__none__">Select Notebook</SelectItem>
-                            {notebooks.map((n) => (<SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>))}
-                        </SelectContent>
-                    </Select>
-                </div>
+            {/* Location breadcrumb */}
+            <div className="text-xs md:text-sm text-muted-foreground -mt-2">
+                <span className="truncate">{currentPortfolioName}</span>
+                <span> › </span>
+                <span className="truncate">{currentNotebookName}</span>
+            </div>
+
+            {/* Portfolio / Notebook quick actions */}
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                {/* Portfolio */}
+                <Popover open={portfolioPickerOpen} onOpenChange={setPortfolioPickerOpen}>
+                    <PopoverTrigger asChild>
+                        <button type="button" className="inline-flex items-center px-1.5 py-1 rounded hover:bg-muted/60">
+                            <Folder className="h-4 w-4 mr-1" />
+                            {portfolioId ? 'Change portfolio' : 'Add to portfolio'}
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-2">
+                        <div className="max-h-64 overflow-auto">
+                            <button
+                                className={`w-full text-left px-2 py-1.5 rounded hover:bg-muted/60 ${portfolioId == null ? 'bg-muted/50' : ''}`}
+                                onClick={() => {
+                                    setPortfolioId(null);
+                                    setNotebookId(null);
+                                    onChange?.({ ...(note || {}), portfolioId: null, notebookId: null });
+                                    setPortfolioPickerOpen(false);
+                                }}
+                            >
+                                — No portfolio —
+                            </button>
+                            {(portfolios || []).map(p => (
+                                <button
+                                    key={p.id}
+                                    className={`w-full text-left px-2 py-1.5 rounded hover:bg-muted/60 ${portfolioId === p.id ? 'bg-muted/50' : ''}`}
+                                    onClick={() => {
+                                        setPortfolioId(p.id);
+                                        setNotebookId(null);
+                                        onChange?.({ ...(note || {}), portfolioId: p.id, notebookId: null });
+                                        scheduleAutoSave();
+                                        setPortfolioPickerOpen(false);
+                                    }}
+                                    title={p.name}
+                                >
+                                    {p.name}
+                                </button>
+                            ))}
+                        </div>
+                    </PopoverContent>
+                </Popover>
+
+                {/* Notebook (scoped to selected portfolio) */}
+                <Popover open={notebookPickerOpen} onOpenChange={setNotebookPickerOpen}>
+                    <PopoverTrigger asChild>
+                        <button type="button" className="inline-flex items-center px-1.5 py-1 rounded hover:bg-muted/60" disabled={false}>
+                            <Book className="h-4 w-4 mr-1" />
+                            {notebookId ? 'Change notebook' : 'Add to notebook'}
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-2">
+                        <div className="max-h-64 overflow-auto">
+                            <button
+                                className={`w-full text-left px-2 py-1.5 rounded hover:bg-muted/60 ${!notebookId ? 'bg-muted/50' : ''}`}
+                                onClick={() => {
+                                    setNotebookId(null);
+                                    onChange?.({ ...(note || {}), notebookId: null });
+                                    setNotebookPickerOpen(false);
+                                }}
+                            >
+                                — No notebook —
+                            </button>
+                            {(notebooks || []).length === 0 ? (
+                                <div className="px-2 py-2 text-xs text-muted-foreground">No notebooks in this portfolio.</div>
+                            ) : (
+                                notebooks.map(n => (
+                                    <button
+                                        key={n.id}
+                                        className={`w-full text-left px-2 py-1.5 rounded hover:bg-muted/60 ${notebookId === n.id ? 'bg-muted/50' : ''}`}
+                                        onClick={() => {
+                                            setNotebookId(n.id);
+                                            onChange?.({ ...(note || {}), notebookId: n.id });
+                                            scheduleAutoSave();
+                                            setNotebookPickerOpen(false);
+                                        }}
+                                        title={n.name}
+                                    >
+                                        {n.name}
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
 
 
-            {/* Tag strip */}
+            {/* Tags */}
             <div className="flex flex-wrap items-center gap-2">
                 {(tags || []).map((slug) => (
                     <Badge key={slug} variant="secondary" className="flex items-center gap-1">
@@ -261,35 +498,145 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
                     </Badge>
                 ))}
 
-                <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={onTagKeyDown}
-                    placeholder="Add tags (press Enter)"
-                    className="w-56"
-                />
-                <Button variant="outline" onClick={() => addTags(tagInput)}>Add</Button>
+                <Popover open={tagPickerOpen} onOpenChange={setTagPickerOpen}>
+                    <PopoverTrigger asChild>
+                        <button type="button" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground px-1.5 py-1 rounded hover:bg-muted/60">
+                            <TagIcon className="h-4 w-4 mr-1" />
+                            Add tags
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-2">
+                        <div className="space-y-2">
+                            <div className="max-h-56 overflow-auto pr-1">
+                                {pickerTags.length === 0 ? (
+                                    <div className="text-xs text-muted-foreground px-1.5 py-2">No tags yet.</div>
+                                ) : (
+                                    pickerTags.map(slug => (
+                                        <label key={slug} className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-muted/60">
+                                            <Checkbox
+                                                checked={(tags || []).includes(slug)}
+                                                onCheckedChange={(val) => toggleTag(slug, !!val)}
+                                            />
+                                            <span className="truncate">{tagLabelFromSlug(slug)}</span>
+                                        </label>
+                                    ))
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    value={tagInput}
+                                    onChange={(e) => setTagInput(e.target.value)}
+                                    placeholder="New tag…"
+                                />
+                                <Button
+                                    type="button"
+                                    onClick={() => { addTags(tagInput); setTagInput(''); }}
+                                >
+                                    Add
+                                </Button>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => { setManageTagsOpen(true); setTagPickerOpen(false); }}
+                                >
+                                    Manage tags…
+                                </Button>
+                            </div>
+
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
 
-            {/* Toolbar */}
-            <div className="flex flex-wrap gap-2 border rounded-lg p-2 bg-card">
-                <Button type="button" variant={editor?.isActive('bold') ? 'default' : 'outline'} onClick={() => editor?.chain().focus().toggleBold().run()}>Bold</Button>
-                <Button type="button" variant={editor?.isActive('italic') ? 'default' : 'outline'} onClick={() => editor?.chain().focus().toggleItalic().run()}>Italic</Button>
-                <Button type="button" variant={editor?.isActive('heading', { level: 1 }) ? 'default' : 'outline'} onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}>H1</Button>
-                <Button type="button" variant={editor?.isActive('heading', { level: 2 }) ? 'default' : 'outline'} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>H2</Button>
-                <Button type="button" variant={editor?.isActive('heading', { level: 3 }) ? 'default' : 'outline'} onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}>H3</Button>
-                <Button type="button" variant={editor?.isActive('bulletList') ? 'default' : 'outline'} onClick={() => editor?.chain().focus().toggleBulletList().run()}>Bullets</Button>
-                <Button type="button" variant={editor?.isActive('orderedList') ? 'default' : 'outline'} onClick={() => editor?.chain().focus().toggleOrderedList().run()}>Numbers</Button>
-                <Button type="button" variant="outline" onClick={() => editor?.chain().focus().setHorizontalRule().run()}>Divider</Button>
 
-                {/* Wikilink popover */}
+            {/* Toolbar (compact) */}
+            <div className="flex items-center flex-wrap gap-1.5 rounded-md bg-muted/30 p-1">
+                <Toggle
+                    size="sm"
+                    pressed={!!editor?.isActive('bold')}
+                    onPressedChange={() => editor?.chain().focus().toggleBold().run()}
+                    aria-label="Bold"
+                >
+                    <Bold className="h-4 w-4" />
+                </Toggle>
+                <Toggle
+                    size="sm"
+                    pressed={!!editor?.isActive('italic')}
+                    onPressedChange={() => editor?.chain().focus().toggleItalic().run()}
+                    aria-label="Italic"
+                >
+                    <Italic className="h-4 w-4" />
+                </Toggle>
+
+                <Separator orientation="vertical" className="h-5" />
+
+                <Toggle
+                    size="sm"
+                    pressed={!!editor?.isActive('heading', { level: 1 })}
+                    onPressedChange={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+                    aria-label="H1"
+                >
+                    <Heading1 className="h-4 w-4" />
+                </Toggle>
+                <Toggle
+                    size="sm"
+                    pressed={!!editor?.isActive('heading', { level: 2 })}
+                    onPressedChange={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                    aria-label="H2"
+                >
+                    <Heading2 className="h-4 w-4" />
+                </Toggle>
+                <Toggle
+                    size="sm"
+                    pressed={!!editor?.isActive('heading', { level: 3 })}
+                    onPressedChange={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+                    aria-label="H3"
+                >
+                    <Heading3 className="h-4 w-4" />
+                </Toggle>
+
+                <Separator orientation="vertical" className="h-5" />
+
+                <Toggle
+                    size="sm"
+                    pressed={!!editor?.isActive('bulletList')}
+                    onPressedChange={() => editor?.chain().focus().toggleBulletList().run()}
+                    aria-label="Bulleted list"
+                >
+                    <List className="h-4 w-4" />
+                </Toggle>
+                <Toggle
+                    size="sm"
+                    pressed={!!editor?.isActive('orderedList')}
+                    onPressedChange={() => editor?.chain().focus().toggleOrderedList().run()}
+                    aria-label="Numbered list"
+                >
+                    <ListOrdered className="h-4 w-4" />
+                </Toggle>
+
+                <Separator orientation="vertical" className="h-5" />
+
+                <Button type="button" variant="ghost" size="sm" onClick={() => editor?.chain().focus().setHorizontalRule().run()} aria-label="Divider">
+                    <Minus className="h-4 w-4" />
+                </Button>
+
+                {/* Keep Wikilink, but smaller */}
                 <Popover open={linkOpen} onOpenChange={setLinkOpen}>
                     <PopoverTrigger asChild>
-                        <Button type="button" variant="outline">[[ Wikilink ]]</Button>
+                        <Button type="button" variant="ghost" size="sm">
+                            [[ Wikilink ]]
+                        </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-80 p-2">
                         <div className="space-y-2">
-                            <Input autoFocus placeholder="Search notes…" value={linkQuery} onChange={(e) => setLinkQuery(e.target.value)} />
+                            <Input
+                                autoFocus
+                                placeholder="Search notes…"
+                                value={linkQuery}
+                                onChange={(e) => setLinkQuery(e.target.value)}
+                            />
                             <div className="max-h-64 overflow-auto rounded-md border">
                                 {linkResults
                                     .filter(n => (n.title || 'untitled').toLowerCase().includes(linkQuery.toLowerCase()))
@@ -303,7 +650,7 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
                                                     titleSlug: n.titleSlug || '',
                                                     text: `[[${n.title || 'Untitled'}]]`,
                                                 }).run();
-                                                // Auto-save so backlinks update immediately
+                                                // autosave after insert
                                                 const content = editor?.getJSON() || { type: 'doc', content: [] };
                                                 onSave?.({ title, tags, content, portfolioId, notebookId });
                                                 setLinkOpen(false);
@@ -326,41 +673,210 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote }) {
                     </PopoverContent>
                 </Popover>
 
-                <div className="ml-auto flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => editor?.chain().focus().undo().run()}>Undo</Button>
-                    <Button type="button" variant="outline" onClick={() => editor?.chain().focus().redo().run()}>Redo</Button>
-                    <Button type="button" onClick={handleSave} disabled={!note?.id} title="Save (⌘/Ctrl+S)">
-                        Save
-                    </Button>
 
+                <div className="ml-auto flex items-center gap-1.5">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => editor?.chain().focus().undo().run()} aria-label="Undo">
+                        <Undo className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => editor?.chain().focus().redo().run()} aria-label="Redo">
+                        <Redo className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="text-red-600" onClick={() => onDelete?.()} disabled={!note?.id}>
+                        Delete
+                    </Button>
                 </div>
+
             </div>
 
+
             {/* Content */}
+            <style>{`
+  .tiptap ul { list-style: disc; margin-left: 1.25rem; padding-left: 0; }
+  .tiptap ol { list-style: decimal; margin-left: 1.25rem; padding-left: 0; }
+  .tiptap li { margin: 0.25rem 0; }
+  .tiptap li p { margin: 0; }
+`}</style>
             <div className="rounded-xl border bg-background">
                 <EditorContent editor={editor} />
             </div>
 
+            {/* Attachments */}
+            <div className="text-sm">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="font-medium text-card-foreground">Attachments</div>
+                    <div className="flex items-center gap-2">
+                        {uploadPct > 0 && <span className="text-xs text-muted-foreground">{uploadPct}%</span>}
+                        <Button type="button" variant="outline" size="sm" onClick={onPickFile} disabled={!note?.id}>
+                            Upload file
+                        </Button>
+                        <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
+                    </div>
+                </div>
+
+                {attachments.length === 0 ? (
+                    <div className="text-muted-foreground">No attachments yet.</div>
+                ) : (
+                    <ul className="divide-y">
+                        {attachments.map(att => (
+                            <li key={att.path} className="flex items-center justify-between px-2 py-1.5 gap-3">
+                                <div className="min-w-0">
+                                    <div className="truncate">{att.name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {(att.contentType || 'file')} • {Math.round((att.size || 0) / 1024)} KB
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <a href={att.url} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2 hover:opacity-80">
+                                        Open
+                                    </a>
+                                    <Button type="button" variant="link" className="text-red-600 px-0 h-auto" onClick={() => handleDeleteAttachment(att.path)}>
+                                        Delete
+                                    </Button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+            {/* Manage Tags dialog */}
+            <Dialog open={manageTagsOpen} onOpenChange={setManageTagsOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Manage Tags</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-3">
+                        {/* Current tags list with delete */}
+                        <div className="rounded-md border max-h-60 overflow-auto divide-y">
+                            {manageList.length === 0 ? (
+                                <div className="text-sm text-muted-foreground p-3">No tags yet.</div>
+                            ) : (
+                                manageList.map((slug) => (
+                                    <div key={slug} className="flex items-center justify-between px-3 py-2 gap-2">
+                                        {/* Left side: label or inline editor */}
+                                        {manageEditingSlug === slug ? (
+                                            <Input
+                                                autoFocus
+                                                value={manageEditingValue}
+                                                onChange={(e) => setManageEditingValue(e.target.value)}
+                                                onKeyDown={async (e) => {
+                                                    if (e.key === 'Escape') {
+                                                        setManageEditingSlug(null);
+                                                        return;
+                                                    }
+                                                    if (e.key === 'Enter') {
+                                                        const from = manageEditingSlug;
+                                                        const to = (manageEditingValue || '').trim();
+                                                        setManageEditingSlug(null);
+                                                        if (!from || !to || from === to) return;
+                                                        await renameTagEverywhere({ from, to });
+                                                        const list = await listAllTags({});
+                                                        setManageList(Array.isArray(list) ? list : []);
+                                                        setPickerTags(Array.isArray(list) ? list : []);
+                                                        setTags(prev => {
+                                                            const next = (prev || []).map(s => (s === from ? to : s));
+                                                            onChange?.({ ...(note || {}), tags: next });
+                                                            scheduleAutoSave();
+                                                            return next;
+                                                        });
+                                                    }
+                                                }}
+                                                onBlur={async () => {
+                                                    const from = manageEditingSlug;
+                                                    const to = (manageEditingValue || '').trim();
+                                                    setManageEditingSlug(null);
+                                                    if (!from || !to || from === to) return;
+                                                    await renameTagEverywhere({ from, to });
+                                                    const list = await listAllTags({});
+                                                    setManageList(Array.isArray(list) ? list : []);
+                                                    setPickerTags(Array.isArray(list) ? list : []);
+                                                    setTags(prev => {
+                                                        const next = (prev || []).map(s => (s === from ? to : s));
+                                                        onChange?.({ ...(note || {}), tags: next });
+                                                        return next;
+                                                    });
+                                                }}
+                                                className="h-7"
+                                            />
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="truncate text-left w-full hover:underline underline-offset-2"
+                                                onClick={() => { setManageEditingSlug(slug); setManageEditingValue(slug); }}
+                                                title={slug}
+                                            >
+                                                {slug}
+                                            </button>
+                                        )}
+
+                                        {/* Right side: actions */}
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => { setManageEditingSlug(slug); setManageEditingValue(slug); }}
+                                                title="Rename"
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-red-600"
+                                                onClick={async () => {
+                                                    await deleteTagEverywhere({ tag: slug });  // no OS confirm
+                                                    const list = await listAllTags({});
+                                                    setManageList(Array.isArray(list) ? list : []);
+                                                    setPickerTags(Array.isArray(list) ? list : []);
+                                                    setTags(prev => {
+                                                        const next = (prev || []).filter(s => s !== slug);
+                                                        onChange?.({ ...(note || {}), tags: next });
+                                                        return next;
+                                                    });
+                                                }}
+                                                title="Delete"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))
+
+                            )}
+                        </div>
+
+                        {/* Datalist for quick pick */}
+                        <datalist id="all-tags-datalist">
+                            {manageList.map(slug => <option key={slug} value={slug} />)}
+                        </datalist>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setManageTagsOpen(false)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+
             {/* Backlinks */}
-            <div className="rounded-xl border bg-card p-4 text-sm">
+            <div className="text-sm mt-2">
                 <div className="font-medium text-card-foreground mb-2">Backlinks</div>
                 {loadingBacklinks ? (
                     <div className="text-muted-foreground">Loading…</div>
                 ) : backlinks.length === 0 ? (
                     <div className="text-muted-foreground">No backlinks yet.</div>
                 ) : (
-                    <ul className="space-y-1">
+                    <ul className="space-y-0.5">
                         {backlinks.map(b => (
                             <li key={b.id}>
-                                <button
-                                    type="button"
-                                    onClick={() => onOpenNote?.(b.id)}
-                                    className="w-full text-left truncate text-primary hover:underline underline-offset-2 px-1 py-0.5 rounded hover:bg-muted"
+                                <a
+                                    href="#"
+                                    onClick={(e) => { e.preventDefault(); onOpenNote?.(b.id); }}
+                                    className="block w-full truncate text-primary underline underline-offset-2 hover:opacity-80"
                                     title={b.title || 'Untitled'}
-                                    role="link"
                                 >
                                     {b.title || 'Untitled'}
-                                </button>
+                                </a>
                             </li>
                         ))}
                     </ul>

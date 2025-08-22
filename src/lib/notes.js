@@ -1,18 +1,18 @@
 // src/lib/notes.js
 import { auth, db } from '@/firebase';
 import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where
+    addDoc,
+    collection,
+    deleteDoc,
+    doc,
+    getDoc,
+    getDocs,
+    onSnapshot,
+    orderBy,
+    query,
+    serverTimestamp,
+    updateDoc,
+    where
 } from 'firebase/firestore';
 import { normalizeTags, tagLabelFromSlug } from '@/lib/utils';
 
@@ -165,46 +165,58 @@ export const listBacklinks = async ({ userId, noteId }) => {
 
 // Realtime backlinks for a note (unsubscribe with returned fn)
 export const observeBacklinks = ({ userId, noteId, onChange }) => {
-  if (!userId) userId = auth.currentUser?.uid;
-  if (!userId || !noteId) return () => {};
-  const q = query(
-    collection(db, 'users', userId, 'notes'),
-    where('outgoingLinks', 'array-contains', noteId)
-  );
-  return onSnapshot(q, (snap) => {
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    items.sort((a, b) => (b?.updatedAt?.toMillis?.() || 0) - (a?.updatedAt?.toMillis?.() || 0));
-    onChange?.(items);
-  });
+    if (!userId) userId = auth.currentUser?.uid;
+    if (!userId || !noteId) return () => { };
+    const q = query(
+        collection(db, 'users', userId, 'notes'),
+        where('outgoingLinks', 'array-contains', noteId)
+    );
+    return onSnapshot(q, (snap) => {
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        items.sort((a, b) => (b?.updatedAt?.toMillis?.() || 0) - (a?.updatedAt?.toMillis?.() || 0));
+        onChange?.(items);
+    });
 };
 
 
 // Recent notes (sorted by updatedAt desc)
 export const listRecentNotes = async ({ userId, limitCount = 25 }) => {
-  if (!userId) userId = auth.currentUser?.uid;
-  if (!userId) return [];
-  const q = query(
-    collection(db, 'users', userId, 'notes'),
-    orderBy('updatedAt', 'desc')
-  );
-  const snap = await getDocs(q);
-  const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  return items.slice(0, limitCount);
+    if (!userId) userId = auth.currentUser?.uid;
+    if (!userId) return [];
+    const q = query(
+        collection(db, 'users', userId, 'notes'),
+        orderBy('updatedAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return items.slice(0, limitCount);
 };
 // Realtime recent notes (unsubscribe with returned fn)
 export const observeRecentNotes = ({ userId, limitCount = 50, onChange }) => {
-  if (!userId) userId = auth.currentUser?.uid;
-  if (!userId) return () => {};
-  const q = query(
-    collection(db, 'users', userId, 'notes'),
-    orderBy('updatedAt', 'desc')
-  );
-  return onSnapshot(q, (snap) => {
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    onChange?.(items.slice(0, limitCount));
-  });
+    if (!userId) userId = auth.currentUser?.uid;
+    if (!userId) return () => { };
+    const q = query(
+        collection(db, 'users', userId, 'notes'),
+        orderBy('updatedAt', 'desc')
+    );
+    return onSnapshot(q, (snap) => {
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        onChange?.(items.slice(0, limitCount));
+    });
 };
 
+// Realtime all notes (unsubscribe with returned fn)
+export const observeAllNotes = ({ userId, onChange }) => {
+    if (!userId) userId = auth.currentUser?.uid;
+    if (!userId) return () => { };
+    const q = query(
+        collection(db, 'users', userId, 'notes')
+    );
+    return onSnapshot(q, (snap) => {
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        onChange?.(items);
+    });
+};
 
 
 /** SPACES (saved tag views) --------------------------------------------------*/

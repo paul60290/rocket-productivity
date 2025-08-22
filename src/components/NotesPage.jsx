@@ -8,12 +8,13 @@ import {
     getNoteById,
     updateNote,
     listRecentNotes,
-    observeRecentNotes,
+    observeAllNotes,
     deleteNote
 } from "@/lib/notes";
 import { listPortfolios, listNotebooksByPortfolio, createPortfolio, createNotebook, updatePortfolio, deletePortfolio, updateNotebook, deleteNotebook } from "@/lib/portfolios";
 import NoteEditor from "./NoteEditor";
 import { ChevronRight, ChevronDown, Folder, Book, MoreVertical, Plus } from "lucide-react";
+
 
 const NONE = "__none__";
 
@@ -21,6 +22,8 @@ export default function NotesPage() {
     // Current note
     const [note, setNote] = useState(null);
     const [saveStatus, setSaveStatus] = useState('idle');
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
 
     // Sidebar data
     const [sidebarNotes, setSidebarNotes] = useState([]);
@@ -78,18 +81,51 @@ export default function NotesPage() {
         );
     };
 
-    const notesForNotebook = useCallback((notebookId) => {
-        return sidebarNotes.filter(n => n.notebookId === notebookId);
+    const notesByNotebook = useMemo(() => {
+        const bucket = new Map();
+        for (const n of sidebarNotes) {
+            const key = n.notebookId; // only group by notebook
+            if (!key) continue;       // notes without a notebook aren’t shown in this tree
+            if (!bucket.has(key)) bucket.set(key, []);
+            const arr = bucket.get(key);
+            // dedupe within each notebook
+            if (!arr.some(x => x.id === n.id)) arr.push(n);
+        }
+        // stable, predictable order: Title A→Z, then createdAt as tiebreaker
+        for (const [k, arr] of bucket) {
+            arr.sort((a, b) => {
+                const ta = (a.title || '').toLowerCase();
+                const tb = (b.title || '').toLowerCase();
+                if (ta < tb) return -1;
+                if (ta > tb) return 1;
+                const ca = a.createdAt?.seconds || 0;
+                const cb = b.createdAt?.seconds || 0;
+                return ca - cb;
+            });
+        }
+        return bucket;
     }, [sidebarNotes]);
+
+    const notesForNotebook = useCallback(
+        (notebookId) => notesByNotebook.get(notebookId) || [],
+        [notesByNotebook]
+    );
+
 
     // ---------- Data loading ----------
     // Realtime list of notes for sidebar
     useEffect(() => {
-        const unsub = observeRecentNotes({
-            onChange: (items) => setSidebarNotes(items),
+        const unsub = observeAllNotes({
+            onChange: (items) => {
+                // Dedupe by id to avoid occasional duplicates from rapid updates
+                const byId = new Map();
+                for (const n of items || []) byId.set(n.id, n);
+                setSidebarNotes(Array.from(byId.values()));
+            },
         });
         return () => unsub && unsub();
     }, []);
+
 
     // Portfolios once (+ preload "No Portfolio" notebooks)
     useEffect(() => {
@@ -128,6 +164,7 @@ export default function NotesPage() {
         if (loaded) {
             localStorage.setItem('rp:lastNoteId', noteId);
             setNote(loaded);
+            setSidebarOpen(false);
         }
     }, []);
 
@@ -178,8 +215,6 @@ export default function NotesPage() {
         localStorage.setItem('rp:lastNoteId', note.id);
         const fresh = await getNoteById({ noteId: note.id });
         setNote(fresh);
-        const items = await listRecentNotes({});
-        setSidebarNotes(items);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 1200);
     }, [note]);
@@ -205,15 +240,22 @@ export default function NotesPage() {
                     {saveStatus === 'saving' && <span className="text-xs text-muted-foreground">Saving…</span>}
                     {saveStatus === 'saved' && <span className="text-xs text-green-600">Saved</span>}
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="destructive" onClick={handleDeleteNote} disabled={!note?.id}>Delete</Button>
-                    <Button onClick={handleNewNote}>New Note</Button>
+                <div className="flex gap-1.5">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="md:hidden"
+                        onClick={() => setSidebarOpen(s => !s)}
+                    >
+                        {sidebarOpen ? 'Hide' : 'Show'} Sidebar
+                    </Button>
+                    <Button size="sm" onClick={handleNewNote}>New Note</Button>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 {/* Sidebar */}
-                <aside className="md:col-span-3 lg:col-span-2 rounded-xl border bg-card p-2 space-y-3">
+                <aside className={(sidebarOpen ? 'block' : 'hidden') + ' md:block md:col-span-3 lg:col-span-2 p-1 space-y-3'}>
                     {/* Search */}
                     <div className="px-2">
                         <Input
@@ -227,7 +269,7 @@ export default function NotesPage() {
                     {searchQuery ? (
                         <div className="px-2">
                             <div className="text-xs text-muted-foreground mb-1">Results</div>
-                            <div className="rounded-md border divide-y">
+                            <div className="divide-y">
                                 {searchResults.length === 0 ? (
                                     <div className="p-3 text-sm text-muted-foreground">No matches.</div>
                                 ) : (
@@ -235,7 +277,7 @@ export default function NotesPage() {
                                         <button
                                             key={n.id}
                                             onClick={() => handleOpenNote(n.id)}
-                                            className={`w-full text-left p-3 hover:bg-muted ${note?.id === n.id ? 'bg-muted' : ''}`}
+                                            className={`w-full text-left px-2.5 py-2 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
                                             title={n.title || 'Untitled'}
                                         >
                                             <div className="font-medium truncate">{n.title || 'Untitled'}</div>
@@ -322,7 +364,7 @@ export default function NotesPage() {
 
 
                                                             {nbOpen && (
-                                                                <div className="ml-5 rounded-md border divide-y">
+                                                                <div className="ml-4 divide-y">
                                                                     {notesForNotebook(nb.id).length === 0 ? (
                                                                         <div className="p-2 text-xs text-muted-foreground">No notes.</div>
                                                                     ) : (
@@ -330,7 +372,7 @@ export default function NotesPage() {
                                                                             <button
                                                                                 key={n.id}
                                                                                 onClick={() => handleOpenNote(n.id)}
-                                                                                className={`w-full text-left px-2 py-1.5 hover:bg-muted ${note?.id === n.id ? 'bg-muted' : ''}`}
+                                                                                className={`w-full text-left px-2 py-1 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
                                                                                 title={n.title || 'Untitled'}
                                                                             >
                                                                                 <div className="truncate">{n.title || 'Untitled'}</div>
@@ -386,7 +428,7 @@ export default function NotesPage() {
 
 
                                                     {nbOpen && (
-                                                        <div className="ml-5 rounded-md border divide-y">
+                                                        <div className="ml-4 divide-y">
                                                             {notesForNotebook(nb.id).length === 0 ? (
                                                                 <div className="p-2 text-xs text-muted-foreground">No notes.</div>
                                                             ) : (
@@ -394,7 +436,7 @@ export default function NotesPage() {
                                                                     <button
                                                                         key={n.id}
                                                                         onClick={() => handleOpenNote(n.id)}
-                                                                        className={`w-full text-left px-2 py-1.5 hover:bg-muted ${note?.id === n.id ? 'bg-muted' : ''}`}
+                                                                        className={`w-full text-left px-2 py-1 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
                                                                         title={n.title || 'Untitled'}
                                                                     >
                                                                         <div className="truncate">{n.title || 'Untitled'}</div>
@@ -414,13 +456,14 @@ export default function NotesPage() {
                 </aside>
 
                 {/* Editor */}
-                <section className="md:col-span-9 lg:col-span-10 rounded-xl border bg-card text-card-foreground p-4">
+                <section className="md:col-span-9 lg:col-span-10 p-1 md:p-2">
                     <NoteEditor
                         key={editorRefreshKey}
                         note={note}
                         onChange={setNote}
                         onSave={handleSave}
                         onOpenNote={handleOpenNote}
+                        onDelete={handleDeleteNote}
                     />
                 </section>
             </div >
@@ -595,7 +638,7 @@ export default function NotesPage() {
 /* ----- Small tree row components ----- */
 function TreePortfolioRow({ label, icon, isOpen, onToggle, onRename, onDelete, onNewNotebook }) {
     return (
-        <div className="w-full px-2 py-1.5 rounded hover:bg-muted">
+        <div className="w-full px-1.5 py-1 rounded hover:bg-muted/60">
             <div className="flex items-center gap-2 min-w-0">
                 <button
                     type="button"
@@ -603,7 +646,7 @@ function TreePortfolioRow({ label, icon, isOpen, onToggle, onRename, onDelete, o
                     onClick={onToggle}
                     title={label}
                 >
-                    {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                    {isOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
                     {icon}
                     <span className="truncate">{label}</span>
                 </button>
@@ -612,7 +655,7 @@ function TreePortfolioRow({ label, icon, isOpen, onToggle, onRename, onDelete, o
                     <DropdownMenuTrigger asChild>
                         <button
                             type="button"
-                            className="ml-2 h-6 w-6 shrink-0 inline-flex items-center justify-center rounded hover:bg-accent"
+                            className="ml-1.5 h-5 w-5 shrink-0 inline-flex items-center justify-center rounded hover:bg-accent"
                             title="Portfolio actions"
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -650,7 +693,7 @@ function TreePortfolioRow({ label, icon, isOpen, onToggle, onRename, onDelete, o
 
 function TreeNotebookRow({ name, isOpen, onToggle, onRename, onDelete }) {
     return (
-        <div className="w-full px-2 py-1.5 rounded hover:bg-muted">
+        <div className="w-full px-1.5 py-1 rounded hover:bg-muted/60">
             <div className="flex items-center gap-2 min-w-0">
                 <button
                     type="button"
@@ -658,8 +701,8 @@ function TreeNotebookRow({ name, isOpen, onToggle, onRename, onDelete }) {
                     onClick={onToggle}
                     title={name}
                 >
-                    {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
-                    <Book className="h-4 w-4 shrink-0" />
+                    {isOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+                    <Book className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{name}</span>
                 </button>
 
@@ -667,7 +710,7 @@ function TreeNotebookRow({ name, isOpen, onToggle, onRename, onDelete }) {
                     <DropdownMenuTrigger asChild>
                         <button
                             type="button"
-                            className="ml-2 h-6 w-6 shrink-0 inline-flex items-center justify-center rounded hover:bg-accent"
+                            className="ml-1.5 h-5 w-5 shrink-0 inline-flex items-center justify-center rounded hover:bg-accent"
                             title="Notebook actions"
                             onClick={(e) => e.stopPropagation()}
                         >
