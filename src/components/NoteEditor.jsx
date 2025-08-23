@@ -96,15 +96,82 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote, onDelet
     // Autosave timer (debounced)
     const saveTimerRef = React.useRef(null);
 
+    // Editor
+const editor = useEditor({
+    extensions: [
+        StarterKit.configure({
+            heading: { levels: [1, 2, 3] },
+            bulletList: { keepMarks: true },
+            orderedList: { keepMarks: true },
+        }),
+        TipTapLink.configure({
+            autolink: true,
+            linkOnPaste: true,
+            openOnClick: true,
+            HTMLAttributes: {
+                rel: 'noreferrer noopener',
+                target: '_blank',
+                class: 'text-primary underline underline-offset-2 hover:opacity-80',
+            },
+        }),
+        Wikilink,
+    ],
+
+    content: note?.content || { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Start writing…' }] }] },
+    onUpdate: ({ editor }) => {
+        scheduleAutoSave();
+    },
+
+    editorProps: {
+        attributes: { class: 'tiptap prose prose-sm max-w-none focus:outline-none min-h-[280px] py-3' },
+        handleClickOn(view, pos, node, nodePos, event) {
+            // 1) Node-level click (when ProseMirror gives us the wikilink node)
+            try {
+                if (node?.type?.name === 'wikilink') {
+                    const targetId = node?.attrs?.noteId || null;
+                    if (targetId) {
+                        event?.preventDefault?.();
+                        onOpenNote?.(targetId);
+                        return true;
+                    }
+                }
+            } catch (_) { }
+
+            // 2) DOM-level fallback (works even if a child span/text is clicked)
+            const el = (event?.target instanceof Element)
+                ? event.target.closest('[data-wikilink="true"]')
+                : null;
+
+            if (el) {
+                const targetId = el.getAttribute('data-note-id');
+                if (targetId) {
+                    event.preventDefault();
+                    onOpenNote?.(targetId);
+                    return true;
+                }
+            }
+            return false;
+        },
+
+    },
+});
+
     const scheduleAutoSave = React.useCallback(() => {
-        if (!note?.id) return;
+        if (!note) return;
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(() => {
             const content = editor?.getJSON() || { type: 'doc', content: [] };
-            onSave?.({ title, tags, content, portfolioId, notebookId });
-        }, 700);
-        // Note: do NOT include `editor` in deps to avoid TDZ; it's read at call time.
-    }, [note?.id, title, tags, portfolioId, notebookId, onSave]);
+            const currentNoteState = {
+                ...note,
+                title,
+                tags,
+                content,
+                portfolioId,
+                notebookId,
+            };
+            onSave?.(currentNoteState);
+        }, 10000);
+    }, [note, title, tags, portfolioId, notebookId, onSave, editor]);
 
     React.useEffect(() => {
         return () => {
@@ -119,68 +186,7 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote, onDelet
     const [uploadPct, setUploadPct] = useState(0);
     const fileInputRef = React.useRef(null);
 
-
-    // Editor
-    const editor = useEditor({
-        extensions: [
-            StarterKit.configure({
-                heading: { levels: [1, 2, 3] },
-                bulletList: { keepMarks: true },
-                orderedList: { keepMarks: true },
-            }),
-            TipTapLink.configure({
-                autolink: true,
-                linkOnPaste: true,
-                openOnClick: true,
-                HTMLAttributes: {
-                    rel: 'noreferrer noopener',
-                    target: '_blank',
-                    class: 'text-primary underline underline-offset-2 hover:opacity-80',
-                },
-            }),
-            Wikilink,
-        ],
-
-        content: note?.content || { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Start writing…' }] }] },
-        onUpdate: ({ editor }) => {
-            scheduleAutoSave();
-        },
-
-        editorProps: {
-            attributes: { class: 'tiptap prose prose-sm max-w-none focus:outline-none min-h-[280px] py-3' },
-            handleClickOn(view, pos, node, nodePos, event) {
-                // 1) Node-level click (when ProseMirror gives us the wikilink node)
-                try {
-                    if (node?.type?.name === 'wikilink') {
-                        const targetId = node?.attrs?.noteId || null;
-                        if (targetId) {
-                            event?.preventDefault?.();
-                            onOpenNote?.(targetId);
-                            return true;
-                        }
-                    }
-                } catch (_) { }
-
-                // 2) DOM-level fallback (works even if a child span/text is clicked)
-                const el = (event?.target instanceof Element)
-                    ? event.target.closest('[data-wikilink="true"]')
-                    : null;
-
-                if (el) {
-                    const targetId = el.getAttribute('data-note-id');
-                    if (targetId) {
-                        event.preventDefault();
-                        onOpenNote?.(targetId);
-                        return true;
-                    }
-                }
-                return false;
-            },
-
-        },
-    });
-
-    // Sync incoming note (title, tags, containers, content)
+           // Sync incoming note (title, tags, containers, content)
     React.useEffect(() => {
         setTitle(note?.title || '');
         setTags(note?.tags || []);
@@ -349,10 +355,18 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote, onDelet
 
     // Save
     const handleSave = React.useCallback(() => {
+        if (!note) return;
         const content = editor?.getJSON() || { type: 'doc', content: [] };
-        const payload = { title, tags, content, portfolioId, notebookId };
-        onSave?.(payload);
-    }, [editor, onSave, title, tags, portfolioId, notebookId]);
+        const currentNoteState = {
+            ...note,
+            title,
+            tags,
+            content,
+            portfolioId,
+            notebookId,
+        };
+        onSave?.(currentNoteState);
+    }, [note, editor, onSave, title, tags, portfolioId, notebookId]);
 
     // Save on ⌘/Ctrl+S
     React.useEffect(() => {
@@ -367,7 +381,19 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote, onDelet
         return () => window.removeEventListener('keydown', onKey);
     }, [handleSave]);
 
+    // Save on navigate away (unmount or note change)
+    const saveFnRef = React.useRef(handleSave);
+    React.useEffect(() => {
+        saveFnRef.current = handleSave;
+    });
 
+    React.useEffect(() => {
+        // The returned function is the "cleanup" function that runs when the component is unmounted
+        // or when the dependencies of this hook change.
+        return () => {
+            saveFnRef.current(); // Call the latest version of handleSave on cleanup
+        };
+    }, [note?.id]); // This effect will re-run only when the note ID changes
 
     return (
         <div className="space-y-4">

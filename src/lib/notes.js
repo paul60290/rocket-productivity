@@ -210,15 +210,15 @@ export const observeAllNotes = ({ userId, onChange }) => {
     if (!userId) userId = auth.currentUser?.uid;
     if (!userId) return () => { };
     const q = query(
-        collection(db, 'users', userId, 'notes')
+        collection(db, 'users', userId, 'notes'),
+        orderBy('title', 'asc')
     );
     return onSnapshot(q, (snap) => {
         const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         onChange?.(items);
     });
 };
-
-
+    
 /** SPACES (saved tag views) --------------------------------------------------*/
 
 export const createSpace = async ({ userId, name, icon = '🗂️', includeTags = [], mode = 'OR', sort = 'recent' }) => {

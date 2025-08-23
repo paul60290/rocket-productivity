@@ -26,6 +26,7 @@ import BottomNav from './components/BottomNav';
 import FAB from './components/FAB';
 import ListView from './components/ListView';
 import MobileSidebar from './components/MobileSidebar';
+import { Toaster } from 'sonner';
 import ViewControls from './components/ViewControls';
 import BoardPager from './components/BoardPager';
 import TopBar from './components/TopBar';
@@ -1635,6 +1636,7 @@ function App() {
       <DragOverlay>
         {activeId ? <TaskItem task={findTaskById(activeId)} availableLabels={projectLabels} allTags={allTags} /> : null}
       </DragOverlay>
+      <Toaster />
     </DndContext>
   );
 }

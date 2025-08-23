@@ -13,7 +13,8 @@ import {
 } from "@/lib/notes";
 import { listPortfolios, listNotebooksByPortfolio, createPortfolio, createNotebook, updatePortfolio, deletePortfolio, updateNotebook, deleteNotebook } from "@/lib/portfolios";
 import NoteEditor from "./NoteEditor";
-import { ChevronRight, ChevronDown, Folder, Book, MoreVertical, Plus } from "lucide-react";
+import { ChevronRight, ChevronDown, Folder, Book, MoreVertical, Plus, StickyNote } from "lucide-react";
+import { toast } from "sonner";
 
 
 const NONE = "__none__";
@@ -23,6 +24,7 @@ export default function NotesPage() {
     const [note, setNote] = useState(null);
     const [saveStatus, setSaveStatus] = useState('idle');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [recentNotes, setRecentNotes] = useState([]);
 
 
     // Sidebar data
@@ -81,29 +83,43 @@ export default function NotesPage() {
         );
     };
 
-    const notesByNotebook = useMemo(() => {
-        const bucket = new Map();
-        for (const n of sidebarNotes) {
-            const key = n.notebookId; // only group by notebook
-            if (!key) continue;       // notes without a notebook aren’t shown in this tree
-            if (!bucket.has(key)) bucket.set(key, []);
-            const arr = bucket.get(key);
-            // dedupe within each notebook
-            if (!arr.some(x => x.id === n.id)) arr.push(n);
+    const { notesByNotebook, notesByPortfolio, uncategorizedNotes } = useMemo(() => {
+        const byNotebook = new Map();
+        const byPortfolio = new Map();
+        const uncategorized = [];
+
+        // Dedupe notes first to prevent duplicates from rapid updates
+        const uniqueNotes = Array.from(new Map(sidebarNotes.map(n => [n.id, n])).values());
+
+        for (const n of uniqueNotes) {
+            if (n.notebookId) {
+                if (!byNotebook.has(n.notebookId)) byNotebook.set(n.notebookId, []);
+                byNotebook.get(n.notebookId).push(n);
+            } else if (n.portfolioId) {
+                if (!byPortfolio.has(n.portfolioId)) byPortfolio.set(n.portfolioId, []);
+                byPortfolio.get(n.portfolioId).push(n);
+            } else {
+                uncategorized.push(n);
+            }
         }
-        // stable, predictable order: Title A→Z, then createdAt as tiebreaker
-        for (const [k, arr] of bucket) {
-            arr.sort((a, b) => {
-                const ta = (a.title || '').toLowerCase();
-                const tb = (b.title || '').toLowerCase();
-                if (ta < tb) return -1;
-                if (ta > tb) return 1;
-                const ca = a.createdAt?.seconds || 0;
-                const cb = b.createdAt?.seconds || 0;
-                return ca - cb;
-            });
-        }
-        return bucket;
+
+        const sortNotes = (a, b) => {
+            const ta = (a.title || '').toLowerCase();
+            const tb = (b.title || '').toLowerCase();
+            if (ta < tb) return -1;
+            if (ta > tb) return 1;
+            return (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
+        };
+
+        for (const arr of byNotebook.values()) arr.sort(sortNotes);
+        for (const arr of byPortfolio.values()) arr.sort(sortNotes);
+        uncategorized.sort(sortNotes);
+
+        return {
+            notesByNotebook: byNotebook,
+            notesByPortfolio: byPortfolio,
+            uncategorizedNotes: uncategorized
+        };
     }, [sidebarNotes]);
 
     const notesForNotebook = useCallback(
@@ -126,36 +142,36 @@ export default function NotesPage() {
         return () => unsub && unsub();
     }, []);
 
-
-    // Portfolios once (+ preload "No Portfolio" notebooks)
+    // Load recent notes for the main view
     useEffect(() => {
         (async () => {
-            const items = await listPortfolios({});
-            setPortfolios(items || []);
-            const list = await listNotebooksByPortfolio({ portfolioId: null });
-            setNotebooksByPortfolio(prev => ({ ...prev, [NONE]: list || [] }));
+            const items = await listRecentNotes({ limitCount: 10 });
+            setRecentNotes(items || []);
         })();
     }, []);
 
-    // Load initial note (last opened or create)
+    // Portfolios once (+ preload ALL notebooks)
     useEffect(() => {
         (async () => {
-            const lastId = localStorage.getItem('rp:lastNoteId');
-            if (lastId) {
-                const loaded = await getNoteById({ noteId: lastId });
-                if (loaded) { setNote(loaded); return; }
+            const portfolioItems = await listPortfolios({});
+            setPortfolios(portfolioItems || []);
+
+            // Preload all notebooks for every portfolio
+            const notebooksMap = {};
+            const noneList = await listNotebooksByPortfolio({ portfolioId: null });
+            notebooksMap[NONE] = noneList || [];
+
+            if (portfolioItems) {
+                for (const p of portfolioItems) {
+                    const key = portfolioKey(p.id);
+                    const list = await listNotebooksByPortfolio({ portfolioId: p.id });
+                    notebooksMap[key] = list || [];
+                }
             }
-            // Create a starter note
-            const { id } = await createNote({
-                title: 'Untitled',
-                tags: [],
-                content: { type: 'doc', content: [] },
-            });
-            localStorage.setItem('rp:lastNoteId', id);
-            const created = await getNoteById({ noteId: id });
-            setNote(created);
+            setNotebooksByPortfolio(notebooksMap);
         })();
     }, []);
+
 
     // ---------- Actions ----------
     const handleOpenNote = useCallback(async (noteId) => {
@@ -168,56 +184,96 @@ export default function NotesPage() {
         }
     }, []);
 
-    const handleNewNote = useCallback(async () => {
-        const { id } = await createNote({
-            title: 'Untitled',
+    const handleNewNote = useCallback(() => {
+        setNote({
+            id: `temp-${Date.now()}`, // Temporary ID for local state management
+            isNew: true,              // Flag to identify this as an unsaved note
+            title: '',                // Start with a blank title
             tags: [],
-            content: { type: 'doc', content: [] }
+            content: { type: 'doc', content: [{ type: 'paragraph' }] }, // Start with a blank paragraph
+            portfolioId: null,
+            notebookId: null,
         });
-        localStorage.setItem('rp:lastNoteId', id);
-        const created = await getNoteById({ noteId: id });
-        setNote(created);
-        const items = await listRecentNotes({});
-        setSidebarNotes(items);
+        setSidebarOpen(false); // Ensure sidebar is closed on mobile after creating a note
     }, []);
 
     const handleDeleteNote = useCallback(async () => {
-        if (!note?.id) return;
-        const ok = window.confirm('Delete this note? This cannot be undone.');
-        if (!ok) return;
+    // Prevent deleting a new, unsaved note.
+    if (!note || note.isNew) return;
 
-        const deleteId = note.id;
-        await deleteNote({ noteId: deleteId });
+    const noteToDelete = { ...note };
+    const originalSidebarNotes = [...sidebarNotes];
 
-        const items = await listRecentNotes({});
-        setSidebarNotes(items);
+    // 1. Optimistically update the UI immediately.
+    setSidebarNotes(prev => prev.filter(n => n.id !== noteToDelete.id));
+    setNote(null);
 
-        if (items.length > 0) {
-            const next = items[0];
-            localStorage.setItem('rp:lastNoteId', next.id);
-            const loaded = await getNoteById({ noteId: next.id });
-            setNote(loaded);
-        } else {
-            localStorage.removeItem('rp:lastNoteId');
-            const { id } = await createNote({ title: 'Untitled', tags: [], content: { type: 'doc', content: [] } });
-            localStorage.setItem('rp:lastNoteId', id);
-            const created = await getNoteById({ noteId: id });
-            setNote(created);
-            const items2 = await listRecentNotes({});
-            setSidebarNotes(items2);
+    // 2. Show a toast notification with an Undo action.
+    toast("Note deleted", {
+        action: {
+            label: "Undo",
+            onClick: () => {
+                // If Undo is clicked, restore the note to the UI.
+                setSidebarNotes(originalSidebarNotes);
+                setNote(noteToDelete);
+            },
+        },
+        // This function runs if the toast is dismissed by timeout or by swiping.
+        // If the Undo button was clicked, it won't run.
+        onDismiss: (t) => {
+            if (t.action) return; // Don't delete if Undo was clicked
+            deleteNote({ noteId: noteToDelete.id });
+        },
+        onAutoClose: () => {
+            deleteNote({ noteId: noteToDelete.id });
+        },
+    });
+}, [note, sidebarNotes]);
+
+    const handleSave = useCallback(async (noteToSave) => {
+        // If the note is new and has no title, don't save it.
+        if (noteToSave.isNew && !noteToSave.title?.trim()) {
+            return;
         }
-    }, [note]);
 
-    const handleSave = useCallback(async (partial) => {
-        if (!note?.id) return;
         setSaveStatus('saving');
-        await updateNote({ noteId: note.id, ...partial });
-        localStorage.setItem('rp:lastNoteId', note.id);
-        const fresh = await getNoteById({ noteId: note.id });
-        setNote(fresh);
+        let finalNote;
+
+        // If it's a new note, create it in the database.
+        if (noteToSave.isNew) {
+            const { id } = await createNote({
+                title: noteToSave.title,
+                tags: noteToSave.tags,
+                content: noteToSave.content,
+                portfolioId: noteToSave.portfolioId,
+                notebookId: noteToSave.notebookId,
+            });
+            finalNote = await getNoteById({ noteId: id });
+        
+        // Otherwise, update the existing note.
+        } else {
+            const updatePayload = {
+                noteId: noteToSave.id,
+                title: noteToSave.title,
+                tags: noteToSave.tags,
+                content: noteToSave.content,
+                portfolioId: noteToSave.portfolioId,
+                notebookId: noteToSave.notebookId,
+            };
+            await updateNote(updatePayload);
+            finalNote = await getNoteById({ noteId: noteToSave.id });
+        }
+
+        // After saving, update the local state with the definitive version from the database.
+        // This replaces the temporary note with the real, saved note.
+        if (finalNote) {
+            setNote(finalNote);
+            localStorage.setItem('rp:lastNoteId', finalNote.id);
+        }
+
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 1200);
-    }, [note]);
+    }, []);
 
     // ---------- Search ----------
     const searchResults = useMemo(() => {
@@ -338,6 +394,7 @@ export default function NotesPage() {
 
                                         {open && (
                                             <div className="ml-5 space-y-1">
+                                                {/* Notebooks in this portfolio */}
                                                 {(notebooksByPortfolio[key] || []).map((nb) => {
                                                     const nbOpen = expandedNotebooks.includes(nb.id);
                                                     return (
@@ -362,7 +419,6 @@ export default function NotesPage() {
                                                                 }}
                                                             />
 
-
                                                             {nbOpen && (
                                                                 <div className="ml-4 divide-y">
                                                                     {notesForNotebook(nb.id).length === 0 ? (
@@ -372,10 +428,11 @@ export default function NotesPage() {
                                                                             <button
                                                                                 key={n.id}
                                                                                 onClick={() => handleOpenNote(n.id)}
-                                                                                className={`w-full text-left px-2 py-1 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
+                                                                                className={`w-full text-left px-2 py-1 flex items-center gap-2 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
                                                                                 title={n.title || 'Untitled'}
                                                                             >
-                                                                                <div className="truncate">{n.title || 'Untitled'}</div>
+                                                                                <StickyNote className="h-3.5 w-3.5 shrink-0" />
+                                                                                <span className="truncate">{n.title || 'Untitled'}</span>
                                                                             </button>
                                                                         ))
                                                                     )}
@@ -384,70 +441,53 @@ export default function NotesPage() {
                                                         </div>
                                                     );
                                                 })}
+
+                                                {/* Notes directly in this portfolio */}
+                                                <div className="ml-4 divide-y">
+                                                    {(notesByPortfolio.get(p.id) || []).map((n) => (
+                                                    <button
+                                                        key={n.id}
+                                                        onClick={() => handleOpenNote(n.id)}
+                                                        className={`w-full text-left px-2 py-1 flex items-center gap-2 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
+                                                        title={n.title || 'Untitled'}
+                                                    >
+                                                        <StickyNote className="h-3.5 w-3.5 shrink-0" />
+                                                        <span className="truncate">{n.title || 'Untitled'}</span>
+                                                    </button>
+                                                ))}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
                                 );
                             })}
 
-                            {/* No Portfolio LAST */}
+                            {/* Uncategorized Notes LAST */}
                             <div className="mt-2">
                                 <TreePortfolioRow
-                                    label="No Portfolio"
+                                    label="Uncategorized Notes"
                                     icon={<Folder className="h-4 w-4" />}
                                     isOpen={expandedPortfolios.includes(NONE)}
                                     onToggle={() => togglePortfolio(null)}
-                                    onNewNotebook={() => { setActiveNotebookPortfolioId(null); setNewNotebookName(''); setShowNewNotebook(true); }}
                                 />
 
                                 {expandedPortfolios.includes(NONE) && (
-                                    <div className="ml-5 space-y-1">
-                                        {(notebooksByPortfolio[NONE] || []).map((nb) => {
-                                            const nbOpen = expandedNotebooks.includes(nb.id);
-                                            return (
-                                                <div key={nb.id}>
-                                                    <TreeNotebookRow
-                                                        name={nb.name || 'Untitled Notebook'}
-                                                        isOpen={expandedNotebooks.includes(nb.id)}
-                                                        onToggle={() => toggleNotebook(nb.id)}
-                                                        onRename={() => {
-                                                            setActiveNotebookId(nb.id);
-                                                            setActiveNotebookPortfolioId(null);
-                                                            setRenameNotebookName(nb.name || '');
-                                                            setShowRenameNotebook(true);
-                                                        }}
-                                                        onDelete={async () => {
-                                                            const ok = window.confirm('Delete this notebook? Notes will keep their notebookId until you move them.');
-                                                            if (!ok) return;
-                                                            await deleteNotebook({ notebookId: nb.id });
-                                                            const nlist = await listNotebooksByPortfolio({ portfolioId: null });
-                                                            setNotebooksByPortfolio(prev => ({ ...prev, [NONE]: nlist }));
-                                                            setExpandedNotebooks(prev => prev.filter(id => id !== nb.id));
-                                                        }}
-                                                    />
-
-
-                                                    {nbOpen && (
-                                                        <div className="ml-4 divide-y">
-                                                            {notesForNotebook(nb.id).length === 0 ? (
-                                                                <div className="p-2 text-xs text-muted-foreground">No notes.</div>
-                                                            ) : (
-                                                                notesForNotebook(nb.id).map((n) => (
-                                                                    <button
-                                                                        key={n.id}
-                                                                        onClick={() => handleOpenNote(n.id)}
-                                                                        className={`w-full text-left px-2 py-1 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
-                                                                        title={n.title || 'Untitled'}
-                                                                    >
-                                                                        <div className="truncate">{n.title || 'Untitled'}</div>
-                                                                    </button>
-                                                                ))
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
+                                    <div className="ml-4 divide-y">
+                                        {uncategorizedNotes.length === 0 ? (
+                                            <div className="p-2 text-xs text-muted-foreground">No uncategorized notes.</div>
+                                        ) : (
+                                            uncategorizedNotes.map((n) => (
+                                                <button
+                                                    key={n.id}
+                                                    onClick={() => handleOpenNote(n.id)}
+                                                    className={`w-full text-left px-2 py-1 flex items-center gap-2 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
+                                                    title={n.title || 'Untitled'}
+                                                >
+                                                    <StickyNote className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">{n.title || 'Untitled'}</span>
+                                                </button>
+                                            ))
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -455,16 +495,55 @@ export default function NotesPage() {
                     )}
                 </aside>
 
-                {/* Editor */}
+                {/* Editor or Recent Notes */}
                 <section className="md:col-span-9 lg:col-span-10 p-1 md:p-2">
-                    <NoteEditor
-                        key={editorRefreshKey}
-                        note={note}
-                        onChange={setNote}
-                        onSave={handleSave}
-                        onOpenNote={handleOpenNote}
-                        onDelete={handleDeleteNote}
-                    />
+                    {note ? (
+                        <NoteEditor
+                            key={note.id}
+                            note={note}
+                            onChange={setNote}
+                            onSave={handleSave}
+                            onOpenNote={handleOpenNote}
+                            onDelete={handleDeleteNote}
+                        />
+                    ) : (
+                        <div className="p-4">
+                            <h2 className="text-xl font-semibold mb-4">Recent Notes</h2>
+                            {recentNotes.length > 0 ? (
+                                <div className="space-y-2">
+                                    {recentNotes.map(n => {
+                                        const portfolioName = portfolios.find(p => p.id === n.portfolioId)?.name;
+                                        const notebookName = Object.values(notebooksByPortfolio).flat().find(nb => nb.id === n.notebookId)?.name;
+                                        const location = [portfolioName, notebookName].filter(Boolean).join(' / ');
+
+                                        return (
+                                            <button
+                                                key={n.id}
+                                                onClick={() => handleOpenNote(n.id)}
+                                                className="w-full text-left p-3 rounded-lg hover:bg-muted/60"
+                                                title={n.title || 'Untitled'}
+                                            >
+                                                <div className="font-medium truncate">{n.title || 'Untitled'}</div>
+                                                {location && (
+                                                    <div className="text-sm text-muted-foreground mt-1 truncate">{location}</div>
+                                                )}
+                                                <div className="text-xs text-muted-foreground mt-2 flex items-center gap-4">
+                                                    <span>
+                                                        Created: {new Date(n.createdAt?.seconds * 1000).toLocaleDateString()}
+                                                    </span>
+                                                    <span>
+                                                        Updated: {new Date(n.updatedAt?.seconds * 1000).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-muted-foreground">You don't have any notes yet. Click "New Note" to get started.</p>
+                            )}
+                        </div>
+                    )}
                 </section>
             </div >
             {/* New Portfolio dialog */}
