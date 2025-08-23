@@ -13,7 +13,7 @@ import {
 } from "@/lib/notes";
 import { listPortfolios, listNotebooksByPortfolio, createPortfolio, createNotebook, updatePortfolio, deletePortfolio, updateNotebook, deleteNotebook } from "@/lib/portfolios";
 import NoteEditor from "./NoteEditor";
-import { ChevronRight, ChevronDown, Folder, Book, MoreVertical, Plus, StickyNote } from "lucide-react";
+import { ChevronRight, ChevronDown, Folder, Book, MoreVertical, Plus, StickyNote, PanelLeft } from "lucide-react";
 import { toast } from "sonner";
 
 
@@ -25,7 +25,6 @@ export default function NotesPage() {
     const [saveStatus, setSaveStatus] = useState('idle');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [recentNotes, setRecentNotes] = useState([]);
-
 
     // Sidebar data
     const [sidebarNotes, setSidebarNotes] = useState([]);
@@ -127,6 +126,50 @@ export default function NotesPage() {
         [notesByNotebook]
     );
 
+    const handleSave = useCallback(async (noteToSave) => {
+        // If the note is new and has no title, don't save it.
+        if (noteToSave.isNew && !noteToSave.title?.trim()) {
+            return;
+        }
+
+        setSaveStatus('saving');
+        let finalNote;
+
+        // If it's a new note, create it in the database.
+        if (noteToSave.isNew) {
+            const { id } = await createNote({
+                title: noteToSave.title,
+                tags: noteToSave.tags,
+                content: noteToSave.content,
+                portfolioId: noteToSave.portfolioId,
+                notebookId: noteToSave.notebookId,
+            });
+            finalNote = await getNoteById({ noteId: id });
+
+            // Otherwise, update the existing note.
+        } else {
+            const updatePayload = {
+                noteId: noteToSave.id,
+                title: noteToSave.title,
+                tags: noteToSave.tags,
+                content: noteToSave.content,
+                portfolioId: noteToSave.portfolioId,
+                notebookId: noteToSave.notebookId,
+            };
+            await updateNote(updatePayload);
+            finalNote = await getNoteById({ noteId: noteToSave.id });
+        }
+
+        // After saving, update the local state with the definitive version from the database.
+        // This replaces the temporary note with the real, saved note.
+        if (finalNote) {
+            setNote(finalNote);
+            localStorage.setItem('rp:lastNoteId', finalNote.id);
+        }
+
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 1200);
+    }, []);
 
     // ---------- Data loading ----------
     // Realtime list of notes for sidebar
@@ -198,82 +241,41 @@ export default function NotesPage() {
     }, []);
 
     const handleDeleteNote = useCallback(async () => {
-    // Prevent deleting a new, unsaved note.
-    if (!note || note.isNew) return;
+        // Prevent deleting a new, unsaved note.
+        if (!note || note.isNew) return;
 
-    const noteToDelete = { ...note };
-    const originalSidebarNotes = [...sidebarNotes];
+        const noteToDelete = { ...note };
+        const originalSidebarNotes = [...sidebarNotes];
+        const originalRecentNotes = [...recentNotes];
 
-    // 1. Optimistically update the UI immediately.
-    setSidebarNotes(prev => prev.filter(n => n.id !== noteToDelete.id));
-    setNote(null);
+        // 1. Optimistically update the UI immediately.
+        setSidebarNotes(prev => prev.filter(n => n.id !== noteToDelete.id));
+        setRecentNotes(prev => prev.filter(n => n.id !== noteToDelete.id));
+        setNote(null);
 
-    // 2. Show a toast notification with an Undo action.
-    toast("Note deleted", {
-        action: {
-            label: "Undo",
-            onClick: () => {
-                // If Undo is clicked, restore the note to the UI.
-                setSidebarNotes(originalSidebarNotes);
-                setNote(noteToDelete);
+        // 2. Show a toast notification with an Undo action.
+        toast("Note deleted", {
+            action: {
+                label: "Undo",
+                onClick: () => {
+                    // If Undo is clicked, restore the note to the UI.
+                    setSidebarNotes(originalSidebarNotes);
+                    setRecentNotes(originalRecentNotes);
+                    setNote(noteToDelete);
+                },
             },
-        },
-        // This function runs if the toast is dismissed by timeout or by swiping.
-        // If the Undo button was clicked, it won't run.
-        onDismiss: (t) => {
-            if (t.action) return; // Don't delete if Undo was clicked
-            deleteNote({ noteId: noteToDelete.id });
-        },
-        onAutoClose: () => {
-            deleteNote({ noteId: noteToDelete.id });
-        },
-    });
-}, [note, sidebarNotes]);
+            // This function runs if the toast is dismissed by timeout or by swiping.
+            // If the Undo button was clicked, it won't run.
+            onDismiss: (t) => {
+                if (t.action) return; // Don't delete if Undo was clicked
+                deleteNote({ noteId: noteToDelete.id });
+            },
+            onAutoClose: () => {
+                deleteNote({ noteId: noteToDelete.id });
+            },
+        });
+    }, [note, sidebarNotes, recentNotes]);
 
-    const handleSave = useCallback(async (noteToSave) => {
-        // If the note is new and has no title, don't save it.
-        if (noteToSave.isNew && !noteToSave.title?.trim()) {
-            return;
-        }
-
-        setSaveStatus('saving');
-        let finalNote;
-
-        // If it's a new note, create it in the database.
-        if (noteToSave.isNew) {
-            const { id } = await createNote({
-                title: noteToSave.title,
-                tags: noteToSave.tags,
-                content: noteToSave.content,
-                portfolioId: noteToSave.portfolioId,
-                notebookId: noteToSave.notebookId,
-            });
-            finalNote = await getNoteById({ noteId: id });
-        
-        // Otherwise, update the existing note.
-        } else {
-            const updatePayload = {
-                noteId: noteToSave.id,
-                title: noteToSave.title,
-                tags: noteToSave.tags,
-                content: noteToSave.content,
-                portfolioId: noteToSave.portfolioId,
-                notebookId: noteToSave.notebookId,
-            };
-            await updateNote(updatePayload);
-            finalNote = await getNoteById({ noteId: noteToSave.id });
-        }
-
-        // After saving, update the local state with the definitive version from the database.
-        // This replaces the temporary note with the real, saved note.
-        if (finalNote) {
-            setNote(finalNote);
-            localStorage.setItem('rp:lastNoteId', finalNote.id);
-        }
-
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus('idle'), 1200);
-    }, []);
 
     // ---------- Search ----------
     const searchResults = useMemo(() => {
@@ -292,20 +294,23 @@ export default function NotesPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold tracking-tight">Notes</h1>
                     {saveStatus === 'saving' && <span className="text-xs text-muted-foreground">Saving…</span>}
                     {saveStatus === 'saved' && <span className="text-xs text-green-600">Saved</span>}
                 </div>
                 <div className="flex gap-1.5">
                     <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         className="md:hidden"
                         onClick={() => setSidebarOpen(s => !s)}
+                        aria-label="Toggle sidebar"
                     >
-                        {sidebarOpen ? 'Hide' : 'Show'} Sidebar
+                        <PanelLeft className="h-5 w-5" />
                     </Button>
-                    <Button size="sm" onClick={handleNewNote}>New Note</Button>
+                    <Button variant="ghost" size="sm" onClick={handleNewNote} className="flex items-center gap-1">
+                        <Plus className="h-4 w-4" />
+                        New Note
+                    </Button>
                 </div>
             </div>
 
@@ -445,16 +450,16 @@ export default function NotesPage() {
                                                 {/* Notes directly in this portfolio */}
                                                 <div className="ml-4 divide-y">
                                                     {(notesByPortfolio.get(p.id) || []).map((n) => (
-                                                    <button
-                                                        key={n.id}
-                                                        onClick={() => handleOpenNote(n.id)}
-                                                        className={`w-full text-left px-2 py-1 flex items-center gap-2 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
-                                                        title={n.title || 'Untitled'}
-                                                    >
-                                                        <StickyNote className="h-3.5 w-3.5 shrink-0" />
-                                                        <span className="truncate">{n.title || 'Untitled'}</span>
-                                                    </button>
-                                                ))}
+                                                        <button
+                                                            key={n.id}
+                                                            onClick={() => handleOpenNote(n.id)}
+                                                            className={`w-full text-left px-2 py-1 flex items-center gap-2 hover:bg-muted/60 ${note?.id === n.id ? 'bg-muted/60' : ''}`}
+                                                            title={n.title || 'Untitled'}
+                                                        >
+                                                            <StickyNote className="h-3.5 w-3.5 shrink-0" />
+                                                            <span className="truncate">{n.title || 'Untitled'}</span>
+                                                        </button>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}

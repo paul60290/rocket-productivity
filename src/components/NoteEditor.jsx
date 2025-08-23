@@ -9,7 +9,7 @@ import { Node } from '@tiptap/core';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { X, Tag as TagIcon, Folder, Book, Plus, Trash2, Pencil } from "lucide-react";
+import { X, Tag as TagIcon, Folder, Book, Plus, Trash2, Pencil, Save, Upload } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { listAllTags, ensureMasterTags, renameTagEverywhere, deleteTagEverywhere } from "@/lib/tags";
@@ -97,64 +97,65 @@ export default function NoteEditor({ note, onChange, onSave, onOpenNote, onDelet
     const saveTimerRef = React.useRef(null);
 
     // Editor
-const editor = useEditor({
-    extensions: [
-        StarterKit.configure({
-            heading: { levels: [1, 2, 3] },
-            bulletList: { keepMarks: true },
-            orderedList: { keepMarks: true },
-        }),
-        TipTapLink.configure({
-            autolink: true,
-            linkOnPaste: true,
-            openOnClick: true,
-            HTMLAttributes: {
-                rel: 'noreferrer noopener',
-                target: '_blank',
-                class: 'text-primary underline underline-offset-2 hover:opacity-80',
-            },
-        }),
-        Wikilink,
-    ],
+    const editor = useEditor({
+        extensions: [
+            StarterKit.configure({
+                heading: { levels: [1, 2, 3] },
+                bulletList: { keepMarks: true },
+                orderedList: { keepMarks: true },
+                link: false,
+            }),
+            TipTapLink.configure({
+                autolink: true,
+                linkOnPaste: true,
+                openOnClick: true,
+                HTMLAttributes: {
+                    rel: 'noreferrer noopener',
+                    target: '_blank',
+                    class: 'text-primary underline underline-offset-2 hover:opacity-80',
+                },
+            }),
+            Wikilink,
+        ],
 
-    content: note?.content || { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Start writing…' }] }] },
-    onUpdate: ({ editor }) => {
-        scheduleAutoSave();
-    },
+        content: note?.content || { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Start writing…' }] }] },
+        onUpdate: ({ editor }) => {
+            scheduleAutoSave();
+        },
 
-    editorProps: {
-        attributes: { class: 'tiptap prose prose-sm max-w-none focus:outline-none min-h-[280px] py-3' },
-        handleClickOn(view, pos, node, nodePos, event) {
-            // 1) Node-level click (when ProseMirror gives us the wikilink node)
-            try {
-                if (node?.type?.name === 'wikilink') {
-                    const targetId = node?.attrs?.noteId || null;
+        editorProps: {
+            attributes: { class: 'tiptap prose prose-sm max-w-none focus:outline-none min-h-[280px] py-3' },
+            handleClickOn(view, pos, node, nodePos, event) {
+                // 1) Node-level click (when ProseMirror gives us the wikilink node)
+                try {
+                    if (node?.type?.name === 'wikilink') {
+                        const targetId = node?.attrs?.noteId || null;
+                        if (targetId) {
+                            event?.preventDefault?.();
+                            onOpenNote?.(targetId);
+                            return true;
+                        }
+                    }
+                } catch (_) { }
+
+                // 2) DOM-level fallback (works even if a child span/text is clicked)
+                const el = (event?.target instanceof Element)
+                    ? event.target.closest('[data-wikilink="true"]')
+                    : null;
+
+                if (el) {
+                    const targetId = el.getAttribute('data-note-id');
                     if (targetId) {
-                        event?.preventDefault?.();
+                        event.preventDefault();
                         onOpenNote?.(targetId);
                         return true;
                     }
                 }
-            } catch (_) { }
+                return false;
+            },
 
-            // 2) DOM-level fallback (works even if a child span/text is clicked)
-            const el = (event?.target instanceof Element)
-                ? event.target.closest('[data-wikilink="true"]')
-                : null;
-
-            if (el) {
-                const targetId = el.getAttribute('data-note-id');
-                if (targetId) {
-                    event.preventDefault();
-                    onOpenNote?.(targetId);
-                    return true;
-                }
-            }
-            return false;
         },
-
-    },
-});
+    });
 
     const scheduleAutoSave = React.useCallback(() => {
         if (!note) return;
@@ -186,7 +187,7 @@ const editor = useEditor({
     const [uploadPct, setUploadPct] = useState(0);
     const fileInputRef = React.useRef(null);
 
-           // Sync incoming note (title, tags, containers, content)
+    // Sync incoming note (title, tags, containers, content)
     React.useEffect(() => {
         setTitle(note?.title || '');
         setTags(note?.tags || []);
@@ -380,20 +381,6 @@ const editor = useEditor({
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [handleSave]);
-
-    // Save on navigate away (unmount or note change)
-    const saveFnRef = React.useRef(handleSave);
-    React.useEffect(() => {
-        saveFnRef.current = handleSave;
-    });
-
-    React.useEffect(() => {
-        // The returned function is the "cleanup" function that runs when the component is unmounted
-        // or when the dependencies of this hook change.
-        return () => {
-            saveFnRef.current(); // Call the latest version of handleSave on cleanup
-        };
-    }, [note?.id]); // This effect will re-run only when the note ID changes
 
     return (
         <div className="space-y-4">
@@ -707,9 +694,13 @@ const editor = useEditor({
                     <Button type="button" variant="ghost" size="sm" onClick={() => editor?.chain().focus().redo().run()} aria-label="Redo">
                         <Redo className="h-4 w-4" />
                     </Button>
-                    <Button type="button" variant="outline" size="sm" className="text-red-600" onClick={() => onDelete?.()} disabled={!note?.id}>
-                        Delete
-                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={handleSave} className="flex items-center gap-1">
+                    <Save className="h-4 w-4" />
+                    Save
+                </Button>
+                    <Button type="button" variant="ghost" size="sm" className="text-red-600" onClick={() => onDelete?.()} disabled={!note?.id} aria-label="Delete note">
+                    <Trash2 className="h-4 w-4" />
+                </Button>
                 </div>
 
             </div>
@@ -732,9 +723,10 @@ const editor = useEditor({
                     <div className="font-medium text-card-foreground">Attachments</div>
                     <div className="flex items-center gap-2">
                         {uploadPct > 0 && <span className="text-xs text-muted-foreground">{uploadPct}%</span>}
-                        <Button type="button" variant="outline" size="sm" onClick={onPickFile} disabled={!note?.id}>
-                            Upload file
-                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={onPickFile} disabled={!note?.id} className="flex items-center gap-1">
+                        <Upload className="h-4 w-4" />
+                        Upload file
+                    </Button>
                         <input ref={fileInputRef} type="file" className="hidden" onChange={onFileChange} />
                     </div>
                 </div>
