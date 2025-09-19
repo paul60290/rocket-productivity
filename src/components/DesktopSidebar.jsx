@@ -1,6 +1,6 @@
 // src/components/DesktopSidebar.jsx
 import React from 'react'
-import logoUrl from '@/assets/logo.svg'
+import RocketIcon from '@/assets/logo.svg?react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import SortableProjectItem from './SortableProjectItem'
 import { FolderKanban, Plus, Pencil, Settings, LogOut } from 'lucide-react'
@@ -23,10 +23,8 @@ export default function DesktopSidebar({
     <div className={`hidden md:flex bg-card text-card-foreground border-r flex-col h-full transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
-        <img
-          src={logoUrl}
-          alt="Rocket Productivity"
-          className={`h-8 w-auto transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}
+        <RocketIcon
+          className={`h-8 w-auto text-foreground transition-all duration-300 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}
         />
         <button
           className="p-1 rounded-md hover:bg-muted"
@@ -34,9 +32,9 @@ export default function DesktopSidebar({
           title="Toggle Sidebar"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-               viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-               className={`h-6 w-6 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}>
+            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            className={`h-6 w-6 transition-transform duration-300 ${isSidebarCollapsed ? 'rotate-180' : ''}`}>
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
@@ -51,9 +49,8 @@ export default function DesktopSidebar({
             <button
               key={item.view}
               title={item.title}
-              className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              }`}
+              className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                }`}
               onClick={() => setCurrentView(item.view)}
             >
               <Icon className="h-5 w-5" />
@@ -65,9 +62,8 @@ export default function DesktopSidebar({
 
       {/* Projects row */}
       <div
-        className={`flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors ${
-          currentView === 'projects' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-        }`}
+        className={`flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors ${currentView === 'projects' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          }`}
         onClick={() => setCurrentView('projects')}
       >
         <div className="flex items-center">
@@ -99,11 +95,10 @@ export default function DesktopSidebar({
               {group.projects.map(project => (
                 <SortableProjectItem key={project.id} id={project.id}>
                   <div
-                    className={`flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm ${
-                      (currentView === 'board' && currentProject === project.name && currentGroup === group.name)
+                    className={`flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm ${(currentView === 'board' && currentProject === project.name && currentGroup === group.name)
                         ? 'bg-accent text-accent-foreground'
                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    }`}
+                      }`}
                     onClick={() => onSelectProject(group.name, project.name)}
                   >
                     <span className="whitespace-nowrap">{project.name}</span>
@@ -129,9 +124,8 @@ export default function DesktopSidebar({
       <div className="mt-auto p-2">
         <button
           title="Settings"
-          className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-            currentView === 'settings' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-          }`}
+          className={`flex items-center w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${currentView === 'settings' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+            }`}
           onClick={() => setCurrentView('settings')}
         >
           <Settings className="h-5 w-5" />
