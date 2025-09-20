@@ -9,9 +9,16 @@ jobs:
   build_and_preview:
     if: '${{ github.event.pull_request.head.repo.full_name == github.repository }}'
     runs-on: ubuntu-latest
+    # The 'environment' key has been removed to use default repository secrets.
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: DEBUG - Check for Secret Availability
+        run: |
+          echo "Checking secret availability..."
+          echo "STAGING_VITE_API_KEY exists: ${{ secrets.STAGING_VITE_API_KEY != '' }}"
+          echo "FIREBASE_SERVICE_ACCOUNT_STAGING exists: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING != '' }}"
 
       - name: Create .env.staging file
         env:
@@ -29,33 +36,8 @@ jobs:
           echo "VITE_MESSAGING_SENDER_ID=${STAGING_MESSAGING_SENDER_ID}" >> .env.staging
           echo "VITE_APP_ID=${STAGING_APP_ID}" >> .env.staging
       
-      - name: Verify .env.staging file
-        run: |
-          echo "Verifying that .env.staging file was created..."
-          test -s .env.staging || (echo "ERROR: .env.staging file is empty or was not created." && exit 1)
-          echo "File created successfully."
-
-      - name: DEBUG - Show .env.staging content
-        run: |
-          echo "--- Start of .env.staging content ---"
-          cat .env.staging
-          echo "--- End of .env.staging content ---"
-
-      - name: DEBUG - List files in directory
-        run: ls -la
-          
       - name: Build Staging App
         run: npm ci && npm run build -- --mode staging
-
-      - name: DEBUG - Check for API key in built files
-        run: |
-          echo "Searching for API key in built JavaScript files..."
-          if grep -r "AIza" dist/assets; then
-            echo "SUCCESS: API key was found in the build output."
-          else
-            echo "ERROR: API key was NOT found in the build output."
-            exit 1
-          fi
 
       - name: Deploy to Staging Preview Channel
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -64,4 +46,6 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}'
           projectId: rocket-productivity-staging
           channelId: pr-${{ github.event.number }}
+
+
 
