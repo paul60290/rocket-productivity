@@ -14,15 +14,20 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create .env.staging file
+        env:
+          STAGING_API_KEY: ${{ secrets.STAGING_VITE_API_KEY }}
+          STAGING_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_AUTH_DOMAIN }}
+          STAGING_PROJECT_ID: ${{ secrets.STAGING_VITE_PROJECT_ID }}
+          STAGING_STORAGE_BUCKET: ${{ secrets.STAGING_VITE_STORAGE_BUCKET }}
+          STAGING_MESSAGING_SENDER_ID: ${{ secrets.STAGING_VITE_MESSAGING_SENDER_ID }}
+          STAGING_APP_ID: ${{ secrets.STAGING_VITE_APP_ID }}
         run: |
-          cat > .env.staging << EOF
-          VITE_API_KEY=${{ secrets.STAGING_VITE_API_KEY }}
-          VITE_AUTH_DOMAIN=${{ secrets.STAGING_VITE_AUTH_DOMAIN }}
-          VITE_PROJECT_ID=${{ secrets.STAGING_VITE_PROJECT_ID }}
-          VITE_STORAGE_BUCKET=${{ secrets.STAGING_VITE_STORAGE_BUCKET }}
-          VITE_MESSAGING_SENDER_ID=${{ secrets.STAGING_VITE_MESSAGING_SENDER_ID }}
-          VITE_APP_ID=${{ secrets.STAGING_VITE_APP_ID }}
-          EOF
+          echo "VITE_API_KEY=${STAGING_API_KEY}" > .env.staging
+          echo "VITE_AUTH_DOMAIN=${STAGING_AUTH_DOMAIN}" >> .env.staging
+          echo "VITE_PROJECT_ID=${STAGING_PROJECT_ID}" >> .env.staging
+          echo "VITE_STORAGE_BUCKET=${STAGING_STORAGE_BUCKET}" >> .env.staging
+          echo "VITE_MESSAGING_SENDER_ID=${STAGING_MESSAGING_SENDER_ID}" >> .env.staging
+          echo "VITE_APP_ID=${STAGING_APP_ID}" >> .env.staging
       
       - name: Verify .env.staging file
         run: |
