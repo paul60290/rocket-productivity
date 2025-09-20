@@ -9,33 +9,20 @@ jobs:
   build_and_preview:
     if: '${{ github.event.pull_request.head.repo.full_name == github.repository }}'
     runs-on: ubuntu-latest
-    # The 'environment' key has been removed to use default repository secrets.
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: DEBUG - Check for Secret Availability
+      - name: Create .env.staging file from single secret
         run: |
-          echo "Checking secret availability..."
-          echo "STAGING_VITE_API_KEY exists: ${{ secrets.STAGING_VITE_API_KEY != '' }}"
-          echo "FIREBASE_SERVICE_ACCOUNT_STAGING exists: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING != '' }}"
-
-      - name: Create .env.staging file
-        env:
-          STAGING_API_KEY: ${{ secrets.STAGING_VITE_API_KEY }}
-          STAGING_AUTH_DOMAIN: ${{ secrets.STAGING_VITE_AUTH_DOMAIN }}
-          STAGING_PROJECT_ID: ${{ secrets.STAGING_VITE_PROJECT_ID }}
-          STAGING_STORAGE_BUCKET: ${{ secrets.STAGING_VITE_STORAGE_BUCKET }}
-          STAGING_MESSAGING_SENDER_ID: ${{ secrets.STAGING_VITE_MESSAGING_SENDER_ID }}
-          STAGING_APP_ID: ${{ secrets.STAGING_VITE_APP_ID }}
-        run: |
-          echo "VITE_API_KEY=${STAGING_API_KEY}" > .env.staging
-          echo "VITE_AUTH_DOMAIN=${STAGING_AUTH_DOMAIN}" >> .env.staging
-          echo "VITE_PROJECT_ID=${STAGING_PROJECT_ID}" >> .env.staging
-          echo "VITE_STORAGE_BUCKET=${STAGING_STORAGE_BUCKET}" >> .env.staging
-          echo "VITE_MESSAGING_SENDER_ID=${STAGING_MESSAGING_SENDER_ID}" >> .env.staging
-          echo "VITE_APP_ID=${STAGING_APP_ID}" >> .env.staging
+          echo "VITE_FIREBASE_CONFIG='${{ secrets.VITE_FIREBASE_CONFIG }}'" > .env.staging
       
+      - name: DEBUG - Verify .env file has content
+        run: |
+          echo "Verifying that .env.staging file was created..."
+          test -s .env.staging || (echo "ERROR: .env.staging file is empty or was not created." && exit 1)
+          echo "File created successfully."
+
       - name: Build Staging App
         run: npm ci && npm run build -- --mode staging
 
