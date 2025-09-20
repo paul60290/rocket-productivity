@@ -29,9 +29,28 @@ jobs:
           echo "Verifying that .env.staging file was created..."
           test -s .env.staging || (echo "ERROR: .env.staging file is empty or was not created." && exit 1)
           echo "File created successfully."
+
+      - name: DEBUG - Show .env.staging content
+        run: |
+          echo "--- Start of .env.staging content ---"
+          cat .env.staging
+          echo "--- End of .env.staging content ---"
+
+      - name: DEBUG - List files in directory
+        run: ls -la
           
       - name: Build Staging App
         run: npm ci && npm run build -- --mode staging
+
+      - name: DEBUG - Check for API key in built files
+        run: |
+          echo "Searching for API key in built JavaScript files..."
+          if grep -r "AIza" dist/assets; then
+            echo "SUCCESS: API key was found in the build output."
+          else
+            echo "ERROR: API key was NOT found in the build output."
+            exit 1
+          fi
 
       - name: Deploy to Staging Preview Channel
         uses: FirebaseExtended/action-hosting-deploy@v0
