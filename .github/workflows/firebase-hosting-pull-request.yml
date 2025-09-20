@@ -15,7 +15,7 @@ jobs:
 
       - name: Create .env.staging file
         run: |
-          cat > .env.staging << 'EOF'
+          cat > .env.staging << EOF
           VITE_API_KEY=${{ secrets.STAGING_VITE_API_KEY }}
           VITE_AUTH_DOMAIN=${{ secrets.STAGING_VITE_AUTH_DOMAIN }}
           VITE_PROJECT_ID=${{ secrets.STAGING_VITE_PROJECT_ID }}
