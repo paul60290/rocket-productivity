@@ -54,6 +54,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import timerChime from './assets/mixkit-tick-tock-clock-timer-1045.wav';
+import { useFeatures } from './hooks/useFeatures.jsx';
+
 
 const viewIcons = {
   goals: Target,

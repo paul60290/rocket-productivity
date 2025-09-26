@@ -18,6 +18,7 @@ import ViewControls from './ViewControls';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
+import { useFeatures } from "../hooks/useFeatures.jsx";
 
 
 // This component acts as a router, deciding which view to display.
@@ -99,6 +100,8 @@ function MainContent({
     // View options
     setViewOption,
 }) {
+    const { isOn } = useFeatures();
+
 
 
     if (isLoading) {
@@ -110,6 +113,14 @@ function MainContent({
 
     switch (currentView) {
         case 'projects':
+            if (!isOn('tasks')) {
+                return (
+                    <div className="p-6">
+                        <h2 className="text-xl font-semibold">Projects are disabled</h2>
+                        <p className="text-muted-foreground mt-2">Enable <strong>Projects</strong> in Settings → Profile &amp; Appearance to use this view.</p>
+                    </div>
+                );
+            }
             return (
                 <Suspense fallback={<div style={{ padding: 20 }}><h2>Loading Projects...</h2></div>}>
                     <ProjectsPage
@@ -289,6 +300,17 @@ function MainContent({
             );
 
         default: // This is the 'board' view for a specific project
+            if (!isOn('tasks')) {
+                return (
+                    <div className="p-6">
+                        <h2 className="text-xl font-semibold">Projects are disabled</h2>
+                        <p className="text-muted-foreground mt-2">
+                            Enable <strong>Projects</strong> in Settings → Profile &amp; Appearance to use project boards and lists.
+                        </p>
+                    </div>
+                );
+            }
+
             if (!currentProjectData) {
                 return (
                     <div className="p-6 text-center">

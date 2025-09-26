@@ -4,6 +4,8 @@ import RocketIcon from '@/assets/logo.svg?react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import SortableProjectItem from './SortableProjectItem'
 import { FolderKanban, Plus, Pencil, Settings, LogOut } from 'lucide-react'
+import { useFeatures } from "../hooks/useFeatures.jsx";
+
 
 export default function DesktopSidebar({
   isSidebarCollapsed,
@@ -19,6 +21,23 @@ export default function DesktopSidebar({
   onAddProject,
   onLogout,
 }) {
+  const { isOn } = useFeatures();
+  const showProjects = isOn('tasks');
+  const visibleProjectData = showProjects ? projectData : [];
+
+  const filteredNavItems = (mainNavItems || []).filter(item => !(
+    (item.view === 'goals' && !isOn('goals')) ||
+    (item.view === 'journal' && !isOn('journals')) ||
+    (item.view === 'notes' && !isOn('notes')) ||
+    (item.view === 'inbox' && !isOn('inbox')) ||
+    (item.view === 'today' && !isOn('today')) ||
+    (item.view === 'tomorrow' && !isOn('tomorrow')) ||
+    (item.view === 'thisWeek' && !isOn('thisWeek')) ||
+    (item.view === 'nextWeek' && !isOn('nextWeek'))
+  ));
+
+
+
   return (
     <div className={`hidden md:flex bg-card text-card-foreground border-r flex-col h-full transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
       {/* Header */}
@@ -42,7 +61,7 @@ export default function DesktopSidebar({
 
       {/* Main nav */}
       <nav className="flex-1 space-y-1 p-2">
-        {mainNavItems.map(item => {
+        {filteredNavItems.map(item => {
           const Icon = item.icon
           const active = currentView === item.view
           return (
@@ -60,33 +79,36 @@ export default function DesktopSidebar({
         })}
       </nav>
 
-      {/* Projects row */}
-      <div
-        className={`flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors ${currentView === 'projects' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-          }`}
-        onClick={() => setCurrentView('projects')}
-      >
-        <div className="flex items-center">
-          <FolderKanban className="h-5 w-5" />
-          <h3 className={`ml-3 text-sm font-medium whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>
-            Projects
-          </h3>
-        </div>
-        <button
-          className={`p-1 rounded-md hover:bg-muted transition-all duration-200 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}
-          onClick={(e) => {
-            e.stopPropagation()
-            onAddProject()
-          }}
-          title="Add New Project"
+      {showProjects && (
+        <div
+          className={`flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors ${currentView === 'projects' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+            }`}
+          onClick={() => setCurrentView('projects')}
         >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
+          <div className="flex items-center">
+            <FolderKanban className="h-5 w-5" />
+            <h3 className={`ml-3 text-sm font-medium whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>
+              Projects
+            </h3>
+          </div>
+          <button
+            className={`p-1 rounded-md hover:bg-muted transition-all duration-200 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAddProject()
+            }}
+            title="Add New Project"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+
 
       {/* Project groups */}
       <div className="flex-1 overflow-y-auto p-2 space-y-4">
-        {!isSidebarCollapsed && (projectData || []).map(group => (
+        {!isSidebarCollapsed && (visibleProjectData || []).map(group => (
           <div key={group.name}>
             <h4 className="px-3 mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               {group.name}
@@ -96,8 +118,8 @@ export default function DesktopSidebar({
                 <SortableProjectItem key={project.id} id={project.id}>
                   <div
                     className={`flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm ${(currentView === 'board' && currentProject === project.name && currentGroup === group.name)
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                       }`}
                     onClick={() => onSelectProject(group.name, project.name)}
                   >
@@ -140,6 +162,6 @@ export default function DesktopSidebar({
           <span className={`ml-3 whitespace-nowrap transition-all duration-200 ${isSidebarCollapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>Logout</span>
         </button>
       </div>
-    </div>
+    </div >
   )
 }

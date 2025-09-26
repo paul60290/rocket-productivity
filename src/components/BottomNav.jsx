@@ -1,6 +1,7 @@
 // src/components/BottomNav.jsx
 import React from 'react';
 import { Calendar, Inbox, BookText, FolderKanban, CalendarDays, StickyNote } from 'lucide-react';
+import { useFeatures } from "../hooks/useFeatures.jsx";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -13,10 +14,22 @@ const navItems = [
 ];
 
 export default function BottomNav({ currentView, onNavigate }) {
+  const { isOn } = useFeatures();
+  const filteredNavItems = (navItems || []).filter(item => !(
+    (item.view === 'goals' && !isOn('goals')) ||
+    (item.view === 'journal' && !isOn('journals')) ||
+    (item.view === 'notes' && !isOn('notes')) ||
+    (item.view === 'inbox' && !isOn('inbox')) ||
+    (item.view === 'today' && !isOn('today')) ||
+    (item.view === 'tomorrow' && !isOn('tomorrow')) ||
+    (item.view === 'thisWeek' && !isOn('thisWeek')) ||
+    (item.view === 'nextWeek' && !isOn('nextWeek'))
+  ));
+
   return (
     <div className="md:hidden shrink-0 bg-card border-t">
       <div className="flex justify-around items-center h-16">
-        {navItems.map((item) => {
+                {filteredNavItems.map((item) => {
           const isActive = currentView === item.view;
 
           return (

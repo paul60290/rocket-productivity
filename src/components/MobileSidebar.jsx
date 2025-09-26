@@ -4,6 +4,7 @@ import {
   Target, BookText, Calendar, Inbox, Sunrise, CalendarDays,
   CalendarPlus, FolderKanban, Settings, LogOut, Pencil, Plus, StickyNote
 } from "lucide-react";
+import { useFeatures } from "../hooks/useFeatures.jsx";
 import { cn } from "@/lib/utils";
 
 export default function MobileSidebar({
@@ -11,12 +12,15 @@ export default function MobileSidebar({
   onClose,
   currentView,
   onNavigate,
-  onLogout,
   projectData = [],
   onSelectProject,
   onEditProject,
   onAddProject,
+  onLogout,
 }) {
+  const { isOn } = useFeatures();
+  const showProjects = isOn('tasks');
+
 
   const mainNavItems = [
     { view: 'goals', title: 'Goals', icon: Target },
@@ -28,6 +32,20 @@ export default function MobileSidebar({
     { view: 'thisWeek', title: 'This Week', icon: CalendarDays },
     { view: 'nextWeek', title: 'Next Week', icon: CalendarPlus },
   ];
+
+  const filteredNavItems = mainNavItems.filter(item => !(
+    (item.view === 'goals' && !isOn('goals')) ||
+    (item.view === 'journal' && !isOn('journals')) ||
+    (item.view === 'notes' && !isOn('notes')) ||
+    (item.view === 'inbox' && !isOn('inbox')) ||
+    (item.view === 'today' && !isOn('today')) ||
+    (item.view === 'tomorrow' && !isOn('tomorrow')) ||
+    (item.view === 'thisWeek' && !isOn('thisWeek')) ||
+    (item.view === 'nextWeek' && !isOn('nextWeek'))
+  ));
+
+
+
 
   const handleNavigation = (view) => {
     onNavigate(view);
@@ -63,7 +81,7 @@ export default function MobileSidebar({
 
         <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
           {/* Main Navigation */}
-          {mainNavItems.map(item => {
+          {filteredNavItems.map(item => {
             const Icon = item.icon;
             return (
               <button
@@ -84,58 +102,60 @@ export default function MobileSidebar({
           })}
 
           {/* Projects Section */}
-          <div className="pt-4">
-            <div
-              className={cn(
-                "flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors",
-                currentView === 'projects'
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-              onClick={() => handleNavigation('projects')}
-            >
-              <div className="flex items-center">
-                <FolderKanban className="h-5 w-5 mr-3" />
-                <h3 className="text-sm font-medium">Projects</h3>
-              </div>
-              <button
-                className="p-1 rounded-md hover:bg-muted"
-                onClick={(e) => { e.stopPropagation(); onAddProject(); onClose(); }}
-                title="Add New Project"
+          {showProjects && (
+            <div className="pt-4">
+              <div
+                className={cn(
+                  "flex items-center justify-between p-2 mx-1 rounded-md cursor-pointer transition-colors",
+                  currentView === 'projects'
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                )}
+                onClick={() => handleNavigation('projects')}
               >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-1 mt-2">
-              {(projectData || []).map((group) => (
-                <div key={group.name} className="pl-4">
-                  <h4 className="px-3 my-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {group.name}
-                  </h4>
-                  {(group.projects || []).map(project => (
-                    <div
-                      key={project.id}
-                      className="flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                      onClick={() => handleProjectSelect(group.name, project.name)}
-                    >
-                      <span className="truncate">{project.name}</span>
-                      <button
-                        className="p-1 rounded-md hover:bg-muted shrink-0"
-                        title="Edit Project"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditProject(project);
-                          onClose();
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+                <div className="flex items-center">
+                  <FolderKanban className="h-5 w-5 mr-3" />
+                  <h3 className="text-sm font-medium">Projects</h3>
                 </div>
-              ))}
+                <button
+                  className="p-1 rounded-md hover:bg-muted"
+                  onClick={(e) => { e.stopPropagation(); onAddProject(); onClose(); }}
+                  title="Add New Project"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-1 mt-2">
+                {(showProjects ? projectData : []).map((group) => (
+                  <div key={group.name} className="pl-4">
+                    <h4 className="px-3 my-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {group.name}
+                    </h4>
+                    {(group.projects || []).map(project => (
+                      <div
+                        key={project.id}
+                        className="flex items-center justify-between w-full text-left p-2 rounded-md cursor-pointer transition-colors text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => handleProjectSelect(group.name, project.name)}
+                      >
+                        <span className="truncate">{project.name}</span>
+                        <button
+                          className="p-1 rounded-md hover:bg-muted shrink-0"
+                          title="Edit Project"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditProject(project);
+                            onClose();
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+            )}
         </nav>
 
         {/* Footer Navigation */}

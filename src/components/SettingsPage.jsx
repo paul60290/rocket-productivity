@@ -7,14 +7,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFeatures } from "../hooks/useFeatures.jsx";
+import { doc, setDoc } from "firebase/firestore";
+import { db, auth } from "../firebase";
 import { Pencil, Trash2, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ColorPicker } from "@/components/ui/ColorPicker";
 
 
-export default function SettingsPage({ currentUser, onUpdateName, initialLabels, initialGroups, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup, theme, onThemeChange, showCompletedTasks, onToggleShowCompletedTasks })
- {
+export default function SettingsPage({ currentUser, onUpdateName, initialLabels, initialGroups, onUpdateLabels, onAddGroup, onRenameGroup, onDeleteGroup, theme, onThemeChange, showCompletedTasks, onToggleShowCompletedTasks }) {
   const [activeTab, setActiveTab] = useState('profile');
+  // --- Feature toggles wiring (Profile/Appearance section will use these) ---
+  const FEATURES = [
+    { key: "tasks", label: "Projects" },
+    { key: "notes", label: "Notes" },
+    { key: "journals", label: "Journals" },
+    { key: "goals", label: "Goals" },
+    { key: "calendar", label: "Calendar" },
+    { key: "pomodoro", label: "Pomodoro Timer" },
+    { key: "inbox", label: "Inbox" },
+    { key: "today", label: "Today" },
+    { key: "tomorrow", label: "Tomorrow" },
+    { key: "thisWeek", label: "This Week" },
+    { key: "nextWeek", label: "Next Week" },
+  ];
+
+  const { isOn } = useFeatures();
+
+  async function setFeatureToggle(featureKey, value) {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const ref = doc(db, "users", uid, "settings", "userFeatures");
+    // merge so we don’t overwrite other settings
+    await setDoc(ref, { enabled: { [featureKey]: value } }, { merge: true });
+  }
+
   const [userName, setUserName] = useState(currentUser?.displayName || '');
 
   useEffect(() => {
@@ -75,187 +102,210 @@ export default function SettingsPage({ currentUser, onUpdateName, initialLabels,
   };
 
   return (
-  <div className="p-6 space-y-6">
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-      <p className="text-muted-foreground">Manage your account settings, appearance, and data.</p>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground">Manage your account settings, appearance, and data.</p>
+      </div>
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="labels">Labels</TabsTrigger>
+          <TabsTrigger value="groups">Groups</TabsTrigger>
+        </TabsList>
+        <TabsContent value="profile" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Profile & Appearance</CardTitle>
+              <CardDescription>
+                Update your name and customize the look and feel of the app.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="userName">Your Name</Label>
+                <Input
+                  id="userName"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder="Enter your name"
+                />
+                <p className="text-sm text-muted-foreground">
+                  This will be used for personalized greetings.
+                </p>
+              </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <Label>Dark Mode</Label>
+                    <CardDescription>
+                      Enable the dark color scheme.
+                    </CardDescription>
+                  </div>
+                  <Switch
+                    checked={theme === 'dark'}
+                    onCheckedChange={onThemeChange}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <Label>Show Completed Tasks</Label>
+                    <CardDescription>
+                      Display tasks that have been marked as complete.
+                    </CardDescription>
+                  </div>
+                  <Switch
+                    checked={showCompletedTasks}
+                    onCheckedChange={onToggleShowCompletedTasks}
+                  />
+                </div>
+              </div>
+              {/* Feature toggles */}
+              <div className="mt-6 border-t pt-4 space-y-2">
+                <h4 className="text-sm font-semibold">Features</h4>
+                <p className="text-xs text-muted-foreground">
+                  Turn features on or off for your workspace. (Server gating comes later.)
+                </p>
+
+                {FEATURES.map((f) => (
+                  <div key={f.key} className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <Label>{f.label}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Enable {f.label.toLowerCase()} in your workspace
+                        {(['today', 'tomorrow', 'thisWeek', 'nextWeek'].includes(f.key)) ? ' (Requires Projects enabled)' : ''}.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={!!isOn(f.key)}
+                      onCheckedChange={(v) => setFeatureToggle(f.key, v)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="labels" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Global Labels</CardTitle>
+              <CardDescription>
+                Create and manage labels that can be used across all of your projects.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-h-[300px] overflow-y-auto pr-2 space-y-3">
+                {editedLabels.map((label, index) => (
+                  <div key={index} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <Popover
+                        open={editingLabelId === index}
+                        onOpenChange={(isOpen) => setEditingLabelId(isOpen ? index : null)}
+                      >
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="h-6 w-6 rounded-full border-2"
+                            style={{ backgroundColor: label.color, borderColor: label.color }}
+                            aria-label={`Change color for label ${label.name}`}
+                          />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto">
+                          <ColorPicker
+                            value={label.color}
+                            onChange={(newColor) => {
+                              const updated = [...editedLabels];
+                              updated[index].color = newColor;
+                              setEditedLabels(updated);
+                              setEditingLabelId(null);
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        placeholder="Label name"
+                        value={label.name}
+                        onChange={(e) => {
+                          const updated = [...editedLabels];
+                          updated[index].name = e.target.value;
+                          setEditedLabels(updated);
+                        }}
+                        className="flex-1"
+                      />
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLabel(label)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+            <CardFooter className="border-t pt-6 flex-col items-start gap-4">
+              <div className="flex w-full items-center gap-2">
+                <Input
+                  placeholder="New label name..."
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addLabel()}
+                />
+                <Button onClick={addLabel}>Add Label</Button>
+              </div>
+              <Button variant="outline" onClick={handleSaveChanges}>Save All Label Changes</Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        <TabsContent value="groups" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Project Groups</CardTitle>
+              <CardDescription>
+                Organize your projects into groups. Changes here are saved automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {groups.map((groupName) => (
+                <div key={groupName} className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent">
+                  {editingGroup.name === groupName ? (
+                    <Input
+                      value={editingGroup.newName}
+                      onChange={(e) => setEditingGroup({ ...editingGroup, newName: e.target.value })}
+                      onBlur={handleSaveGroupRename}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveGroupRename()}
+                      autoFocus
+                      className="flex-1"
+                    />
+                  ) : (
+                    <span className="flex-1 font-medium">{groupName}</span>
+                  )}
+                  {groupName !== 'Ungrouped' && (
+                    <div className="flex items-center">
+                      <Button variant="ghost" size="icon" onClick={() => handleStartEditGroup(groupName)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => onDeleteGroup(groupName)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+            <CardFooter className="border-t pt-6">
+              <div className="flex w-full items-center gap-2">
+                <Input
+                  placeholder="New group name..."
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { onAddGroup(newGroupName.trim()); setNewGroupName(''); } }}
+                />
+                <Button onClick={() => { onAddGroup(newGroupName.trim()); setNewGroupName(''); }}>Add Group</Button>
+              </div>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        {/* We will add the content for each tab in the next steps */}
+      </Tabs>
     </div>
-    <Tabs defaultValue="profile" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="profile">Profile</TabsTrigger>
-        <TabsTrigger value="labels">Labels</TabsTrigger>
-        <TabsTrigger value="groups">Groups</TabsTrigger>
-      </TabsList>
-      <TabsContent value="profile" className="mt-6">
-  <Card>
-    <CardHeader>
-      <CardTitle>Profile & Appearance</CardTitle>
-      <CardDescription>
-        Update your name and customize the look and feel of the app.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor="userName">Your Name</Label>
-        <Input
-          id="userName"
-          value={userName}
-          onChange={(e) => setUserName(e.target.value)}
-          placeholder="Enter your name"
-        />
-        <p className="text-sm text-muted-foreground">
-          This will be used for personalized greetings.
-        </p>
-      </div>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between rounded-lg border p-3">
-          <div className="space-y-0.5">
-            <Label>Dark Mode</Label>
-            <CardDescription>
-              Enable the dark color scheme.
-            </CardDescription>
-          </div>
-          <Switch
-  checked={theme === 'dark'}
-  onCheckedChange={onThemeChange}
-/>
-        </div>
-        <div className="flex items-center justify-between rounded-lg border p-3">
-          <div className="space-y-0.5">
-            <Label>Show Completed Tasks</Label>
-            <CardDescription>
-              Display tasks that have been marked as complete.
-            </CardDescription>
-          </div>
-          <Switch
-            checked={showCompletedTasks}
-            onCheckedChange={onToggleShowCompletedTasks}
-          />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-</TabsContent>
-<TabsContent value="labels" className="mt-6">
-  <Card>
-    <CardHeader>
-      <CardTitle>Global Labels</CardTitle>
-      <CardDescription>
-        Create and manage labels that can be used across all of your projects.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div className="max-h-[300px] overflow-y-auto pr-2 space-y-3">
-        {editedLabels.map((label, index) => (
-          <div key={index} className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <Popover
-                open={editingLabelId === index}
-                onOpenChange={(isOpen) => setEditingLabelId(isOpen ? index : null)}
-              >
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="h-6 w-6 rounded-full border-2"
-                    style={{ backgroundColor: label.color, borderColor: label.color }}
-                    aria-label={`Change color for label ${label.name}`}
-                  />
-                </PopoverTrigger>
-                <PopoverContent className="w-auto">
-                  <ColorPicker
-                    value={label.color}
-                    onChange={(newColor) => {
-                      const updated = [...editedLabels];
-                      updated[index].color = newColor;
-                      setEditedLabels(updated);
-                      setEditingLabelId(null);
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-              <Input
-                placeholder="Label name"
-                value={label.name}
-                onChange={(e) => {
-                  const updated = [...editedLabels];
-                  updated[index].name = e.target.value;
-                  setEditedLabels(updated);
-                }}
-                className="flex-1"
-              />
-            </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeLabel(label)}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
-      </div>
-    </CardContent>
-    <CardFooter className="border-t pt-6 flex-col items-start gap-4">
-      <div className="flex w-full items-center gap-2">
-        <Input
-          placeholder="New label name..."
-          value={newLabel}
-          onChange={(e) => setNewLabel(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addLabel()}
-        />
-        <Button onClick={addLabel}>Add Label</Button>
-      </div>
-      <Button variant="outline" onClick={handleSaveChanges}>Save All Label Changes</Button>
-    </CardFooter>
-  </Card>
-</TabsContent>
-<TabsContent value="groups" className="mt-6">
-  <Card>
-    <CardHeader>
-      <CardTitle>Project Groups</CardTitle>
-      <CardDescription>
-        Organize your projects into groups. Changes here are saved automatically.
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-2">
-      {groups.map((groupName) => (
-        <div key={groupName} className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent">
-          {editingGroup.name === groupName ? (
-            <Input
-              value={editingGroup.newName}
-              onChange={(e) => setEditingGroup({ ...editingGroup, newName: e.target.value })}
-              onBlur={handleSaveGroupRename}
-              onKeyDown={(e) => e.key === 'Enter' && handleSaveGroupRename()}
-              autoFocus
-              className="flex-1"
-            />
-          ) : (
-            <span className="flex-1 font-medium">{groupName}</span>
-          )}
-          {groupName !== 'Ungrouped' && (
-            <div className="flex items-center">
-              <Button variant="ghost" size="icon" onClick={() => handleStartEditGroup(groupName)}>
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => onDeleteGroup(groupName)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </div>
-      ))}
-    </CardContent>
-    <CardFooter className="border-t pt-6">
-      <div className="flex w-full items-center gap-2">
-        <Input
-          placeholder="New group name..."
-          value={newGroupName}
-          onChange={(e) => setNewGroupName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { onAddGroup(newGroupName.trim()); setNewGroupName(''); } }}
-        />
-        <Button onClick={() => { onAddGroup(newGroupName.trim()); setNewGroupName(''); }}>Add Group</Button>
-      </div>
-    </CardFooter>
-  </Card>
-</TabsContent>
-      {/* We will add the content for each tab in the next steps */}
-    </Tabs>
-  </div>
-);
+  );
 }
